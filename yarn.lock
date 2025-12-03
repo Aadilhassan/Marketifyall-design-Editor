@@ -1149,10 +1149,15 @@
   dependencies:
     "@date-io/core" "^2.16.0"
 
-"@esbuild/linux-x64@0.18.20":
+"@epic-web/invariant@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.npmjs.org/@epic-web/invariant/-/invariant-1.0.0.tgz"
+  integrity sha512-lrTPqgvfFQtR/eY/qkIzp98OGdNJu0m5ji3q/nJI8v3SXkRKEnWiOxMmbvcSoAIzv/cGiuvRy57k4suKQSAdwA==
+
+"@esbuild/win32-x64@0.18.20":
   version "0.18.20"
-  resolved "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.18.20.tgz"
-  integrity sha512-UYqiqemphJcNsFEskc73jQ7B9jgwjWrSayxawS6UVFZGWrAAtkzjxSqnoclCXxWtfwLdzU+vTpcNYhpn43uP1w==
+  resolved "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.18.20.tgz"
+  integrity sha512-kTdfRcSiDfQca/y9QIkng02avJ+NCaQvrMejlsB3RRv5sE9rRoeBPISaZpKxHELzRxZyLvNts1P27W3wV+8geQ==
 
 "@eslint/eslintrc@^0.4.3":
   version "0.4.3"
@@ -4230,6 +4235,14 @@ credit-card-type@^8.0.0:
   resolved "https://registry.npmjs.org/credit-card-type/-/credit-card-type-8.3.0.tgz"
   integrity sha512-czfZUpQ7W9CDxZL4yFLb1kFtM/q2lTOY975hL2aO+DC8+GRNDVSXVCHXhVFZPxiUKmQCZbFP8vIhxx5TBQaThw==
 
+cross-env@^10.1.0:
+  version "10.1.0"
+  resolved "https://registry.npmjs.org/cross-env/-/cross-env-10.1.0.tgz"
+  integrity sha512-GsYosgnACZTADcmEyJctkJIoqAhHjttw7RsFrVoJNXbsWWqaq6Ym+7kZjq6mS45O0jij6vtiReppKQEtqWy6Dw==
+  dependencies:
+    "@epic-web/invariant" "^1.0.0"
+    cross-spawn "^7.0.6"
+
 cross-spawn@^6.0.0:
   version "6.0.5"
   resolved "https://registry.npmjs.org/cross-spawn/-/cross-spawn-6.0.5.tgz"
@@ -5004,7 +5017,7 @@ des.js@^1.0.0:
     inherits "^2.0.1"
     minimalistic-assert "^1.0.0"
 
-"design-editor-kit@file:/home/aadil/Me/Canva-clone2/packages/design-editor-kit":
+"design-editor-kit@file:D:\\Marketifyall-design-Editor\\packages\\design-editor-kit":
   version "0.1.0"
   resolved "file:packages/design-editor-kit"
 

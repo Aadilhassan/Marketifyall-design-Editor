@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect } from 'react'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { Input } from 'baseui/input'
 import Icons from '@components/icons'
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import api from '@/services/api'
 
 interface Image {
@@ -15,12 +15,112 @@ function Images() {
   const [search, setSearch] = useState('')
   const [images, setImages] = useState<Image[]>([])
   const [loading, setLoading] = useState(false)
+  const [queryImageUrl, setQueryImageUrl] = useState<string | null>(null)
+  const [hasAutoAddedQueryImage, setHasAutoAddedQueryImage] = useState(false)
 
   const editor = useEditor()
+  const { frameSize } = useEditorContext() as any
 
   useEffect(() => {
     loadImages()
   }, [])
+
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return
+      const url = new URL(window.location.href)
+      // Expecting a query parameter like ?image=https://example.com/image.png
+      const paramUrl = url.searchParams.get('image')
+      if (paramUrl) {
+        setQueryImageUrl(paramUrl)
+      }
+    } catch (error) {
+      console.error('Failed to read imageUrl from query params:', error)
+    }
+  }, [])
+
+  const addImageToCanvasWithSizing = useCallback((imageUrl: string) => {
+    if (!editor) return
+
+    // Load image to get dimensions first
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+      const naturalWidth = img.naturalWidth
+      const naturalHeight = img.naturalHeight
+      const aspectRatio = naturalWidth / naturalHeight
+      
+      // Get canvas dimensions
+      const frameWidth = frameSize?.width || 900
+      const frameHeight = frameSize?.height || 1200
+      
+      // Check if image is landscape (width > height)
+      const isLandscape = naturalWidth > naturalHeight
+      
+      let targetWidth = naturalWidth
+      let targetHeight = naturalHeight
+      
+      // For landscape images, ensure minimum height if the image is small
+      const minHeight = 400
+      if (isLandscape && targetHeight < minHeight) {
+        targetHeight = minHeight
+        targetWidth = targetHeight * aspectRatio
+      }
+      
+      // Scale down if image is too large for canvas (with some padding)
+      const maxWidth = frameWidth * 0.9
+      const maxHeight = frameHeight * 0.9
+      
+      if (targetWidth > maxWidth || targetHeight > maxHeight) {
+        const widthRatio = maxWidth / targetWidth
+        const heightRatio = maxHeight / targetHeight
+        const scaleRatio = Math.min(widthRatio, heightRatio)
+        
+        targetWidth = targetWidth * scaleRatio
+        targetHeight = targetHeight * scaleRatio
+      }
+      
+      // Calculate scale factors based on natural dimensions
+      const scaleX = targetWidth / naturalWidth
+      const scaleY = targetHeight / naturalHeight
+      
+      // Center the image on canvas
+      const left = (frameWidth - targetWidth) / 2
+      const top = (frameHeight - targetHeight) / 2
+      
+      // Add image with natural dimensions and scale
+      const options = {
+        type: 'StaticImage',
+        metadata: { src: imageUrl },
+        width: naturalWidth,
+        height: naturalHeight,
+        left,
+        top,
+        scaleX,
+        scaleY,
+      }
+      
+      editor.add(options)
+    }
+    img.onerror = () => {
+      // Fallback to default behavior if image fails to load
+      const options = {
+        type: 'StaticImage',
+        metadata: { src: imageUrl },
+      }
+      editor.add(options)
+    }
+    img.src = imageUrl
+  }, [editor, frameSize])
+
+  useEffect(() => {
+    if (!editor) return
+    if (!queryImageUrl) return
+    if (hasAutoAddedQueryImage) return
+
+    addImageToCanvasWithSizing(queryImageUrl)
+    setHasAutoAddedQueryImage(true)
+  }, [editor, queryImageUrl, hasAutoAddedQueryImage, addImageToCanvasWithSizing])
 
   const loadImages = async () => {
     setLoading(true)
@@ -51,13 +151,7 @@ function Images() {
   }, [editor])
 
   const addImageToCanvas = (imageUrl: string) => {
-    if (editor) {
-      const options = {
-        type: 'StaticImage',
-        metadata: { src: imageUrl },
-      }
-      editor.add(options)
-    }
+    addImageToCanvasWithSizing(imageUrl)
   }
 
   const filteredImages = images.filter((image: any) =>
@@ -93,7 +187,22 @@ function Images() {
             >
               Add dynamic image
             </div>
-            
+
+            {queryImageUrl && (
+              <div
+                style={{
+                  paddingLeft: '1rem',
+                  fontSize: '0.85rem',
+                  color: '#666666',
+                  display: 'flex',
+                  alignItems: 'center',
+                  height: '40px',
+                }}
+              >
+                {/* Image from "image" URL parameter will be added automatically. */}
+              </div>
+            )}
+
             {loading && (
               <div style={{ padding: '2rem', textAlign: 'center' }}>
                 Loading images...
