@@ -48,56 +48,75 @@ function Images() {
     img.onload = () => {
       const naturalWidth = img.naturalWidth
       const naturalHeight = img.naturalHeight
-      const aspectRatio = naturalWidth / naturalHeight
       
       // Get canvas dimensions
       const frameWidth = frameSize?.width || 900
       const frameHeight = frameSize?.height || 1200
       
-      // Check if image is landscape (width > height)
-      const isLandscape = naturalWidth > naturalHeight
+      // Use natural dimensions - no zooming, only scale down if absolutely needed to fit canvas
+      let desiredWidth = naturalWidth
+      let desiredHeight = naturalHeight
+      const aspectRatio = naturalWidth / naturalHeight
+      const isPortrait = naturalHeight >= naturalWidth
       
-      let targetWidth = naturalWidth
-      let targetHeight = naturalHeight
-      
-      // For landscape images, ensure minimum height if the image is small
-      const minHeight = 400
-      if (isLandscape && targetHeight < minHeight) {
-        targetHeight = minHeight
-        targetWidth = targetHeight * aspectRatio
+      // Apply friendly limits so portrait/landscape images don't dwarf the canvas
+      if (isPortrait) {
+        const portraitPreferredHeight = frameHeight * 0.65
+        if (desiredHeight > portraitPreferredHeight) {
+          const ratio = portraitPreferredHeight / desiredHeight
+          desiredHeight = portraitPreferredHeight
+          desiredWidth = desiredWidth * ratio
+        }
+      } else {
+        const landscapePreferredWidth = frameWidth * 0.65
+        if (desiredWidth > landscapePreferredWidth) {
+          const ratio = landscapePreferredWidth / desiredWidth
+          desiredWidth = landscapePreferredWidth
+          desiredHeight = desiredHeight * ratio
+        }
       }
-      
-      // Scale down if image is too large for canvas (with some padding)
+
+      // Scale down ONLY if image still exceeds canvas bounds (with some padding)
       const maxWidth = frameWidth * 0.9
       const maxHeight = frameHeight * 0.9
       
-      if (targetWidth > maxWidth || targetHeight > maxHeight) {
-        const widthRatio = maxWidth / targetWidth
-        const heightRatio = maxHeight / targetHeight
+      let scaleX = desiredWidth / naturalWidth
+      let scaleY = desiredHeight / naturalHeight
+      
+      // Only scale down if image is still too large for canvas
+      if (desiredWidth > maxWidth || desiredHeight > maxHeight) {
+        const widthRatio = maxWidth / desiredWidth
+        const heightRatio = maxHeight / desiredHeight
         const scaleRatio = Math.min(widthRatio, heightRatio)
         
-        targetWidth = targetWidth * scaleRatio
-        targetHeight = targetHeight * scaleRatio
+        scaleX *= scaleRatio
+        scaleY *= scaleRatio
+        desiredWidth = naturalWidth * scaleX
+        desiredHeight = naturalHeight * scaleY
+      } else {
+        desiredWidth = naturalWidth * scaleX
+        desiredHeight = naturalHeight * scaleY
       }
       
-      // Calculate scale factors based on natural dimensions
-      const scaleX = targetWidth / naturalWidth
-      const scaleY = targetHeight / naturalHeight
-      
       // Center the image on canvas
-      const left = (frameWidth - targetWidth) / 2
-      const top = (frameHeight - targetHeight) / 2
+      const left = (frameWidth - desiredWidth) / 2
+      const top = (frameHeight - desiredHeight) / 2
       
-      // Add image with natural dimensions and scale
-      const options = {
+      // Add image with natural dimensions and calculated scale
+      // This ensures no zooming - images use their natural size with scale only if needed to fit
+      const options: any = {
         type: 'StaticImage',
         metadata: { src: imageUrl },
         width: naturalWidth,
         height: naturalHeight,
         left,
         top,
-        scaleX,
-        scaleY,
+      }
+      
+      // Only add scale if we actually scaled the image
+      if (Math.abs(scaleX - 1) > 0.001 || Math.abs(scaleY - 1) > 0.001) {
+        options.scaleX = scaleX
+        options.scaleY = scaleY
       }
       
       editor.add(options)
