@@ -7,32 +7,29 @@
     <meta name="theme-color" content="#000000" />
     <meta name="description" content="Marketifyall Design Editor - Create stunning designs with ease" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Karla:wght@200;300&display=swap" rel="stylesheet" />
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans&display=swap" rel="stylesheet" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" />
-    <link rel="stylesheet" href="index.css">
-    <link
-      href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="preconnect" href="https://fonts.gstatic.com" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@300;400;700&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="preconnect" href="https://fonts.gstatic.com" />
-    <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&display=swap" rel="stylesheet" />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Mukta:wght@200;300;400;500&display=swap"
-      rel="stylesheet"
-    />
+    <!-- Preconnect to Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&display=swap"
+    
+    <!-- Preload critical fonts -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&family=Poppins:wght@300;400;500;600&display=swap" />
+    
+    <!-- Load critical CSS -->
+    <link rel="stylesheet" href="index.css">
+    
+    <!-- Load other fonts with display=swap -->
+    <link 
+      href="https://fonts.googleapis.com/css2?family=Karla:wght@200;300&family=Lexend:wght@300;400;600;700&family=Comic+Neue:wght@300;400;700&family=Patrick+Hand&family=Mukta:wght@200;300;400;500&display=swap" 
       rel="stylesheet"
+      media="print"
+      onload="this.media='all'"
     />
+    <noscript>
+      <link 
+        href="https://fonts.googleapis.com/css2?family=Karla:wght@200;300&family=Lexend:wght@300;400;600;700&family=Comic+Neue:wght@300;400;700&family=Patrick+Hand&family=Mukta:wght@200;300;400;500&display=swap" 
+        rel="stylesheet"
+      />
+    </noscript>
     <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/

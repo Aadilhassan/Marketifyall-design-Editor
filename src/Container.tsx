@@ -40,10 +40,18 @@ function Container({ children }) {
   }, [])
 
   useEffect(() => {
+    let timeoutId: number | undefined
+
     loadFonts()
-    setTimeout(() => {
+    timeoutId = window.setTimeout(() => {
       setLoaded(true)
     }, 1000)
+
+    return () => {
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId)
+      }
+    }
   }, [])
 
   const loadFonts = () => {

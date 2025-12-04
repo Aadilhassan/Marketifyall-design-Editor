@@ -1,5 +1,48 @@
+/* Base font loading with display swap for better performance */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
 
+/* Google Fonts with optimized loading */
+@font-face {
+  font-family: 'Uber Move Text';
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ubermovetext/v1/0nksC9iBPcYvJd7Z0tQ4tn8QVW-Rl0v8D2Q1Z8Vqo.ttf) format('truetype');
+}
+
+@font-face {
+  font-family: 'Uber Move Text';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ubermovetext/v1/0nksC9iBPcYvJd7Z0tQ4tn8QVW-Rl0v8D2Q1Z8Vqo.ttf) format('truetype');
+}
+
+@font-face {
+  font-family: 'Uber Move Text';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ubermovetext/v1/0nksC9iBPcYvJd7Z0tQ4tn8QVW-Rl0v8D2Q1Z8Vqo.ttf) format('truetype');
+}
+
+@font-face {
+  font-family: 'Uber Move Text';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(https://fonts.gstatic.com/s/ubermovetext/v1/0nksC9iBPcYvJd7Z0tQ4tn8QVW-Rl0v8D2Q1Z8Vqo.ttf) format('truetype');
+}
+
+/* Preload critical fonts */
+link[rel='preload'] {
+  font-family: 'Poppins', sans-serif;
+  font-display: swap;
+}
+
 body {
-    font-family: 'Poppins', sans-serif;
+  font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

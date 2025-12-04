@@ -54,53 +54,33 @@ function Images() {
       const frameHeight = frameSize?.height || 1200
       
       // Use natural dimensions - no zooming, only scale down if absolutely needed to fit canvas
-      let desiredWidth = naturalWidth
-      let desiredHeight = naturalHeight
+      let targetWidth = naturalWidth
+      let targetHeight = naturalHeight
       const aspectRatio = naturalWidth / naturalHeight
-      const isPortrait = naturalHeight >= naturalWidth
       
-      // Apply friendly limits so portrait/landscape images don't dwarf the canvas
-      if (isPortrait) {
-        const portraitPreferredHeight = frameHeight * 0.65
-        if (desiredHeight > portraitPreferredHeight) {
-          const ratio = portraitPreferredHeight / desiredHeight
-          desiredHeight = portraitPreferredHeight
-          desiredWidth = desiredWidth * ratio
-        }
-      } else {
-        const landscapePreferredWidth = frameWidth * 0.65
-        if (desiredWidth > landscapePreferredWidth) {
-          const ratio = landscapePreferredWidth / desiredWidth
-          desiredWidth = landscapePreferredWidth
-          desiredHeight = desiredHeight * ratio
-        }
-      }
-
-      // Scale down ONLY if image still exceeds canvas bounds (with some padding)
+      // Scale down ONLY if image exceeds canvas bounds (with some padding)
+      // This is the ONLY scaling we do - no intermediate constraints
       const maxWidth = frameWidth * 0.9
       const maxHeight = frameHeight * 0.9
       
-      let scaleX = desiredWidth / naturalWidth
-      let scaleY = desiredHeight / naturalHeight
+      let scaleX = 1
+      let scaleY = 1
       
-      // Only scale down if image is still too large for canvas
-      if (desiredWidth > maxWidth || desiredHeight > maxHeight) {
-        const widthRatio = maxWidth / desiredWidth
-        const heightRatio = maxHeight / desiredHeight
+      // Only scale down if image is too large for canvas
+      if (targetWidth > maxWidth || targetHeight > maxHeight) {
+        const widthRatio = maxWidth / targetWidth
+        const heightRatio = maxHeight / targetHeight
         const scaleRatio = Math.min(widthRatio, heightRatio)
         
-        scaleX *= scaleRatio
-        scaleY *= scaleRatio
-        desiredWidth = naturalWidth * scaleX
-        desiredHeight = naturalHeight * scaleY
-      } else {
-        desiredWidth = naturalWidth * scaleX
-        desiredHeight = naturalHeight * scaleY
+        scaleX = scaleRatio
+        scaleY = scaleRatio
+        targetWidth = naturalWidth * scaleX
+        targetHeight = naturalHeight * scaleY
       }
       
       // Center the image on canvas
-      const left = (frameWidth - desiredWidth) / 2
-      const top = (frameHeight - desiredHeight) / 2
+      const left = (frameWidth - targetWidth) / 2
+      const top = (frameHeight - targetHeight) / 2
       
       // Add image with natural dimensions and calculated scale
       // This ensures no zooming - images use their natural size with scale only if needed to fit

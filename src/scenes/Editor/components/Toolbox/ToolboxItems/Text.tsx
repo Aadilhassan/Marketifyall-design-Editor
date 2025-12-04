@@ -175,49 +175,79 @@ function Text() {
           {options.fontFamily}
         </Button>
 
-        <StatefulPopover
-          focusLock
-          placement={PLACEMENT.bottomLeft}
-          content={({ close }) => (
-            <StatefulMenu
-              items={ITEMS}
-              onItemSelect={event => {
-                updateFontSize(event.item.label)
-                close()
-              }}
-              overrides={{
-                List: { style: { width: '72px', textAlign: 'center', height: '240px' } },
-              }}
-            />
-          )}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            border: '1px solid rgba(0,0,0,0.2)',
+            borderRadius: '4px',
+            height: '32px',
+            width: '100px',
+            overflow: 'hidden',
+            marginRight: '8px',
+          }}
         >
-          <Button
-            overrides={{
-              BaseButton: {
-                style: {
-                  borderBottomColor: 'rgba(0,0,0,0.2)',
-                  borderBottomStyle: 'solid',
-                  borderBottomWidth: '1px',
-                  borderTopColor: 'rgba(0,0,0,0.2)',
-                  borderTopStyle: 'solid',
-                  borderTopWidth: '1px',
-                  borderRightColor: 'rgba(0,0,0,0.2)',
-                  borderRightStyle: 'solid',
-                  borderRightWidth: '1px',
-                  borderLeftColor: 'rgba(0,0,0,0.2)',
-                  borderLeftStyle: 'solid',
-                  borderLeftWidth: '1px',
-                  fontSize: '14px',
-                },
-              },
+          <button
+            onClick={() => updateFontSize(Math.max(1, Math.floor(activeObject.fontSize) - 1))}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '0 8px',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0,0,0,0.02)',
+              ':hover': {
+                backgroundColor: 'rgba(0,0,0,0.05)',
+              } as React.CSSProperties,
             }}
-            kind={KIND.tertiary}
-            size={SIZE.mini}
-            endEnhancer={() => <ChevronDown size={24} />}
           >
-            {Math.round(activeObject.fontSize)}
-          </Button>
-        </StatefulPopover>
+            -
+          </button>
+          <input
+            type="number"
+            value={Math.round(activeObject.fontSize * 10) / 10}
+            onChange={(e) => {
+              const value = parseFloat(e.target.value);
+              if (!isNaN(value) && value > 0) {
+                updateFontSize(value);
+              }
+            }}
+            style={{
+              width: '50px',
+              border: 'none',
+              textAlign: 'center',
+              outline: 'none',
+              fontSize: '14px',
+              ':focus': {
+                outline: 'none',
+              } as React.CSSProperties,
+            }}
+            min="1"
+            step="0.1"
+          />
+          <button
+            onClick={() => updateFontSize(Math.floor(activeObject.fontSize) + 1)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '0 8px',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(0,0,0,0.02)',
+              ':hover': {
+                backgroundColor: 'rgba(0,0,0,0.05)',
+              } as React.CSSProperties,
+            }}
+          >
+            +
+          </button>
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <Button
