@@ -1,6 +1,7 @@
 import Icons from '../../Icons'
 import { Button, SHAPE, KIND, SIZE } from 'baseui/button'
 import { ChevronDown } from 'baseui/icon'
+import { useStyletron } from 'baseui'
 import useAppContext from '@/hooks/useAppContext'
 import { SubMenuType } from '@/constants/editor'
 import { useEffect, useState } from 'react'
@@ -51,6 +52,7 @@ const ITEMS = [
 function Text() {
   const { setActiveSubMenu } = useAppContext()
   const activeObject = useActiveObject<fabric.TextOptions>()
+  const [css, theme] = useStyletron()
   const [options, setOptions] = useState<TextOptions>(defaultOptions)
   const editor = useEditor()
   useEffect(() => {
@@ -136,6 +138,33 @@ function Text() {
   }
 
   const TextAlignIcon = getTextAlignIcon()
+  
+  const buttonStyles = css({
+    background: 'transparent',
+    border: 'none',
+    cursor: 'pointer',
+    padding: '0 8px',
+    height: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    ':hover': {
+      backgroundColor: 'rgba(0,0,0,0.05)',
+    },
+  })
+
+  const inputStyles = css({
+    width: '50px',
+    border: 'none',
+    textAlign: 'center',
+    outline: 'none',
+    fontSize: '14px',
+    ':focus': {
+      outline: 'none',
+    },
+  })
+
   return (
     <div
       style={{
@@ -189,20 +218,7 @@ function Text() {
         >
           <button
             onClick={() => updateFontSize(Math.max(1, Math.floor(activeObject.fontSize) - 1))}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '0 8px',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(0,0,0,0.02)',
-              ':hover': {
-                backgroundColor: 'rgba(0,0,0,0.05)',
-              } as React.CSSProperties,
-            }}
+            className={buttonStyles}
           >
             -
           </button>
@@ -215,35 +231,13 @@ function Text() {
                 updateFontSize(value);
               }
             }}
-            style={{
-              width: '50px',
-              border: 'none',
-              textAlign: 'center',
-              outline: 'none',
-              fontSize: '14px',
-              ':focus': {
-                outline: 'none',
-              } as React.CSSProperties,
-            }}
+            className={inputStyles}
             min="1"
             step="0.1"
           />
           <button
             onClick={() => updateFontSize(Math.floor(activeObject.fontSize) + 1)}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '0 8px',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: 'rgba(0,0,0,0.02)',
-              ':hover': {
-                backgroundColor: 'rgba(0,0,0,0.05)',
-              } as React.CSSProperties,
-            }}
+            className={buttonStyles}
           >
             +
           </button>
