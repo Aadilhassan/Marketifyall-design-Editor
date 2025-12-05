@@ -17,6 +17,16 @@ interface GoogleFont {
   files: Record<string, string>
 }
 
+// Global cache for loaded font stylesheets
+const loadedFontStylesheets = new Set<string>()
+const loadedFontFaces = new Set<string>()
+
+// Batch font loading queue
+let fontLoadQueue: GoogleFont[] = []
+let fontLoadTimeout: NodeJS.Timeout | null = null
+const BATCH_SIZE = 5
+const BATCH_DELAY = 100
+
 function FontFamily() {
   const [searchValue, setSearchValue] = useState('')
   const [activeTab, setActiveTab] = useState<'font' | 'textStyles'>('font')
@@ -25,15 +35,15 @@ function FontFamily() {
   const [loadingFonts, setLoadingFonts] = useState(false)
   const [documentFonts, setDocumentFonts] = useState<string[]>([])
   const [activeFontFamily, setActiveFontFamily] = useState('Open Sans')
-  const previewCacheRef = useRef<Record<string, boolean>>({})
-  const previewLinkRef = useRef<Record<string, boolean>>({})
+  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 })
+  const scrollRef = useRef<Scrollbars>(null)
   
   const apiKey = process.env.REACT_APP_GOOGLE_FONTS_API_KEY || ''
   const editorFonts = useSelector(selectFonts)
   const editor = useEditor()
   const activeObject = useActiveObject()
 
-  // Initialize and fetch all Google Fonts
+  // Initialize and fetch all Google Fonts (metadata only, no loading)
   useEffect(() => {
     if (!apiKey) return
 
@@ -43,39 +53,26 @@ function FontFamily() {
         const fonts = JSON.parse(cached)
         setAllGoogleFonts(fonts)
         setLoadingFonts(false)
+        return
       } catch (e) {
         localStorage.removeItem('googleFonts')
-        setLoadingFonts(true)
-        fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${apiKey}&sort=popularity`)
-          .then(res => res.json())
-          .then(data => {
-            if (data.items) {
-              localStorage.setItem('googleFonts', JSON.stringify(data.items))
-              setAllGoogleFonts(data.items)
-            }
-            setLoadingFonts(false)
-          })
-          .catch(err => {
-            console.error('Failed to load Google Fonts:', err)
-            setLoadingFonts(false)
-          })
       }
-    } else {
-      setLoadingFonts(true)
-      fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${apiKey}&sort=popularity`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.items) {
-            localStorage.setItem('googleFonts', JSON.stringify(data.items))
-            setAllGoogleFonts(data.items)
-          }
-          setLoadingFonts(false)
-        })
-        .catch(err => {
-          console.error('Failed to load Google Fonts:', err)
-          setLoadingFonts(false)
-        })
     }
+    
+    setLoadingFonts(true)
+    fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${apiKey}&sort=popularity`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.items) {
+          localStorage.setItem('googleFonts', JSON.stringify(data.items))
+          setAllGoogleFonts(data.items)
+        }
+        setLoadingFonts(false)
+      })
+      .catch(err => {
+        console.error('Failed to load Google Fonts:', err)
+        setLoadingFonts(false)
+      })
   }, [apiKey])
 
   // Track document fonts (fonts used in current canvas)
@@ -134,35 +131,59 @@ function FontFamily() {
     return font.files.regular || font.files['400'] || Object.values(font.files)[0]
   }, [])
 
+  // Load font stylesheet lazily (only when needed for preview)
   const ensureGoogleFontStylesheet = useCallback((font: GoogleFont) => {
-    if (previewLinkRef.current[font.family]) return
+    if (loadedFontStylesheets.has(font.family)) return
+    
     const formattedName = font.family.replace(/ /g, '+')
     const linkId = `font-preview-${formattedName}`
+    
     if (document.getElementById(linkId)) {
-      previewLinkRef.current[font.family] = true
+      loadedFontStylesheets.add(font.family)
       return
     }
+    
     const link = document.createElement('link')
     link.id = linkId
     link.rel = 'stylesheet'
     link.href = `https://fonts.googleapis.com/css2?family=${formattedName}:wght@400&display=swap`
     document.head.appendChild(link)
-    previewLinkRef.current[font.family] = true
+    loadedFontStylesheets.add(font.family)
   }, [])
 
-  // Component to ensure font stylesheet is loaded before rendering
-  const FontPreview = ({ font, children }: { font: GoogleFont; children: React.ReactNode }) => {
-    useEffect(() => {
-      ensureGoogleFontStylesheet(font)
-    }, [font])
+  // Batch load fonts in queue
+  const processFontQueue = useCallback(() => {
+    if (fontLoadQueue.length === 0) return
     
-    return <>{children}</>
-  }
+    const batch = fontLoadQueue.splice(0, BATCH_SIZE)
+    batch.forEach(font => {
+      ensureGoogleFontStylesheet(font)
+    })
+    
+    // Continue processing if more fonts in queue
+    if (fontLoadQueue.length > 0) {
+      fontLoadTimeout = setTimeout(processFontQueue, BATCH_DELAY)
+    }
+  }, [ensureGoogleFontStylesheet])
 
+  // Queue fonts for lazy loading
+  const queueFontLoad = useCallback((fonts: GoogleFont[]) => {
+    const newFonts = fonts.filter(f => !loadedFontStylesheets.has(f.family))
+    if (newFonts.length === 0) return
+    
+    fontLoadQueue.push(...newFonts)
+    
+    if (!fontLoadTimeout) {
+      fontLoadTimeout = setTimeout(processFontQueue, BATCH_DELAY)
+    }
+  }, [processFontQueue])
+
+  // Load font face for actual use (when clicking)
   const loadFontFace = useCallback(
     async (fontFamily: string, fontUrl?: string) => {
       if (!fontUrl) return false
-      if (previewCacheRef.current[fontFamily]) return true
+      if (loadedFontFaces.has(fontFamily)) return true
+      
       try {
         const fontFace = new FontFace(fontFamily, `url(${fontUrl})`, {
           weight: '400',
@@ -170,7 +191,7 @@ function FontFamily() {
         })
         const loaded = await fontFace.load()
         document.fonts.add(loaded)
-        previewCacheRef.current[fontFamily] = true
+        loadedFontFaces.add(fontFamily)
         return true
       } catch (error) {
         console.error('Failed to load font face:', error)
@@ -179,6 +200,11 @@ function FontFamily() {
     },
     [],
   )
+
+  // Font preview wrapper - just renders children, font loading happens via scroll detection
+  const FontPreviewWrapper = useCallback(({ children }: { children: React.ReactNode }) => {
+    return <>{children}</>
+  }, [])
 
   const handleFontChange = useCallback(
     async (font: GoogleFont | IFontFamily) => {
@@ -241,27 +267,42 @@ function FontFamily() {
     return allGoogleFonts.slice(0, 10)
   }, [allGoogleFonts])
 
-  // Preload fonts for visible list items - load stylesheets immediately
+  // Only preload fonts that are currently visible (lazy loading)
   useEffect(() => {
-    const toWarm = [...recommendedFonts, ...filteredFonts.slice(0, 50)]
-    toWarm.forEach(font => {
-      // Load stylesheet immediately for instant preview
-      ensureGoogleFontStylesheet(font)
-      // Also load font face for better rendering
-      const url = getGoogleFontUrl(font)
-      if (url) {
-        loadFontFace(font.family, url)
-      }
-    })
-  }, [filteredFonts, recommendedFonts, getGoogleFontUrl, loadFontFace, ensureGoogleFontStylesheet])
+    // Only load the first 10 recommended fonts on initial render
+    if (recommendedFonts.length > 0) {
+      queueFontLoad(recommendedFonts.slice(0, 10))
+    }
+  }, [recommendedFonts, queueFontLoad])
 
+  // Load fonts as user scrolls - intersection observer style
   useEffect(() => {
+    const visibleFonts = filteredFonts.slice(visibleRange.start, visibleRange.end)
+    if (visibleFonts.length > 0) {
+      queueFontLoad(visibleFonts)
+    }
+  }, [filteredFonts, visibleRange, queueFontLoad])
+
+  // Handle scroll to update visible range
+  const handleScroll = useCallback((values: any) => {
+    const { scrollTop, clientHeight } = values
+    const itemHeight = 40 // Approximate height of each font item
+    const start = Math.floor(scrollTop / itemHeight)
+    const visibleCount = Math.ceil(clientHeight / itemHeight) + 5 // Buffer
+    setVisibleRange({ start: Math.max(0, start - 5), end: start + visibleCount })
+  }, [])
+
+  // Load document fonts (fonts used in current canvas) - these are priority
+  useEffect(() => {
+    if (documentFonts.length === 0 || allGoogleFonts.length === 0) return
+    
     documentFonts.forEach(name => {
       const font = allGoogleFonts.find(f => f.family === name)
       if (font) {
-        const url = getGoogleFontUrl(font)
         ensureGoogleFontStylesheet(font)
-        loadFontFace(font.family, url)
+        // Also load font face for document fonts since they're in use
+        const url = getGoogleFontUrl(font)
+        if (url) loadFontFace(font.family, url)
       }
     })
   }, [documentFonts, allGoogleFonts, getGoogleFontUrl, loadFontFace, ensureGoogleFontStylesheet])
@@ -367,7 +408,7 @@ function FontFamily() {
 
           {/* Content */}
           <div style={{ flex: 1, overflow: 'hidden' }}>
-            <Scrollbars>
+            <Scrollbars ref={scrollRef} onScrollFrame={handleScroll}>
               <div style={{ padding: '0 1.5rem 2rem' }}>
                 {/* Document Fonts */}
                 {documentFonts.length > 0 && (
@@ -377,33 +418,32 @@ function FontFamily() {
                       const font = allGoogleFonts.find(f => f.family === fontName)
                       if (!font) return null
                       return (
-                        <FontPreview key={fontName} font={font}>
-                          <FontListItem
-                            onClick={() => handleFontChange(font)}
-                            active={activeFontFamily === fontName}
+                        <FontListItem
+                          key={fontName}
+                          onClick={() => handleFontChange(font)}
+                          active={activeFontFamily === fontName}
+                        >
+                          <span
+                            style={{
+                              flex: 1,
+                              fontFamily: `'${font.family}', sans-serif`,
+                              fontSize: '0.95rem',
+                            }}
                           >
-                            <span
-                              style={{
-                                flex: 1,
-                                fontFamily: `'${font.family}', sans-serif`,
-                                fontSize: '0.95rem',
-                              }}
-                            >
-                              {fontName}
-                            </span>
-                            {activeFontFamily === fontName && (
-                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path
-                                  d="M13 4L6 11L3 8"
-                                  stroke="#5A3FFF"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                />
-                              </svg>
-                            )}
-                          </FontListItem>
-                        </FontPreview>
+                            {fontName}
+                          </span>
+                          {activeFontFamily === fontName && (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                              <path
+                                d="M13 4L6 11L3 8"
+                                stroke="#5A3FFF"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                            </svg>
+                          )}
+                        </FontListItem>
                       )
                     })}
                   </Section>
@@ -421,33 +461,32 @@ function FontFamily() {
                       </svg>
                     </SectionHeader>
                     {recommendedFonts.map(font => (
-                      <FontPreview key={font.family} font={font}>
-                        <FontListItem
-                          onClick={() => handleFontChange(font)}
-                          active={activeFontFamily === font.family}
+                      <FontListItem
+                        key={font.family}
+                        onClick={() => handleFontChange(font)}
+                        active={activeFontFamily === font.family}
+                      >
+                        <span
+                          style={{
+                            flex: 1,
+                            fontFamily: `'${font.family}', sans-serif`,
+                            fontSize: '0.95rem',
+                          }}
                         >
-                          <span
-                            style={{
-                              flex: 1,
-                              fontFamily: `'${font.family}', sans-serif`,
-                              fontSize: '0.95rem',
-                            }}
-                          >
-                            {font.family}
-                          </span>
-                          {activeFontFamily === font.family && (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                              <path
-                                d="M13 4L6 11L3 8"
-                                stroke="#5A3FFF"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </FontListItem>
-                      </FontPreview>
+                          {font.family}
+                        </span>
+                        {activeFontFamily === font.family && (
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path
+                              d="M13 4L6 11L3 8"
+                              stroke="#5A3FFF"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </FontListItem>
                     ))}
                   </Section>
                 )}
@@ -463,33 +502,32 @@ function FontFamily() {
                       <SectionHeader>All fonts</SectionHeader>
                     )}
                     {filteredFonts.map(font => (
-                      <FontPreview key={font.family} font={font}>
-                        <FontListItem
-                          onClick={() => handleFontChange(font)}
-                          active={activeFontFamily === font.family}
+                      <FontListItem
+                        key={font.family}
+                        onClick={() => handleFontChange(font)}
+                        active={activeFontFamily === font.family}
+                      >
+                        <span
+                          style={{
+                            flex: 1,
+                            fontFamily: `'${font.family}', sans-serif`,
+                            fontSize: '0.95rem',
+                          }}
                         >
-                          <span
-                            style={{
-                              flex: 1,
-                              fontFamily: `'${font.family}', sans-serif`,
-                              fontSize: '0.95rem',
-                            }}
-                          >
-                            {font.family}
-                          </span>
-                          {activeFontFamily === font.family && (
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                              <path
-                                d="M13 4L6 11L3 8"
-                                stroke="#5A3FFF"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                            </svg>
-                          )}
-                        </FontListItem>
-                      </FontPreview>
+                          {font.family}
+                        </span>
+                        {activeFontFamily === font.family && (
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <path
+                              d="M13 4L6 11L3 8"
+                              stroke="#5A3FFF"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </FontListItem>
                     ))}
                   </Section>
                 ) : (

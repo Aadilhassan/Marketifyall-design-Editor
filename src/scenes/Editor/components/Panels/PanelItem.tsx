@@ -5,12 +5,15 @@ import { styled } from 'baseui'
 import { useEffect } from 'react'
 import PanelItems from './PanelItems'
 
-const Container = styled('div', props => ({
+const Container = styled('div', {
   background: '#ffffff',
-  width: '360px',
+  width: '340px',
   flex: 'none',
-  boxShadow: '1px 0px 1px rgba(0, 0, 0, 0.15)',
-}))
+  borderRight: '1px solid #e5e7eb',
+  display: 'flex',
+  flexDirection: 'column',
+  overflow: 'hidden',
+})
 
 function PanelsList() {
   const { activePanel, activeSubMenu, setActiveSubMenu } = useAppContext()

@@ -83,7 +83,7 @@ function Container({ children }) {
       ref={containerRef}
       style={{
         flex: 1,
-        display: 'flex',
+        // display: 'flex',
         height: '100vh',
         width: '100vw',
       }}

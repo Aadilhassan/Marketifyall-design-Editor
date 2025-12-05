@@ -6,11 +6,14 @@ import Locked from './ToolboxItems/Locked'
 import isArray from 'lodash/isArray'
 
 const Container = styled('div', props => ({
-  height: '56px',
-  backgroundColor: props.$theme.colors.background,
-  boxShadow: '0px 1px 1px rgba(0, 0, 0, 0.15)',
-  marginLeft: '1px',
+  height: '60px',
+  backgroundColor: '#ffffff',
+  borderBottom: '1px solid #e2e8f0',
   display: 'flex',
+  alignItems: 'center',
+  paddingLeft: '16px',
+  paddingRight: '16px',
+  gap: '8px',
 }))
 
 export const getContextMenuType = (selection: any) => {

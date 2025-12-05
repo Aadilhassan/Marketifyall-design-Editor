@@ -8,6 +8,7 @@ import Navbar from './components/Navbar'
 import Panels from './components/Panels'
 import Toolbox from './components/Toolbox'
 import Footer from './components/Footer'
+import ContextMenu from './components/ContextMenu'
 import Editor, { useEditor } from '@nkyo/scenify-sdk'
 
 function App() {
@@ -166,16 +167,24 @@ function App() {
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        background: '#F9F9F9',
-        fontFamily: 'Poppins',
+        background: '#f8fafc',
+        fontFamily: "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
       <Navbar />
-      <div style={{ display: 'flex', flex: 1 }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <Panels />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
           <Toolbox />
-          <div style={{ flex: 1, display: 'flex', padding: '1px' }}>
+          <div 
+            style={{ 
+              flex: 1, 
+              display: 'flex', 
+              background: '#e5e7eb',
+              position: 'relative',
+            }}
+            className="canvas-container"
+          >
             <Editor
               config={editorConfig}
             />
@@ -183,6 +192,7 @@ function App() {
           <Footer />
         </div>
       </div>
+      <ContextMenu />
     </div>
   )
 }

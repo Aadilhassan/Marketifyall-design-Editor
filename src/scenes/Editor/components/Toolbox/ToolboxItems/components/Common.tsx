@@ -8,16 +8,16 @@ import Group from './Group'
 
 function Common() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
       <Group />
       <Position />
       <div
-        style={{ height: '30px', width: '1px', backgroundColor: 'rgba(0,0,0,0.1)', margin: '0 0.35rem' }}
+        style={{ height: '24px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 8px' }}
       />
       <CopyStyle />
       <Opacity />
       <div
-        style={{ height: '30px', width: '1px', backgroundColor: 'rgba(0,0,0,0.1)', margin: '0 0.35rem' }}
+        style={{ height: '24px', width: '1px', backgroundColor: '#e2e8f0', margin: '0 8px' }}
       />
       <Lock />
       <Duplicate />
