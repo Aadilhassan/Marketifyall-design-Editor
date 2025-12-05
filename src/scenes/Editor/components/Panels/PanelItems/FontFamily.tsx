@@ -7,8 +7,15 @@ import { useSelector } from 'react-redux'
 import { selectFonts } from '@/store/slices/fonts/selectors'
 import { IFontFamily } from '@/interfaces/editor'
 import Icons from '@components/icons'
-import { FontManager } from '@samuelmeuli/font-manager'
-import type { Font as GoogleFont, Category, Variant } from '@samuelmeuli/font-manager'
+
+type Category = string
+
+interface GoogleFont {
+  family: string
+  category: string
+  variants: string[]
+  files: Record<string, string>
+}
 
 function FontFamily() {
   const [searchValue, setSearchValue] = useState('')
@@ -26,38 +33,49 @@ function FontFamily() {
   const editor = useEditor()
   const activeObject = useActiveObject()
 
-  // Initialize FontManager and fetch all fonts
+  // Initialize and fetch all Google Fonts
   useEffect(() => {
     if (!apiKey) return
 
-    const fontManager = new FontManager(
-      apiKey,
-      'Open Sans',
-      {
-        pickerId: 'canvaFontPicker',
-        families: [],
-        categories: [],
-        scripts: ['latin'],
-        variants: ['regular'],
-        filter: () => true,
-        limit: 2000,
-        sort: 'popularity',
-      },
-      () => {}
-    )
-
-    setLoadingFonts(true)
-    fontManager
-      .init()
-      .then(() => {
-        const fonts = fontManager.getFonts()
-        setAllGoogleFonts(Array.from(fonts.values()))
+    const cached = localStorage.getItem('googleFonts')
+    if (cached) {
+      try {
+        const fonts = JSON.parse(cached)
+        setAllGoogleFonts(fonts)
         setLoadingFonts(false)
-      })
-      .catch(err => {
-        console.error('Failed to load Google Fonts:', err)
-        setLoadingFonts(false)
-      })
+      } catch (e) {
+        localStorage.removeItem('googleFonts')
+        setLoadingFonts(true)
+        fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${apiKey}&sort=popularity`)
+          .then(res => res.json())
+          .then(data => {
+            if (data.items) {
+              localStorage.setItem('googleFonts', JSON.stringify(data.items))
+              setAllGoogleFonts(data.items)
+            }
+            setLoadingFonts(false)
+          })
+          .catch(err => {
+            console.error('Failed to load Google Fonts:', err)
+            setLoadingFonts(false)
+          })
+      }
+    } else {
+      setLoadingFonts(true)
+      fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${apiKey}&sort=popularity`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.items) {
+            localStorage.setItem('googleFonts', JSON.stringify(data.items))
+            setAllGoogleFonts(data.items)
+          }
+          setLoadingFonts(false)
+        })
+        .catch(err => {
+          console.error('Failed to load Google Fonts:', err)
+          setLoadingFonts(false)
+        })
+    }
   }, [apiKey])
 
   // Track document fonts (fonts used in current canvas)
@@ -113,13 +131,7 @@ function FontFamily() {
   }
 
   const getGoogleFontUrl = useCallback((font: GoogleFont): string | undefined => {
-    const files = font.files as Record<Variant | string, string>
-    return (
-      files?.regular ||
-      files?.['400'] ||
-      files?.['500'] ||
-      Object.values(files || {})[0]
-    )
+    return font.files.regular || font.files['400'] || Object.values(font.files)[0]
   }, [])
 
   const ensureGoogleFontStylesheet = useCallback((font: GoogleFont) => {
@@ -142,7 +154,7 @@ function FontFamily() {
   const FontPreview = ({ font, children }: { font: GoogleFont; children: React.ReactNode }) => {
     useEffect(() => {
       ensureGoogleFontStylesheet(font)
-    }, [font, ensureGoogleFontStylesheet])
+    }, [font])
     
     return <>{children}</>
   }
@@ -203,7 +215,7 @@ function FontFamily() {
         console.error('Failed to load font:', err)
       }
     },
-    [editor, getGoogleFontUrl, loadFontFace],
+    [editor, getGoogleFontUrl, loadFontFace, ensureGoogleFontStylesheet],
   )
 
   // Filter fonts by search and category
@@ -231,7 +243,7 @@ function FontFamily() {
 
   // Preload fonts for visible list items - load stylesheets immediately
   useEffect(() => {
-    const toWarm = [...recommendedFonts, ...filteredFonts.slice(0, 100)]
+    const toWarm = [...recommendedFonts, ...filteredFonts.slice(0, 50)]
     toWarm.forEach(font => {
       // Load stylesheet immediately for instant preview
       ensureGoogleFontStylesheet(font)
@@ -409,7 +421,7 @@ function FontFamily() {
                       </svg>
                     </SectionHeader>
                     {recommendedFonts.map(font => (
-                      <FontPreview key={font.id} font={font}>
+                      <FontPreview key={font.family} font={font}>
                         <FontListItem
                           onClick={() => handleFontChange(font)}
                           active={activeFontFamily === font.family}
@@ -451,7 +463,7 @@ function FontFamily() {
                       <SectionHeader>All fonts</SectionHeader>
                     )}
                     {filteredFonts.map(font => (
-                      <FontPreview key={font.id} font={font}>
+                      <FontPreview key={font.family} font={font}>
                         <FontListItem
                           onClick={() => handleFontChange(font)}
                           active={activeFontFamily === font.family}
@@ -602,21 +614,5 @@ const FontListItem = styled('div', ({ $active }: { $active: boolean }) => ({
     background: $active ? '#f0edff' : '#f5f5f5',
   },
 }))
-
-const UploadButton = styled('button', {
-  background: '#ffffff',
-  border: '1px solid #e5e5e5',
-  borderRadius: '6px',
-  padding: '0.6rem 1rem',
-  fontSize: '0.9rem',
-  fontWeight: 500,
-  color: '#2d2d2d',
-  cursor: 'pointer',
-  transition: 'all 0.2s',
-  ':hover': {
-    borderColor: '#5A3FFF',
-    color: '#5A3FFF',
-  },
-})
 
 export default FontFamily

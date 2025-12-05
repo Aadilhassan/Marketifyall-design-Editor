@@ -1,7 +1,7 @@
 import { Input } from 'baseui/input'
 import Icons from '@components/icons'
 import { Scrollbars } from 'react-custom-scrollbars'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useEditor } from '@nkyo/scenify-sdk'
 import { useSelector } from 'react-redux'
 import { selectElements } from '@/store/slices/elements/selectors'
@@ -10,53 +10,72 @@ import {
   getIconsByCategory, 
   getAllCategories,
   svgToBase64,
+  searchIcons,
 } from '@/utils/lucideIconsManager'
 import type { LucideIcon } from '@/utils/lucideIconsManager'
+import { useDebounce } from 'use-debounce'
 
-type TabType = 'icons' | 'elements'
+type TabType = 'icons' | 'shapes' | 'lines'
 
 const SearchContainer = styled('div', {
-  padding: '1.5rem',
-  borderBottom: '1px solid #e0e0e0',
+  padding: '16px 20px',
+  borderBottom: '1px solid #e8e8e8',
 })
 
 const TabsContainer = styled('div', {
   display: 'flex',
-  gap: '0.5rem',
-  padding: '1rem 1.5rem 0',
-  borderBottom: '1px solid #e0e0e0',
-  overflowX: 'auto',
+  gap: '0',
+  borderBottom: '1px solid #e8e8e8',
+  backgroundColor: '#fafafa',
 })
 
 const TabButton = styled('button', ({ $active }: { $active: boolean }) => ({
-  background: 'none',
+  flex: 1,
+  background: $active ? '#fff' : 'transparent',
   border: 'none',
-  padding: '0.75rem 1rem',
-  fontSize: '0.9rem',
+  padding: '12px 16px',
+  fontSize: '13px',
   fontWeight: $active ? 600 : 500,
-  color: $active ? '#2d2d2d' : '#999999',
+  color: $active ? '#5A3FFF' : '#666',
   cursor: 'pointer',
-  borderBottom: $active ? '2px solid #2d2d2d' : '2px solid transparent',
-  marginBottom: '-1px',
+  borderBottom: $active ? '2px solid #5A3FFF' : '2px solid transparent',
   transition: 'all 0.2s ease',
-  whiteSpace: 'nowrap',
   ':hover': {
-    color: '#2d2d2d',
+    color: '#5A3FFF',
+    background: '#f8f7ff',
   },
 }))
 
-const CategoryButton = styled('button', ({ $active }: { $active: boolean }) => ({
-  background: $active ? '#5A3FFF' : '#f5f5f5',
-  color: $active ? '#ffffff' : '#2d2d2d',
+const CategoryScroller = styled('div', {
+  padding: '12px 20px',
+  display: 'flex',
+  gap: '8px',
+  overflowX: 'auto',
+  overflowY: 'hidden',
+  scrollBehavior: 'smooth',
+  '::-webkit-scrollbar': {
+    height: '4px',
+  },
+  '::-webkit-scrollbar-track': {
+    background: 'transparent',
+  },
+  '::-webkit-scrollbar-thumb': {
+    background: '#d0d0d0',
+    borderRadius: '2px',
+  },
+})
+
+const CategoryChip = styled('button', ({ $active }: { $active: boolean }) => ({
+  padding: '6px 14px',
+  borderRadius: '16px',
   border: 'none',
-  borderRadius: '6px',
-  padding: '0.5rem 1rem',
-  fontSize: '0.85rem',
+  fontSize: '12px',
   fontWeight: 500,
   cursor: 'pointer',
-  transition: 'all 0.2s ease',
-  flexShrink: 0,
   whiteSpace: 'nowrap',
+  transition: 'all 0.2s ease',
+  background: $active ? '#5A3FFF' : '#f0f0f0',
+  color: $active ? '#fff' : '#555',
   ':hover': {
     background: $active ? '#4a2fef' : '#e5e5e5',
   },
@@ -69,136 +88,56 @@ const ContentContainer = styled('div', {
   overflow: 'hidden',
 })
 
-const SectionTitle = styled('div', {
-  fontSize: '0.85rem',
-  fontWeight: 600,
-  color: '#2d2d2d',
-  padding: '1.5rem 1.5rem 0.5rem',
-  marginTop: '1rem',
-  marginBottom: '0.5rem',
-})
-
-const CategorySelector = styled('div', {
-  padding: '0 1.5rem 1rem',
-  display: 'flex',
-  gap: '0.5rem',
-  whiteSpace: 'nowrap',
-  overflowX: 'auto',
-  overflowY: 'hidden',
-  scrollBehavior: 'smooth',
-  '::-webkit-scrollbar': {
-    height: '6px',
-  },
-  '::-webkit-scrollbar-track': {
-    background: 'transparent',
-  },
-  '::-webkit-scrollbar-thumb': {
-    background: '#d0d0d0',
-    borderRadius: '3px',
-  },
-  '::-webkit-scrollbar-thumb:hover': {
-    background: '#999999',
-  },
-})
-
 const IconGrid = styled('div', {
   display: 'grid',
-  gridTemplateColumns: 'repeat(2, 1fr)',
-  gap: '1rem',
-  padding: '1.5rem',
+  gridTemplateColumns: 'repeat(4, 1fr)',
+  gap: '8px',
+  padding: '16px 20px',
 })
 
-const IconItem = styled('div', {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '0.75rem',
-  padding: '1rem',
-  borderRadius: '8px',
-  border: '1px solid #e0e0e0',
-  cursor: 'pointer',
-  transition: 'all 0.2s ease',
-  backgroundColor: '#fafafa',
-  ':hover': {
-    backgroundColor: '#f0f0f0',
-    borderColor: '#5A3FFF',
-    transform: 'translateY(-2px)',
-    boxShadow: '0 2px 8px rgba(90, 63, 255, 0.2)',
-  },
-})
-
-const IconPreview = styled('div', {
-  width: '64px',
-  height: '64px',
+const IconItem = styled('div', ({ $loading }: { $loading?: boolean }) => ({
+  aspectRatio: '1',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: '#2d2d2d',
-  fontSize: '1.5rem',
-})
-
-const IconName = styled('div', {
-  fontSize: '0.8rem',
-  fontWeight: 500,
-  color: '#2d2d2d',
-  textAlign: 'center',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-  width: '100%',
-})
-
-const ElementGrid = styled('div', {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(2, 1fr)',
-  gap: '1rem',
-  padding: '1.5rem',
-})
-
-const ElementItem = styled('div', {
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  gap: '0.75rem',
-  padding: '1rem',
   borderRadius: '8px',
-  border: '1px solid #e0e0e0',
-  cursor: 'pointer',
-  transition: 'all 0.2s ease',
-  backgroundColor: '#fafafa',
-  ':hover': {
-    backgroundColor: '#f0f0f0',
-    borderColor: '#5A3FFF',
-    transform: 'translateY(-2px)',
-    boxShadow: '0 2px 8px rgba(90, 63, 255, 0.2)',
-  },
-})
-
-const ElementPreview = styled('div', {
-  width: '100%',
-  height: '64px',
-  borderRadius: '6px',
+  border: '1px solid #e8e8e8',
+  cursor: $loading ? 'wait' : 'pointer',
+  transition: 'all 0.15s ease',
   backgroundColor: '#fff',
-  border: '1px solid #e0e0e0',
+  opacity: $loading ? 0.6 : 1,
+  ':hover': {
+    borderColor: '#5A3FFF',
+    backgroundColor: '#f8f7ff',
+    transform: 'scale(1.05)',
+  },
+}))
+
+const ShapeItem = styled('div', {
+  aspectRatio: '1',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  overflow: 'hidden',
-})
-
-const ElementName = styled('div', {
-  fontSize: '0.8rem',
-  fontWeight: 500,
-  color: '#2d2d2d',
-  textAlign: 'center',
+  borderRadius: '8px',
+  border: '1px solid #e8e8e8',
+  cursor: 'pointer',
+  transition: 'all 0.15s ease',
+  backgroundColor: '#fff',
+  ':hover': {
+    borderColor: '#5A3FFF',
+    backgroundColor: '#f8f7ff',
+    transform: 'scale(1.05)',
+  },
 })
 
 const LoadingSpinner = styled('div', {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  padding: '2rem',
-  color: '#999999',
+  padding: '32px',
+  color: '#999',
+  fontSize: '13px',
+  gap: '8px',
 })
 
 const EmptyState = styled('div', {
@@ -206,114 +145,186 @@ const EmptyState = styled('div', {
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
-  height: '100%',
-  color: '#999999',
-  fontSize: '0.9rem',
-  padding: '2rem',
+  padding: '48px 24px',
+  color: '#999',
+  fontSize: '14px',
   textAlign: 'center',
+  gap: '8px',
 })
+
+const SectionHeader = styled('div', {
+  fontSize: '11px',
+  fontWeight: 600,
+  color: '#888',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+  padding: '16px 20px 8px',
+})
+
+// Pre-defined shapes for quick access
+const BASIC_SHAPES = [
+  { id: 'rect', name: 'Rectangle', svg: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" fill="#5A3FFF"/></svg>' },
+  { id: 'circle', name: 'Circle', svg: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#5A3FFF"/></svg>' },
+  { id: 'triangle', name: 'Triangle', svg: '<svg viewBox="0 0 24 24"><path d="M12 3L22 21H2L12 3Z" fill="#5A3FFF"/></svg>' },
+  { id: 'star', name: 'Star', svg: '<svg viewBox="0 0 24 24"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#5A3FFF"/></svg>' },
+  { id: 'heart', name: 'Heart', svg: '<svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" fill="#FF4D8D"/></svg>' },
+  { id: 'hexagon', name: 'Hexagon', svg: '<svg viewBox="0 0 24 24"><path d="M12 2l6.5 3.77v7.46L12 22l-6.5-3.77V5.77L12 2z" fill="#5A3FFF"/></svg>' },
+  { id: 'diamond', name: 'Diamond', svg: '<svg viewBox="0 0 24 24"><path d="M12 2L22 12L12 22L2 12L12 2Z" fill="#00C9A7"/></svg>' },
+  { id: 'rounded-rect', name: 'Rounded', svg: '<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="6" fill="#FF6B6B"/></svg>' },
+]
+
+const BASIC_LINES = [
+  { id: 'line', name: 'Line', svg: '<svg viewBox="0 0 24 24"><line x1="2" y1="12" x2="22" y2="12" stroke="#333" stroke-width="2"/></svg>' },
+  { id: 'arrow-line', name: 'Arrow', svg: '<svg viewBox="0 0 24 24"><line x1="2" y1="12" x2="20" y2="12" stroke="#333" stroke-width="2"/><polyline points="16 8 20 12 16 16" stroke="#333" stroke-width="2" fill="none"/></svg>' },
+  { id: 'double-arrow', name: 'Double Arrow', svg: '<svg viewBox="0 0 24 24"><line x1="6" y1="12" x2="18" y2="12" stroke="#333" stroke-width="2"/><polyline points="4 8 8 12 4 16" stroke="#333" stroke-width="2" fill="none"/><polyline points="20 8 16 12 20 16" stroke="#333" stroke-width="2" fill="none"/></svg>' },
+  { id: 'dashed-line', name: 'Dashed', svg: '<svg viewBox="0 0 24 24"><line x1="2" y1="12" x2="22" y2="12" stroke="#333" stroke-width="2" stroke-dasharray="4 2"/></svg>' },
+]
+
+// Icon cache for performance
+const iconCache = new Map<string, LucideIcon[]>()
 
 function Panel() {
   const [searchValue, setSearchValue] = useState('')
+  const [debouncedSearch] = useDebounce(searchValue, 300)
   const [activeTab, setActiveTab] = useState<TabType>('icons')
   const [activeCategory, setActiveCategory] = useState<string>('shapes')
   const [icons, setIcons] = useState<LucideIcon[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [addingIcon, setAddingIcon] = useState<string | null>(null)
   
   const elements = useSelector(selectElements)
   const editor = useEditor()
+  const scrollRef = useRef<Scrollbars>(null)
 
   // Load categories on mount
   useEffect(() => {
-    try {
-      const cats = getAllCategories()
-      setCategories(cats)
-    } catch (err) {
-      console.error('Error loading categories:', err)
-      setError('Failed to load categories')
+    const cats = getAllCategories()
+    setCategories(cats)
+    if (cats.length > 0 && !cats.includes(activeCategory)) {
+      setActiveCategory(cats[0])
     }
   }, [])
 
-  // Load icons for active category
+  // Load icons for active category with caching
   useEffect(() => {
-    if (activeTab === 'icons') {
-      loadIconsForCategory(activeCategory)
+    if (activeTab !== 'icons') return
+
+    const loadIcons = async () => {
+      // Check cache first
+      if (iconCache.has(activeCategory)) {
+        setIcons(iconCache.get(activeCategory)!)
+        return
+      }
+
+      setLoading(true)
+      try {
+        const loadedIcons = await getIconsByCategory(activeCategory)
+        iconCache.set(activeCategory, loadedIcons)
+        setIcons(loadedIcons)
+      } catch (err) {
+        console.error('Error loading icons:', err)
+        setIcons([])
+      } finally {
+        setLoading(false)
+      }
     }
+
+    loadIcons()
   }, [activeCategory, activeTab])
 
-  const loadIconsForCategory = async (category: string) => {
-    try {
+  // Search functionality with debounce
+  useEffect(() => {
+    if (!debouncedSearch.trim()) return
+
+    const performSearch = async () => {
       setLoading(true)
-      setError(null)
-      const loadedIcons = await getIconsByCategory(category)
-      setIcons(loadedIcons)
-    } catch (err) {
-      console.error('Error loading icons:', err)
-      setError('Failed to load icons. Please try again.')
-      setIcons([])
-    } finally {
-      setLoading(false)
+      try {
+        const results = await searchIcons(debouncedSearch)
+        setIcons(results)
+      } catch (err) {
+        console.error('Search error:', err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
 
-  // Search functionality
-  const filteredIcons = useMemo(() => {
-    if (!searchValue.trim()) return icons
-    return icons.filter(icon =>
-      icon.name.toLowerCase().includes(searchValue.toLowerCase()) ||
-      icon.id.toLowerCase().includes(searchValue.toLowerCase())
-    )
-  }, [icons, searchValue])
+    performSearch()
+  }, [debouncedSearch])
 
-  const filteredElements = useMemo(() => {
-    return elements.filter(el =>
-      el.name?.toLowerCase().includes(searchValue.toLowerCase()) ||
-      el.id?.toLowerCase().includes(searchValue.toLowerCase())
-    )
-  }, [elements, searchValue])
+  // Reset to category icons when search is cleared
+  useEffect(() => {
+    if (!debouncedSearch.trim() && activeTab === 'icons') {
+      if (iconCache.has(activeCategory)) {
+        setIcons(iconCache.get(activeCategory)!)
+      } else {
+        getIconsByCategory(activeCategory).then(setIcons)
+      }
+    }
+  }, [debouncedSearch, activeCategory, activeTab])
 
   // Handle adding icon to canvas
-  const handleAddIcon = async (icon: LucideIcon) => {
+  const handleAddIcon = useCallback(async (icon: LucideIcon) => {
+    if (addingIcon) return
+    setAddingIcon(icon.id)
+    
     try {
-      // Convert SVG to data URL
       const imageUrl = svgToBase64(icon.svg)
-      
-      // Create image object for canvas - use StaticImage type like other images
-      const canvasObject = {
+      editor.add({
         type: 'StaticImage',
         metadata: {
           src: imageUrl,
           name: icon.name,
         },
-      }
-      
-      editor.add(canvasObject)
+      })
     } catch (error) {
-      console.error('Error adding icon to canvas:', error)
+      console.error('Error adding icon:', error)
+    } finally {
+      setAddingIcon(null)
     }
-  }
+  }, [editor, addingIcon])
 
-  // Handle adding element to canvas
-  const handleAddElement = (element: any) => {
-    try {
-      editor.add(element)
-    } catch (error) {
-      console.error('Error adding element:', error)
-    }
-  }
+  // Handle adding shape to canvas
+  const handleAddShape = useCallback((shape: typeof BASIC_SHAPES[0]) => {
+    const imageUrl = svgToBase64(shape.svg)
+    editor.add({
+      type: 'StaticImage',
+      metadata: {
+        src: imageUrl,
+        name: shape.name,
+      },
+    })
+  }, [editor])
+
+  // Handle category change
+  const handleCategoryChange = useCallback((category: string) => {
+    setActiveCategory(category)
+    setSearchValue('')
+    scrollRef.current?.scrollToTop()
+  }, [])
 
   return (
     <div style={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
       {/* Search Bar */}
       <SearchContainer>
         <Input
-          startEnhancer={() => <Icons.Search size={18} />}
+          startEnhancer={() => <Icons.Search size={16} />}
           value={searchValue}
           onChange={e => setSearchValue((e.target as any).value)}
-          placeholder={activeTab === 'icons' ? 'Search icons' : 'Search elements'}
+          placeholder="Search elements..."
           clearOnEscape
+          overrides={{
+            Root: {
+              style: {
+                borderRadius: '8px',
+              },
+            },
+            Input: {
+              style: {
+                fontSize: '13px',
+              },
+            },
+          }}
         />
       </SearchContainer>
 
@@ -322,111 +333,105 @@ function Panel() {
         <TabButton $active={activeTab === 'icons'} onClick={() => setActiveTab('icons')}>
           Icons
         </TabButton>
-        <TabButton $active={activeTab === 'elements'} onClick={() => setActiveTab('elements')}>
-          Elements
+        <TabButton $active={activeTab === 'shapes'} onClick={() => setActiveTab('shapes')}>
+          Shapes
+        </TabButton>
+        <TabButton $active={activeTab === 'lines'} onClick={() => setActiveTab('lines')}>
+          Lines
         </TabButton>
       </TabsContainer>
 
       {/* Content */}
       <ContentContainer>
-        <Scrollbars>
-          {activeTab === 'icons' ? (
+        <Scrollbars ref={scrollRef} autoHide>
+          {activeTab === 'icons' && (
             <>
               {/* Category selector */}
-              {categories.length > 0 && (
-                <>
-                  <SectionTitle>Categories</SectionTitle>
-                  <CategorySelector>
-                    {categories.map(category => (
-                      <CategoryButton
-                        key={category}
-                        $active={activeCategory === category}
-                        onClick={() => setActiveCategory(category)}
-                      >
-                        {category.charAt(0).toUpperCase() + category.slice(1)}
-                      </CategoryButton>
-                    ))}
-                  </CategorySelector>
-                </>
+              {!searchValue && categories.length > 0 && (
+                <CategoryScroller>
+                  {categories.map(category => (
+                    <CategoryChip
+                      key={category}
+                      $active={activeCategory === category}
+                      onClick={() => handleCategoryChange(category)}
+                    >
+                      {category.charAt(0).toUpperCase() + category.slice(1)}
+                    </CategoryChip>
+                  ))}
+                </CategoryScroller>
               )}
 
               {/* Icons grid */}
-              <SectionTitle>
-                {activeCategory.charAt(0).toUpperCase() + activeCategory.slice(1)} Icons
-              </SectionTitle>
-
               {loading ? (
-                <LoadingSpinner>Loading icons...</LoadingSpinner>
-              ) : error ? (
+                <LoadingSpinner>
+                  <svg width="16" height="16" viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite' }}>
+                    <circle cx="12" cy="12" r="10" stroke="#5A3FFF" strokeWidth="2" fill="none" strokeDasharray="31.4 31.4" />
+                  </svg>
+                  Loading icons...
+                  <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+                </LoadingSpinner>
+              ) : icons.length === 0 ? (
                 <EmptyState>
-                  <div>❌</div>
-                  <div>{error}</div>
-                </EmptyState>
-              ) : filteredIcons.length === 0 ? (
-                <EmptyState>
-                  <div>🔍</div>
-                  <div>
-                    {searchValue ? 'No icons found matching your search' : 'No icons available'}
-                  </div>
+                  <span style={{ fontSize: '24px' }}>🔍</span>
+                  {searchValue ? 'No icons found' : 'No icons in this category'}
                 </EmptyState>
               ) : (
                 <IconGrid>
-                  {filteredIcons.map(icon => (
+                  {icons.map(icon => (
                     <IconItem
                       key={icon.id}
                       onClick={() => handleAddIcon(icon)}
                       title={icon.name}
+                      $loading={addingIcon === icon.id}
                     >
-                      <IconPreview>
-                        <div
-                          dangerouslySetInnerHTML={{ __html: icon.svg }}
-                          style={{ width: '32px', height: '32px' }}
-                        />
-                      </IconPreview>
-                      <IconName>{icon.name}</IconName>
+                      <div
+                        dangerouslySetInnerHTML={{ __html: icon.svg }}
+                        style={{ width: '24px', height: '24px', color: '#333' }}
+                      />
                     </IconItem>
                   ))}
                 </IconGrid>
               )}
             </>
-          ) : (
+          )}
+
+          {activeTab === 'shapes' && (
             <>
-              {/* Elements tab */}
-              {filteredElements.length === 0 ? (
-                <EmptyState>
-                  <div>📦</div>
-                  <div>
-                    {searchValue ? 'No elements found matching your search' : 'No elements available'}
-                  </div>
-                </EmptyState>
-              ) : (
-                <ElementGrid>
-                  {filteredElements.map(element => (
-                    <ElementItem
-                      key={element.id}
-                      onClick={() => handleAddElement(element)}
-                      title={element.name}
-                    >
-                      <ElementPreview>
-                        {element.metadata?.preview ? (
-                          <img
-                            src={element.metadata.preview}
-                            alt={element.name}
-                            style={{
-                              maxWidth: '100%',
-                              maxHeight: '100%',
-                              objectFit: 'contain',
-                            }}
-                          />
-                        ) : (
-                          <div style={{ color: '#ccc' }}>No preview</div>
-                        )}
-                      </ElementPreview>
-                      <ElementName>{element.name}</ElementName>
-                    </ElementItem>
-                  ))}
-                </ElementGrid>
-              )}
+              <SectionHeader>Basic Shapes</SectionHeader>
+              <IconGrid>
+                {BASIC_SHAPES.map(shape => (
+                  <ShapeItem
+                    key={shape.id}
+                    onClick={() => handleAddShape(shape)}
+                    title={shape.name}
+                  >
+                    <div
+                      dangerouslySetInnerHTML={{ __html: shape.svg }}
+                      style={{ width: '28px', height: '28px' }}
+                    />
+                  </ShapeItem>
+                ))}
+              </IconGrid>
+            </>
+          )}
+
+          {activeTab === 'lines' && (
+            <>
+              <SectionHeader>Lines & Arrows</SectionHeader>
+              <IconGrid>
+                {BASIC_LINES.map(line => (
+                  <ShapeItem
+                    key={line.id}
+                    onClick={() => handleAddShape(line)}
+                    title={line.name}
+                  >
+                    <div
+                      dangerouslySetInnerHTML={{ __html: line.svg }}
+                      style={{ width: '28px', height: '28px' }}
+                    />
+                  </ShapeItem>
+                ))}
+              </IconGrid>
             </>
           )}
         </Scrollbars>

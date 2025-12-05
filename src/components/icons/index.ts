@@ -5,10 +5,11 @@ import Templates from './Templates'
 import Search from './Search'
 import Images from './Images'
 import Illustrations from './Illustrations'
-import Pixabay from './Pixabay'
+import Photos from './Photos'
 import Uploads from './Uploads'
 import Logo from './Logo'
 import AiStudio from './AiStudio'
+import AIDesigner from './AIDesigner'
 
 class Icons {
   static Background = Background
@@ -18,11 +19,13 @@ class Icons {
   static Search = Search
   static Images = Images
   static Illustrations = Illustrations
-  static Pixabay = Pixabay
+  static Photos = Photos
   static Uploads = Uploads
   static Logo = Logo
   static AiStudio = AiStudio
   static ['AI Studio'] = AiStudio
+  static AIDesigner = AIDesigner
+  static ['AI Designer'] = AIDesigner
 }
 
 export default Icons

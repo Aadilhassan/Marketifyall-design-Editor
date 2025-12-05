@@ -1,5 +1,9 @@
 export const panelListItems = [
   {
+    id: 'ai-designer',
+    name: 'AI Designer',
+  },
+  {
     id: 'templates',
     name: 'Templates',
   },
@@ -23,13 +27,9 @@ export const panelListItems = [
     id: 'illustrations',
     name: 'Illustrations',
   },
-  // {
-  //   id: 'background',
-  //   name: 'Background',
-  // },
   {
-    id: 'pixabay',
-    name: 'Pixabay',
+    id: 'pexels',
+    name: 'Photos',
   },
   {
     id: 'ai-studio',
