@@ -31,6 +31,10 @@ export const panelListItems = [
     id: 'pixabay',
     name: 'Pixabay',
   },
+  {
+    id: 'ai-studio',
+    name: 'AI Studio',
+  },
 ]
 
 export enum PanelType {

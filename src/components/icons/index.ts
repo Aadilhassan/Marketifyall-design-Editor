@@ -8,6 +8,7 @@ import Illustrations from './Illustrations'
 import Pixabay from './Pixabay'
 import Uploads from './Uploads'
 import Logo from './Logo'
+import AiStudio from './AiStudio'
 
 class Icons {
   static Background = Background
@@ -20,6 +21,8 @@ class Icons {
   static Pixabay = Pixabay
   static Uploads = Uploads
   static Logo = Logo
+  static AiStudio = AiStudio
+  static ['AI Studio'] = AiStudio
 }
 
 export default Icons

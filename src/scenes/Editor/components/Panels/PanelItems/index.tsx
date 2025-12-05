@@ -10,6 +10,7 @@ import Illustrations from './Illustrations'
 import Pixabay from './Pixabay'
 import Uploads from './Uploads'
 import Animations from './Animations'
+import AiStudio from './AiStudio'
 class PanelItems {
   static Background = Background
   static Text = Text
@@ -23,6 +24,8 @@ class PanelItems {
   static Pixabay = Pixabay
   static Uploads = Uploads
   static Animations = Animations
+  static AiStudio = AiStudio
+  static ['AI Studio'] = AiStudio
 }
 
 export default PanelItems
