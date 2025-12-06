@@ -323,7 +323,9 @@ Complete marketing and creative toolkit for businesses, creators, and marketers.
 
 ## 📸 Screenshots
 
-<img width="960" alt="Design Editor Interface" src="https://user-images.githubusercontent.com/54324954/233775059-d78a5cb4-447b-43b8-b03d-442ca98fd30b.png">
+<img width="960" alt="Design Editor Interface" src="https://raw.githubusercontent.com/Aadilhassan/Marketifyall-design-Editor/refs/heads/main/public/screenshot/brave_screenshot_localhost.png">
+
+<img width="960" alt="Video Editor Interface" src="https://raw.githubusercontent.com/Aadilhassan/Marketifyall-design-Editor/refs/heads/main/public/screenshot/screenshot2.png">
 
 *Main design editor interface with panels and canvas*
 
