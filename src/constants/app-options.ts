@@ -1,12 +1,12 @@
 export const panelListItems = [
-  {
-    id: 'ai-designer',
-    name: 'AI Designer',
-  },
-  {
-    id: 'templates',
-    name: 'Templates',
-  },
+  // {
+  //   id: 'ai-designer',
+  //   name: 'AI Designer',
+  // },
+  // {
+  //   id: 'templates',
+  //   name: 'Templates',
+  // },
   {
     id: 'elements',
     name: 'Elements',
@@ -35,10 +35,10 @@ export const panelListItems = [
     id: 'video',
     name: 'Video',
   },
-  {
-    id: 'ai-studio',
-    name: 'AI Studio',
-  },
+  // {
+  //   id: 'ai-studio',
+  //   name: 'AI Studio',
+  // },
 ]
 
 export enum PanelType {
