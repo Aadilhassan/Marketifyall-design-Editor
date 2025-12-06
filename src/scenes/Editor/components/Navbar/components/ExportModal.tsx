@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { styled } from 'baseui'
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
+import { exportVideoWithRecorder, exportAsGif, downloadBlob, VideoExportOptions } from '@/utils/videoExporter'
 
 const Overlay = styled('div', {
   position: 'fixed',
@@ -260,11 +261,15 @@ const VIDEO_FORMATS: { id: ExportFormat; name: string; desc: string; color: stri
 
 function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
   const editor = useEditor()
+  const { canvas } = useEditorContext()
   const { clips } = useVideoContext()
   const [format, setFormat] = useState<ExportFormat>('png')
   const [quality, setQuality] = useState(90)
   const [size, setSize] = useState<ExportSize>('1x')
   const [isExporting, setIsExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState(0)
+  const [videoDuration, setVideoDuration] = useState(10)
+  const [videoFPS, setVideoFPS] = useState(30)
 
   const hasVideo = clips.length > 0
   const FORMATS = hasVideo ? [...VIDEO_FORMATS, ...IMAGE_FORMATS] : IMAGE_FORMATS
@@ -273,11 +278,68 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
     if (!editor) return
 
     setIsExporting(true)
+    setExportProgress(0)
 
     try {
+      // Video export using canvas capture
       if (format === 'mp4' || format === 'webm' || format === 'gif') {
-        // Video export - show info message
-        alert(`Video export as ${format.toUpperCase()} is coming soon!\n\nFor now, you can:\n1. Use screen recording to capture your video\n2. Export individual frames as images\n3. Use the built-in video timeline to preview`)
+        const canvasElement = canvas?.getElement?.() || document.querySelector('canvas')
+        if (!canvasElement) {
+          alert('Canvas not found. Please try again.')
+          setIsExporting(false)
+          return
+        }
+
+        // Find video element from timeline
+        const videoElement = document.querySelector('.canvas-container video') as HTMLVideoElement
+        if (!videoElement && clips.length > 0) {
+          alert('Video element not found. Make sure video is playing in the timeline.')
+          setIsExporting(false)
+          return
+        }
+
+        const exportOptions: VideoExportOptions = {
+          format: format as 'mp4' | 'webm' | 'gif',
+          fps: format === 'gif' ? 10 : videoFPS,
+          quality: quality / 100,
+          duration: videoDuration,
+          width: canvasElement.width,
+          height: canvasElement.height,
+          onProgress: (progress) => setExportProgress(progress),
+        }
+
+        let blob: Blob
+
+        if (format === 'gif') {
+          blob = await exportAsGif(canvasElement, videoElement, exportOptions)
+          downloadBlob(blob, `${designName}.gif`)
+        } else {
+          // WebM/MP4 using MediaRecorder
+          blob = await exportVideoWithRecorder(canvasElement, videoElement, exportOptions)
+          
+          if (format === 'mp4') {
+            // MediaRecorder outputs WebM, so we inform user
+            // eslint-disable-next-line no-restricted-globals
+            const confirmConvert = confirm(
+              'Browser exports as WebM format.\n\nClick OK to download as WebM, or Cancel to abort.'
+            )
+            if (confirmConvert) {
+              downloadBlob(blob, `${designName}.webm`)
+            } else {
+              setIsExporting(false)
+              setExportProgress(0)
+              return
+            }
+          } else {
+            downloadBlob(blob, `${designName}.${format}`)
+          }
+        }
+
+        setTimeout(() => {
+          onClose()
+          setExportProgress(0)
+        }, 500)
+        
         setIsExporting(false)
         return
       }
@@ -364,7 +426,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
     <Overlay onClick={onClose}>
       <Modal onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
-          <ModalTitle>Export Design</ModalTitle>
+          <ModalTitle>Export {hasVideo ? 'Video' : 'Design'}</ModalTitle>
           <CloseButton onClick={onClose}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -374,7 +436,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
         </ModalHeader>
 
         <ModalBody>
-          <SectionTitle>File Format {hasVideo && '(Video coming soon)'}</SectionTitle>
+          <SectionTitle>File Format</SectionTitle>
           <FormatGrid>
             {FORMATS.map((f) => (
               <FormatOption
@@ -388,6 +450,71 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
               </FormatOption>
             ))}
           </FormatGrid>
+
+          {(format === 'mp4' || format === 'webm' || format === 'gif') && (
+            <>
+              <SectionTitle style={{ marginTop: '20px' }}>Video Settings</SectionTitle>
+              <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '8px' }}>
+                    Duration (seconds)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={60}
+                    value={videoDuration}
+                    onChange={(e) => setVideoDuration(parseInt(e.target.value) || 10)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: '1px solid #d1d5db',
+                      fontSize: '14px',
+                    }}
+                  />
+                </div>
+                {format !== 'gif' && (
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '8px' }}>
+                      FPS
+                    </label>
+                    <input
+                      type="number"
+                      min={15}
+                      max={60}
+                      value={videoFPS}
+                      onChange={(e) => setVideoFPS(parseInt(e.target.value) || 30)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        fontSize: '14px',
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {isExporting && exportProgress > 0 && (
+            <div style={{ marginTop: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>Exporting...</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#667eea' }}>{Math.round(exportProgress)}%</span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{
+                  width: `${exportProgress}%`,
+                  height: '100%',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  transition: 'width 0.3s ease',
+                }} />
+              </div>
+            </div>
+          )}
 
           {(format === 'jpg' || format === 'webp') && (
             <QualitySection>

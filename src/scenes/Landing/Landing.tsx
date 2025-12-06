@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useHistory } from 'react-router-dom'
 import { styled } from 'baseui'
 
@@ -45,9 +45,24 @@ const LogoIcon = styled('div', {
 const NavLinks = styled('div', {
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
-  '@media (max-width: 768px)': {
+  gap: '24px',
+  flex: 1,
+  justifyContent: 'center',
+  '@media (max-width: 968px)': {
     display: 'none',
+  },
+})
+
+const NavLink = styled('a', {
+  color: '#1a1a1a',
+  fontSize: '14px',
+  fontWeight: 600,
+  textDecoration: 'none',
+  cursor: 'pointer',
+  transition: 'color 0.2s',
+  fontFamily: "'Courier New', monospace",
+  ':hover': {
+    color: '#FF6B5B',
   },
 })
 
@@ -67,19 +82,6 @@ const NavButton = styled('button', {
     color: '#ffffff',
   },
 })
-
-const Sparkle = styled('div', {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '4px',
-  color: '#1a1a1a',
-  fontSize: '16px',
-  '@media (max-width: 768px)': {
-    display: 'none',
-  },
-})
-
-
 
 const HeroSection = styled('section', {
   display: 'grid',
@@ -764,6 +766,47 @@ const FEATURES = [
 function Landing() {
   const history = useHistory()
 
+  useEffect(() => {
+    // Set page title and meta tags for SEO
+    document.title = 'Design Editor by Marketifyall - Free Open-Source Canva Alternative with AI'
+    
+    // Update meta description
+    let metaDescription = document.querySelector('meta[name="description"]')
+    if (!metaDescription) {
+      metaDescription = document.createElement('meta')
+      metaDescription.setAttribute('name', 'description')
+      document.head.appendChild(metaDescription)
+    }
+    metaDescription.setAttribute('content', 'Free open-source design editor with AI-powered features. A true Canva alternative with stock photos, 1000+ fonts, video editing, and professional templates. No watermarks, no limits, 100% free forever. By QuickShift Labs & Marketifyall.')
+    
+    // Add keywords
+    let metaKeywords = document.querySelector('meta[name="keywords"]')
+    if (!metaKeywords) {
+      metaKeywords = document.createElement('meta')
+      metaKeywords.setAttribute('name', 'keywords')
+      document.head.appendChild(metaKeywords)
+    }
+    metaKeywords.setAttribute('content', 'canva alternative, free design editor, open source design tool, graphic design software, AI design tool, online design editor, free canva, design editor, marketifyall, quickshift labs')
+    
+    // Open Graph tags
+    const ogTags = [
+      { property: 'og:title', content: 'Design Editor by Marketifyall - Free Open-Source Canva Alternative' },
+      { property: 'og:description', content: 'Free open-source design editor with AI. Create stunning designs without limits.' },
+      { property: 'og:url', content: 'https://design.marketifyall.com/' },
+      { property: 'og:type', content: 'website' },
+    ]
+    
+    ogTags.forEach(tag => {
+      let element = document.querySelector(`meta[property="${tag.property}"]`)
+      if (!element) {
+        element = document.createElement('meta')
+        element.setAttribute('property', tag.property)
+        document.head.appendChild(element)
+      }
+      element.setAttribute('content', tag.content)
+    })
+  }, [])
+
   const handleStartDesigning = () => {
     history.push('/design')
   }
@@ -780,11 +823,7 @@ function Landing() {
     <Container>
       {/* Navigation */}
       <Nav>
-        <Sparkle>
-          <span style={{ fontSize: '20px' }}>+</span>
-          <span style={{ fontSize: '14px' }}>+</span>
-        </Sparkle>
-        <Logo>
+        <Logo style={{ cursor: 'pointer' }} onClick={() => history.push('/')}>
           <LogoIcon>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -793,25 +832,25 @@ function Landing() {
           Marketifyall
         </Logo>
         <NavLinks>
-          <NavButton onClick={handleStartDesigning}>Start Designing</NavButton>
+          <NavLink onClick={() => history.push('/')}>Home</NavLink>
+          <NavLink onClick={() => history.push('/features')}>Features</NavLink>
+          <NavLink onClick={() => history.push('/about')}>About</NavLink>
+          <NavLink onClick={() => history.push('/contact')}>Contact</NavLink>
         </NavLinks>
-        <Sparkle>
-          <span style={{ fontSize: '14px' }}>+</span>
-          <span style={{ fontSize: '20px' }}>+</span>
-        </Sparkle>
+        <NavButton onClick={handleStartDesigning}>Start Designing</NavButton>
       </Nav>
 
       {/* Hero Section */}
       <HeroSection>
         <HeroContent>
           <HeroTitle>
-            Designs that don't just look good — they work for your brand.
+            Open-Source Design Editor — A Free Canva Alternative with AI
           </HeroTitle>
           <Divider />
           <HeroSubtitle>
-            Marketifyall is a <HighlightText>Professional Design Editor</HighlightText> that 
-            helps you create stunning graphics, social media posts, and marketing materials — 
-            helping you launch faster, convert better, and grow with confidence.
+            <HighlightText>Design Editor by Marketifyall</HighlightText> is a powerful, free, and open-source 
+            graphic design tool with built-in AI assistance. Create stunning social media graphics, marketing materials, 
+            and professional designs — no subscription, no watermarks, no restrictions. Built by <HighlightText>QuickShift Labs</HighlightText>.
           </HeroSubtitle>
           <Divider />
           <CTAButtons>
@@ -1103,6 +1142,10 @@ function Landing() {
       <StatsSection>
         <StatsContainer>
           <StatItem>
+            <StatNumber>100%</StatNumber>
+            <StatLabel>Open Source</StatLabel>
+          </StatItem>
+          <StatItem>
             <StatNumber>1M+</StatNumber>
             <StatLabel>Stock Photos</StatLabel>
           </StatItem>
@@ -1111,43 +1154,58 @@ function Landing() {
             <StatLabel>Google Fonts</StatLabel>
           </StatItem>
           <StatItem>
-            <StatNumber>500+</StatNumber>
-            <StatLabel>Templates</StatLabel>
-          </StatItem>
-          <StatItem>
-            <StatNumber>100%</StatNumber>
-            <StatLabel>Free to Use</StatLabel>
+            <StatNumber>$0</StatNumber>
+            <StatLabel>Forever Free</StatLabel>
           </StatItem>
         </StatsContainer>
       </StatsSection>
 
       {/* CTA Section */}
       <CTASection>
-        <CTATitle>Ready to create something amazing?</CTATitle>
+        <CTATitle>Ready to create without limits?</CTATitle>
         <CTASubtitle>
-          Join thousands of creators who use Marketifyall to bring their ideas to life.
+          Join the open-source community and experience true creative freedom. No credit card required, no watermarks, no restrictions.
         </CTASubtitle>
-        <CTAButtonWhite onClick={handleStartDesigning}>
-          Start Designing Now
-        </CTAButtonWhite>
+        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <CTAButtonWhite onClick={handleStartDesigning}>
+            Start Designing Free
+          </CTAButtonWhite>
+          <CTAButtonWhite
+            as="a"
+            href="https://github.com/Aadilhassan/Marketifyall-design-Editor"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ background: 'transparent', color: '#ffffff' }}
+          >
+            ⭐ Star on GitHub
+          </CTAButtonWhite>
+        </div>
       </CTASection>
 
       {/* Footer */}
       <Footer>
         <FooterContent>
-          <Logo style={{ color: '#ffffff' }}>
-            <LogoIcon>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-            </LogoIcon>
-            Marketifyall
-          </Logo>
-          <FooterText>2025-2026 Design Editor by Marketifyall. All rights reserved.</FooterText>
+          <div>
+            <Logo style={{ color: '#ffffff', marginBottom: '12px' }}>
+              <LogoIcon>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </LogoIcon>
+              Design Editor
+            </Logo>
+            <FooterText>
+              Open-source by{' '}
+              <FooterLink href="http://quickshiftlabs.com/" target="_blank" rel="noopener noreferrer">QuickShift Labs</FooterLink>
+              {' '}& Part of{' '}
+              <FooterLink href="https://marketifyall.com/" target="_blank" rel="noopener noreferrer">Marketifyall</FooterLink>
+            </FooterText>
+          </div>
           <FooterLinks>
-            <FooterLink href="#">Privacy</FooterLink>
-            <FooterLink href="#">Terms</FooterLink>
-            <FooterLink href="#">Contact</FooterLink>
+            <FooterLink onClick={() => history.push('/features')}>Features</FooterLink>
+            <FooterLink onClick={() => history.push('/about')}>About</FooterLink>
+            <FooterLink onClick={() => history.push('/contact')}>Contact</FooterLink>
+            <FooterLink href="https://github.com/Aadilhassan/Marketifyall-design-Editor" target="_blank" rel="noopener noreferrer">GitHub</FooterLink>
           </FooterLinks>
         </FooterContent>
       </Footer>
