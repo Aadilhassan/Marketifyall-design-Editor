@@ -85,7 +85,7 @@ function Container({ children }) {
         flex: 1,
         // display: 'flex',
         height: '100vh',
-        width: '100vw',
+        // width: '100vw',
       }}
     >
       {loaded ? (

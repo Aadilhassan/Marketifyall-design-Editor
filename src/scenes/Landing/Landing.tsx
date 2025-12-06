@@ -5,7 +5,7 @@ import { styled } from 'baseui'
 // Styled Components
 const Container = styled('div', {
   minHeight: '100vh',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#F5F3EF',
   fontFamily: "'Inter', 'Poppins', sans-serif",
   overflowX: 'hidden',
 })
@@ -13,31 +13,30 @@ const Container = styled('div', {
 const Nav = styled('nav', {
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'space-between',
-  padding: '20px 60px',
+  justifyContent: 'center',
+  padding: '24px 60px',
   maxWidth: '1400px',
   margin: '0 auto',
+  gap: '40px',
   '@media (max-width: 768px)': {
     padding: '16px 24px',
+    gap: '20px',
   },
 })
 
 const Logo = styled('div', {
   display: 'flex',
   alignItems: 'center',
-  gap: '12px',
-  color: '#ffffff',
-  fontSize: '24px',
+  gap: '10px',
+  color: '#1a1a1a',
+  fontSize: '20px',
   fontWeight: 700,
   letterSpacing: '-0.5px',
 })
 
 const LogoIcon = styled('div', {
-  width: '40px',
-  height: '40px',
-  borderRadius: '12px',
-  background: 'rgba(255, 255, 255, 0.2)',
-  backdropFilter: 'blur(10px)',
+  width: '32px',
+  height: '32px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -46,126 +45,522 @@ const LogoIcon = styled('div', {
 const NavLinks = styled('div', {
   display: 'flex',
   alignItems: 'center',
-  gap: '16px',
+  gap: '8px',
   '@media (max-width: 768px)': {
     display: 'none',
   },
 })
 
 const NavButton = styled('button', {
-  padding: '10px 24px',
-  borderRadius: '8px',
-  border: '2px solid rgba(255, 255, 255, 0.3)',
+  padding: '12px 24px',
+  borderRadius: '4px',
+  border: '2px solid #1a1a1a',
   background: 'transparent',
-  color: '#ffffff',
-  fontSize: '15px',
+  color: '#1a1a1a',
+  fontSize: '14px',
   fontWeight: 600,
   cursor: 'pointer',
   transition: 'all 0.2s',
+  fontFamily: "'Courier New', monospace",
   ':hover': {
-    background: 'rgba(255, 255, 255, 0.1)',
-    borderColor: 'rgba(255, 255, 255, 0.5)',
+    background: '#1a1a1a',
+    color: '#ffffff',
   },
 })
 
-const Hero = styled('section', {
+const Sparkle = styled('div', {
   display: 'flex',
-  flexDirection: 'column',
   alignItems: 'center',
-  textAlign: 'center',
-  padding: '80px 24px 120px',
-  maxWidth: '1000px',
-  margin: '0 auto',
+  gap: '4px',
+  color: '#1a1a1a',
+  fontSize: '16px',
+  '@media (max-width: 768px)': {
+    display: 'none',
+  },
 })
 
-const Badge = styled('div', {
-  display: 'inline-flex',
+
+
+const HeroSection = styled('section', {
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '60px',
+  padding: '80px 60px 120px',
+  maxWidth: '1400px',
+  margin: '0 auto',
   alignItems: 'center',
-  gap: '8px',
-  padding: '8px 16px',
-  borderRadius: '100px',
-  background: 'rgba(255, 255, 255, 0.15)',
-  backdropFilter: 'blur(10px)',
-  color: '#ffffff',
-  fontSize: '14px',
-  fontWeight: 500,
-  marginBottom: '24px',
+  '@media (max-width: 968px)': {
+    gridTemplateColumns: '1fr',
+    padding: '40px 24px 80px',
+  },
+})
+
+const HeroContent = styled('div', {
+  maxWidth: '600px',
 })
 
 const HeroTitle = styled('h1', {
-  fontSize: '64px',
-  fontWeight: 800,
-  color: '#ffffff',
-  lineHeight: 1.1,
-  marginBottom: '24px',
+  fontSize: '56px',
+  fontWeight: 700,
+  color: '#1a1a1a',
+  lineHeight: 1.15,
+  marginBottom: '32px',
   letterSpacing: '-2px',
+  fontFamily: "'Georgia', serif",
   '@media (max-width: 768px)': {
-    fontSize: '40px',
+    fontSize: '36px',
   },
 })
 
+const Divider = styled('div', {
+  width: '100%',
+  height: '1px',
+  background: '#1a1a1a',
+  margin: '32px 0',
+})
+
 const HeroSubtitle = styled('p', {
-  fontSize: '20px',
-  color: 'rgba(255, 255, 255, 0.85)',
-  lineHeight: 1.6,
-  maxWidth: '600px',
+  fontSize: '18px',
+  color: '#4a4a4a',
+  lineHeight: 1.7,
   marginBottom: '40px',
+  fontFamily: "'Georgia', serif",
+})
+
+const HighlightText = styled('span', {
+  fontWeight: 700,
+  color: '#1a1a1a',
 })
 
 const CTAButtons = styled('div', {
   display: 'flex',
   gap: '16px',
   flexWrap: 'wrap',
-  justifyContent: 'center',
+  marginTop: '32px',
 })
 
 const PrimaryButton = styled('button', {
   padding: '16px 32px',
-  borderRadius: '12px',
+  borderRadius: '4px',
   border: 'none',
-  background: '#ffffff',
-  color: '#667eea',
-  fontSize: '17px',
-  fontWeight: 700,
+  background: '#FF6B5B',
+  color: '#ffffff',
+  fontSize: '14px',
+  fontWeight: 600,
   cursor: 'pointer',
   transition: 'all 0.2s',
-  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.1)',
+  fontFamily: "'Courier New', monospace",
+  boxShadow: '4px 4px 0px #1a1a1a',
   ':hover': {
-    transform: 'translateY(-2px)',
-    boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
+    transform: 'translate(-2px, -2px)',
+    boxShadow: '6px 6px 0px #1a1a1a',
   },
 })
 
 const SecondaryButton = styled('button', {
   padding: '16px 32px',
-  borderRadius: '12px',
-  border: '2px solid rgba(255, 255, 255, 0.4)',
+  borderRadius: '4px',
+  border: '2px solid #1a1a1a',
   background: 'transparent',
-  color: '#ffffff',
-  fontSize: '17px',
+  color: '#1a1a1a',
+  fontSize: '14px',
   fontWeight: 600,
   cursor: 'pointer',
   transition: 'all 0.2s',
+  fontFamily: "'Courier New', monospace",
   ':hover': {
-    background: 'rgba(255, 255, 255, 0.1)',
-    borderColor: 'rgba(255, 255, 255, 0.6)',
+    background: '#1a1a1a',
+    color: '#ffffff',
   },
 })
 
-const PreviewSection = styled('div', {
-  maxWidth: '1200px',
-  margin: '-60px auto 0',
-  padding: '0 24px',
+const HeroGraphic = styled('div', {
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
   position: 'relative',
-  zIndex: 10,
+  '@media (max-width: 968px)': {
+    display: 'none',
+  },
+})
+
+const GraphicContainer = styled('div', {
+  position: 'relative',
+  width: '400px',
+  height: '500px',
+})
+
+const GraphicShape1 = styled('div', {
+  position: 'absolute',
+  top: '0',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  width: '200px',
+  height: '200px',
+  borderRadius: '0 0 100px 100px',
+  background: '#FF7B7B',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+})
+
+const GraphicShape2 = styled('div', {
+  position: 'absolute',
+  top: '0',
+  right: '20px',
+  width: '100px',
+  height: '100px',
+  borderRadius: '50%',
+  background: '#8B7BF7',
+})
+
+const GraphicStripes = styled('div', {
+  position: 'absolute',
+  top: '180px',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  width: '120px',
+  height: '200px',
+  display: 'flex',
+  gap: '8px',
+})
+
+const Stripe = styled('div', {
+  width: '16px',
+  height: '100%',
+  background: '#1a1a1a',
+})
+
+const GraphicCheckerboard = styled('div', {
+  position: 'absolute',
+  top: '200px',
+  right: '0',
+  width: '150px',
+  height: '150px',
+  display: 'grid',
+  gridTemplateColumns: 'repeat(5, 1fr)',
+  gridTemplateRows: 'repeat(5, 1fr)',
+})
+
+const CheckerCell = styled('div', ({ $filled }: { $filled: boolean }) => ({
+  background: $filled ? '#2ECC71' : '#F5F3EF',
+}))
+
+const GraphicSunburst = styled('div', {
+  position: 'absolute',
+  bottom: '0',
+  right: '40px',
+  width: '120px',
+  height: '120px',
+  background: '#FFD93D',
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  overflow: 'hidden',
+})
+
+const StarShape = styled('div', {
+  position: 'absolute',
+  top: '80px',
+  left: '50%',
+  transform: 'translateX(-50%)',
+  color: '#1a1a1a',
+})
+
+const FeaturesSection = styled('section', {
+  background: '#ffffff',
+  padding: '120px 60px',
+  '@media (max-width: 768px)': {
+    padding: '60px 24px',
+  },
+})
+
+const DetailedFeatureSection = styled('section', {
+  background: '#F5F3EF',
+  padding: '100px 60px',
+  '@media (max-width: 768px)': {
+    padding: '60px 24px',
+  },
+})
+
+const FeatureRow = styled('div', ({ $reverse }: { $reverse?: boolean }) => ({
+  display: 'grid',
+  gridTemplateColumns: '1fr 1fr',
+  gap: '80px',
+  maxWidth: '1200px',
+  margin: '0 auto 100px',
+  alignItems: 'center',
+  direction: $reverse ? 'rtl' : 'ltr',
+  '@media (max-width: 968px)': {
+    gridTemplateColumns: '1fr',
+    gap: '40px',
+    direction: 'ltr',
+  },
+}))
+
+const FeatureRowContent = styled('div', {
+  direction: 'ltr',
+})
+
+const FeatureRowTitle = styled('h3', {
+  fontSize: '36px',
+  fontWeight: 700,
+  color: '#1a1a1a',
+  marginBottom: '20px',
+  letterSpacing: '-1px',
+  fontFamily: "'Georgia', serif",
+  '@media (max-width: 768px)': {
+    fontSize: '28px',
+  },
+})
+
+const FeatureRowDescription = styled('p', {
+  fontSize: '17px',
+  color: '#4a4a4a',
+  lineHeight: 1.8,
+  marginBottom: '24px',
+  fontFamily: "'Georgia', serif",
+})
+
+const FeatureList = styled('ul', {
+  listStyle: 'none',
+  padding: 0,
+  margin: 0,
+})
+
+const FeatureListItem = styled('li', {
+  display: 'flex',
+  alignItems: 'flex-start',
+  gap: '12px',
+  marginBottom: '16px',
+  fontSize: '15px',
+  color: '#4a4a4a',
+  lineHeight: 1.6,
+})
+
+const CheckIcon = styled('div', {
+  width: '24px',
+  height: '24px',
+  background: '#2ECC71',
+  borderRadius: '50%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  flexShrink: 0,
+  marginTop: '2px',
+})
+
+const FeatureRowImage = styled('div', ({ $bg }: { $bg: string }) => ({
+  direction: 'ltr',
+  background: $bg,
+  borderRadius: '0',
+  border: '2px solid #1a1a1a',
+  boxShadow: '8px 8px 0px #1a1a1a',
+  height: '400px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  overflow: 'hidden',
+  '@media (max-width: 768px)': {
+    height: '280px',
+  },
+}))
+
+const FeatureImageContent = styled('div', {
+  padding: '40px',
+  textAlign: 'center',
+  color: '#ffffff',
+})
+
+const StatsSection = styled('section', {
+  background: '#1a1a1a',
+  padding: '80px 60px',
+  '@media (max-width: 768px)': {
+    padding: '60px 24px',
+  },
+})
+
+const StatsContainer = styled('div', {
+  maxWidth: '1200px',
+  margin: '0 auto',
+  display: 'grid',
+  gridTemplateColumns: 'repeat(4, 1fr)',
+  gap: '40px',
+  '@media (max-width: 968px)': {
+    gridTemplateColumns: 'repeat(2, 1fr)',
+  },
+  '@media (max-width: 480px)': {
+    gridTemplateColumns: '1fr',
+  },
+})
+
+const StatItem = styled('div', {
+  textAlign: 'center',
+})
+
+const StatNumber = styled('div', {
+  fontSize: '56px',
+  fontWeight: 700,
+  color: '#ffffff',
+  marginBottom: '8px',
+  fontFamily: "'Georgia', serif",
+  '@media (max-width: 768px)': {
+    fontSize: '40px',
+  },
+})
+
+const StatLabel = styled('div', {
+  fontSize: '14px',
+  color: 'rgba(255, 255, 255, 0.6)',
+  textTransform: 'uppercase',
+  letterSpacing: '1px',
+  fontFamily: "'Courier New', monospace",
+})
+
+const CTASection = styled('section', {
+  background: '#FF6B5B',
+  padding: '100px 60px',
+  textAlign: 'center',
+  '@media (max-width: 768px)': {
+    padding: '60px 24px',
+  },
+})
+
+const CTATitle = styled('h2', {
+  fontSize: '48px',
+  fontWeight: 700,
+  color: '#ffffff',
+  marginBottom: '20px',
+  letterSpacing: '-1px',
+  fontFamily: "'Georgia', serif",
+  '@media (max-width: 768px)': {
+    fontSize: '32px',
+  },
+})
+
+const CTASubtitle = styled('p', {
+  fontSize: '18px',
+  color: 'rgba(255, 255, 255, 0.9)',
+  marginBottom: '40px',
+  maxWidth: '600px',
+  margin: '0 auto 40px',
+  fontFamily: "'Georgia', serif",
+})
+
+const CTAButtonWhite = styled('button', {
+  padding: '18px 40px',
+  borderRadius: '4px',
+  border: '2px solid #ffffff',
+  background: '#ffffff',
+  color: '#FF6B5B',
+  fontSize: '16px',
+  fontWeight: 700,
+  cursor: 'pointer',
+  transition: 'all 0.2s',
+  fontFamily: "'Courier New', monospace",
+  ':hover': {
+    background: 'transparent',
+    color: '#ffffff',
+  },
+})
+
+const FeaturesContainer = styled('div', {
+  maxWidth: '1200px',
+  margin: '0 auto',
+})
+
+const SectionHeader = styled('div', {
+  textAlign: 'center',
+  marginBottom: '80px',
+})
+
+const SectionTitle = styled('h2', {
+  fontSize: '48px',
+  fontWeight: 700,
+  color: '#1a1a1a',
+  marginBottom: '16px',
+  letterSpacing: '-1px',
+  fontFamily: "'Georgia', serif",
+  '@media (max-width: 768px)': {
+    fontSize: '32px',
+  },
+})
+
+const SectionSubtitle = styled('p', {
+  fontSize: '18px',
+  color: '#6b7280',
+  maxWidth: '600px',
+  margin: '0 auto',
+  fontFamily: "'Georgia', serif",
+})
+
+const FeaturesGrid = styled('div', {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, 1fr)',
+  gap: '40px',
+  '@media (max-width: 968px)': {
+    gridTemplateColumns: 'repeat(2, 1fr)',
+  },
+  '@media (max-width: 640px)': {
+    gridTemplateColumns: '1fr',
+  },
+})
+
+const FeatureCard = styled('div', {
+  padding: '40px 32px',
+  background: '#F5F3EF',
+  border: '1px solid #e5e5e5',
+  transition: 'all 0.3s',
+  ':hover': {
+    transform: 'translateY(-4px)',
+    boxShadow: '8px 8px 0px #1a1a1a',
+  },
+})
+
+const FeatureIcon = styled('div', ({ $bg }: { $bg: string }) => ({
+  width: '56px',
+  height: '56px',
+  background: $bg,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  marginBottom: '24px',
+  color: '#ffffff',
+}))
+
+const FeatureTitle = styled('h3', {
+  fontSize: '20px',
+  fontWeight: 700,
+  color: '#1a1a1a',
+  marginBottom: '12px',
+  fontFamily: "'Georgia', serif",
+})
+
+const FeatureDescription = styled('p', {
+  fontSize: '15px',
+  color: '#6b7280',
+  lineHeight: 1.7,
+})
+
+const PreviewSection = styled('section', {
+  background: '#F5F3EF',
+  padding: '80px 60px',
+  '@media (max-width: 768px)': {
+    padding: '40px 24px',
+  },
+})
+
+const PreviewContainer = styled('div', {
+  maxWidth: '1200px',
+  margin: '0 auto',
 })
 
 const PreviewCard = styled('div', {
   background: '#ffffff',
-  borderRadius: '20px',
-  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+  border: '2px solid #1a1a1a',
+  boxShadow: '8px 8px 0px #1a1a1a',
   overflow: 'hidden',
-  border: '1px solid rgba(0, 0, 0, 0.05)',
 })
 
 const PreviewHeader = styled('div', {
@@ -173,8 +568,8 @@ const PreviewHeader = styled('div', {
   alignItems: 'center',
   gap: '8px',
   padding: '16px 20px',
-  background: '#f8f9fa',
-  borderBottom: '1px solid #e9ecef',
+  background: '#F5F3EF',
+  borderBottom: '2px solid #1a1a1a',
 })
 
 const PreviewDot = styled('div', ({ $color }: { $color: string }) => ({
@@ -182,20 +577,21 @@ const PreviewDot = styled('div', ({ $color }: { $color: string }) => ({
   height: '12px',
   borderRadius: '50%',
   background: $color,
+  border: '1px solid #1a1a1a',
 }))
 
 const PreviewContent = styled('div', {
   display: 'flex',
-  height: '500px',
+  height: '450px',
   '@media (max-width: 768px)': {
     height: '300px',
   },
 })
 
 const PreviewSidebar = styled('div', {
-  width: '80px',
-  background: '#f8f9fa',
-  borderRight: '1px solid #e9ecef',
+  width: '70px',
+  background: '#F5F3EF',
+  borderRight: '2px solid #1a1a1a',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -204,10 +600,10 @@ const PreviewSidebar = styled('div', {
 })
 
 const SidebarIcon = styled('div', ({ $active }: { $active?: boolean }) => ({
-  width: '48px',
-  height: '48px',
-  borderRadius: '12px',
-  background: $active ? '#667eea' : 'transparent',
+  width: '44px',
+  height: '44px',
+  background: $active ? '#FF6B5B' : 'transparent',
+  border: $active ? '2px solid #1a1a1a' : '2px solid transparent',
   color: $active ? '#ffffff' : '#6b7280',
   display: 'flex',
   alignItems: 'center',
@@ -218,19 +614,17 @@ const SidebarIcon = styled('div', ({ $active }: { $active?: boolean }) => ({
 
 const PreviewCanvas = styled('div', {
   flex: 1,
-  background: '#f1f3f4',
+  background: '#e5e5e5',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  position: 'relative',
 })
 
 const CanvasFrame = styled('div', {
-  width: '400px',
-  height: '400px',
+  width: '350px',
+  height: '350px',
   background: '#ffffff',
-  borderRadius: '8px',
-  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+  border: '2px solid #1a1a1a',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
@@ -243,98 +637,28 @@ const CanvasFrame = styled('div', {
 })
 
 const CanvasText = styled('div', {
-  fontSize: '32px',
+  fontSize: '24px',
   fontWeight: 700,
   color: '#1a1a1a',
+  fontFamily: "'Georgia', serif",
   '@media (max-width: 768px)': {
-    fontSize: '18px',
+    fontSize: '16px',
   },
 })
 
 const CanvasSubtext = styled('div', {
   fontSize: '14px',
   color: '#6b7280',
-})
-
-const FeaturesSection = styled('section', {
-  background: '#ffffff',
-  padding: '120px 24px',
-})
-
-const FeaturesContainer = styled('div', {
-  maxWidth: '1200px',
-  margin: '0 auto',
-})
-
-const SectionTitle = styled('h2', {
-  fontSize: '48px',
-  fontWeight: 800,
-  color: '#1a1a1a',
-  textAlign: 'center',
-  marginBottom: '16px',
-  letterSpacing: '-1px',
-})
-
-const SectionSubtitle = styled('p', {
-  fontSize: '18px',
-  color: '#6b7280',
-  textAlign: 'center',
-  maxWidth: '600px',
-  margin: '0 auto 64px',
-})
-
-const FeaturesGrid = styled('div', {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, 1fr)',
-  gap: '32px',
-  '@media (max-width: 968px)': {
-    gridTemplateColumns: 'repeat(2, 1fr)',
-  },
-  '@media (max-width: 640px)': {
-    gridTemplateColumns: '1fr',
-  },
-})
-
-const FeatureCard = styled('div', {
-  padding: '32px',
-  borderRadius: '16px',
-  background: '#f8f9fa',
-  transition: 'all 0.3s',
-  ':hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: '0 12px 24px rgba(0, 0, 0, 0.08)',
-  },
-})
-
-const FeatureIcon = styled('div', ({ $bg }: { $bg: string }) => ({
-  width: '56px',
-  height: '56px',
-  borderRadius: '14px',
-  background: $bg,
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  marginBottom: '20px',
-  color: '#ffffff',
-}))
-
-const FeatureTitle = styled('h3', {
-  fontSize: '20px',
-  fontWeight: 700,
-  color: '#1a1a1a',
-  marginBottom: '12px',
-})
-
-const FeatureDescription = styled('p', {
-  fontSize: '15px',
-  color: '#6b7280',
-  lineHeight: 1.6,
+  fontFamily: "'Courier New', monospace",
 })
 
 const Footer = styled('footer', {
   background: '#1a1a1a',
-  padding: '60px 24px',
+  padding: '60px 60px',
   color: '#ffffff',
+  '@media (max-width: 768px)': {
+    padding: '40px 24px',
+  },
 })
 
 const FooterContent = styled('div', {
@@ -350,6 +674,7 @@ const FooterContent = styled('div', {
 const FooterText = styled('p', {
   color: 'rgba(255, 255, 255, 0.6)',
   fontSize: '14px',
+  fontFamily: "'Courier New', monospace",
 })
 
 const FooterLinks = styled('div', {
@@ -362,6 +687,7 @@ const FooterLink = styled('a', {
   textDecoration: 'none',
   fontSize: '14px',
   transition: 'color 0.2s',
+  fontFamily: "'Courier New', monospace",
   ':hover': {
     color: '#ffffff',
   },
@@ -369,40 +695,69 @@ const FooterLink = styled('a', {
 
 const FEATURES = [
   {
-    icon: '✨',
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+      </svg>
+    ),
     title: 'AI-Powered Design',
     description: 'Let AI create stunning designs for you. Just describe what you want and watch the magic happen.',
-    bg: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    bg: '#8B7BF7',
   },
   {
-    icon: '🎨',
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <path d="M3 9h18M9 21V9" />
+      </svg>
+    ),
     title: 'Professional Templates',
     description: 'Start with beautiful templates for social media, presentations, marketing materials, and more.',
-    bg: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    bg: '#FF6B5B',
   },
   {
-    icon: '🖼️',
-    title: 'Million+ Stock Photos',
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="9" cy="9" r="2" />
+        <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+      </svg>
+    ),
+    title: 'Stock Photo Library',
     description: 'Access a vast library of high-quality stock photos from Pexels, completely free to use.',
-    bg: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    bg: '#2ECC71',
   },
   {
-    icon: '✏️',
-    title: 'Advanced Text Editor',
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M4 7V4h16v3M9 20h6M12 4v16" />
+      </svg>
+    ),
+    title: 'Advanced Typography',
     description: 'Beautiful typography with 1000+ Google Fonts. Create stunning text effects and styles.',
-    bg: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    bg: '#FFD93D',
   },
   {
-    icon: '🔷',
-    title: 'Shapes & Elements',
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+      </svg>
+    ),
+    title: 'Shapes and Elements',
     description: 'Thousands of shapes, icons, and design elements to make your creations stand out.',
-    bg: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
+    bg: '#FF7B7B',
   },
   {
-    icon: '☁️',
-    title: 'Cloud Storage',
-    description: 'Your designs are automatically saved. Access them from anywhere, anytime.',
-    bg: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+        <polyline points="17 8 12 3 7 8" />
+        <line x1="12" y1="3" x2="12" y2="15" />
+      </svg>
+    ),
+    title: 'Export Anywhere',
+    description: 'Download your designs in multiple formats. PNG, JPG, PDF ready for any platform.',
+    bg: '#1a1a1a',
   },
 ]
 
@@ -413,10 +768,22 @@ function Landing() {
     history.push('/design')
   }
 
+  // Generate checkerboard pattern
+  const checkerPattern = []
+  for (let i = 0; i < 25; i++) {
+    const row = Math.floor(i / 5)
+    const col = i % 5
+    checkerPattern.push((row + col) % 2 === 0)
+  }
+
   return (
     <Container>
       {/* Navigation */}
       <Nav>
+        <Sparkle>
+          <span style={{ fontSize: '20px' }}>+</span>
+          <span style={{ fontSize: '14px' }}>+</span>
+        </Sparkle>
         <Logo>
           <LogoIcon>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -426,89 +793,132 @@ function Landing() {
           Marketifyall
         </Logo>
         <NavLinks>
-          <NavButton onClick={handleStartDesigning}>Sign In</NavButton>
+          <NavButton onClick={handleStartDesigning}>Start Designing</NavButton>
         </NavLinks>
+        <Sparkle>
+          <span style={{ fontSize: '14px' }}>+</span>
+          <span style={{ fontSize: '20px' }}>+</span>
+        </Sparkle>
       </Nav>
 
       {/* Hero Section */}
-      <Hero>
-        <Badge>
-          <span>🚀</span>
-          <span>Powered by AI</span>
-        </Badge>
-        <HeroTitle>
-          Design anything.<br />
-          Publish everywhere.
-        </HeroTitle>
-        <HeroSubtitle>
-          Design Editor by Marketifyall — Create stunning graphics, presentations, and social media content in minutes. 
-          No design skills needed — our AI does the heavy lifting.
-        </HeroSubtitle>
-        <CTAButtons>
-          <PrimaryButton onClick={handleStartDesigning}>
-            Start Designing — It's Free
-          </PrimaryButton>
-          <SecondaryButton>
-            Watch Demo
-          </SecondaryButton>
-        </CTAButtons>
-      </Hero>
+      <HeroSection>
+        <HeroContent>
+          <HeroTitle>
+            Designs that don't just look good — they work for your brand.
+          </HeroTitle>
+          <Divider />
+          <HeroSubtitle>
+            Marketifyall is a <HighlightText>Professional Design Editor</HighlightText> that 
+            helps you create stunning graphics, social media posts, and marketing materials — 
+            helping you launch faster, convert better, and grow with confidence.
+          </HeroSubtitle>
+          <Divider />
+          <CTAButtons>
+            <PrimaryButton onClick={handleStartDesigning}>
+              Start Designing
+            </PrimaryButton>
+            <SecondaryButton onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
+              See Features
+            </SecondaryButton>
+          </CTAButtons>
+        </HeroContent>
+        <HeroGraphic>
+          <GraphicContainer>
+            <GraphicShape2 />
+            <GraphicShape1>
+              <StarShape>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2L9.19 8.63L2 9.24L7.46 13.97L5.82 21L12 17.27L18.18 21L16.54 13.97L22 9.24L14.81 8.63L12 2Z" />
+                </svg>
+              </StarShape>
+            </GraphicShape1>
+            <GraphicStripes>
+              <Stripe />
+              <Stripe />
+              <Stripe />
+              <Stripe />
+              <Stripe />
+            </GraphicStripes>
+            <GraphicCheckerboard>
+              {checkerPattern.map((filled, i) => (
+                <CheckerCell key={i} $filled={filled} />
+              ))}
+            </GraphicCheckerboard>
+            <GraphicSunburst>
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                {[...Array(12)].map((_, i) => (
+                  <path
+                    key={i}
+                    d={`M40,40 L${40 + 40 * Math.cos((i * 30 * Math.PI) / 180)},${40 + 40 * Math.sin((i * 30 * Math.PI) / 180)} L${40 + 40 * Math.cos(((i * 30 + 15) * Math.PI) / 180)},${40 + 40 * Math.sin(((i * 30 + 15) * Math.PI) / 180)} Z`}
+                    fill={i % 2 === 0 ? '#FF6B5B' : '#FFD93D'}
+                  />
+                ))}
+              </svg>
+            </GraphicSunburst>
+          </GraphicContainer>
+        </HeroGraphic>
+      </HeroSection>
 
       {/* Preview Section */}
       <PreviewSection>
-        <PreviewCard>
-          <PreviewHeader>
-            <PreviewDot $color="#ff5f57" />
-            <PreviewDot $color="#febc2e" />
-            <PreviewDot $color="#28c840" />
-          </PreviewHeader>
-          <PreviewContent>
-            <PreviewSidebar>
-              <SidebarIcon $active>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                </svg>
-              </SidebarIcon>
-              <SidebarIcon>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 7V4h16v3M9 20h6M12 4v16" />
-                </svg>
-              </SidebarIcon>
-              <SidebarIcon>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" />
-                  <circle cx="9" cy="9" r="2" />
-                  <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                </svg>
-              </SidebarIcon>
-              <SidebarIcon>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-              </SidebarIcon>
-            </PreviewSidebar>
-            <PreviewCanvas>
-              <CanvasFrame>
-                <CanvasText>Your Design Here</CanvasText>
-                <CanvasSubtext>Click "Start Designing" to begin</CanvasSubtext>
-              </CanvasFrame>
-            </PreviewCanvas>
-          </PreviewContent>
-        </PreviewCard>
+        <PreviewContainer>
+          <PreviewCard>
+            <PreviewHeader>
+              <PreviewDot $color="#ff5f57" />
+              <PreviewDot $color="#febc2e" />
+              <PreviewDot $color="#28c840" />
+            </PreviewHeader>
+            <PreviewContent>
+              <PreviewSidebar>
+                <SidebarIcon $active>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                  </svg>
+                </SidebarIcon>
+                <SidebarIcon>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M4 7V4h16v3M9 20h6M12 4v16" />
+                  </svg>
+                </SidebarIcon>
+                <SidebarIcon>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="9" cy="9" r="2" />
+                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+                  </svg>
+                </SidebarIcon>
+                <SidebarIcon>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </SidebarIcon>
+              </PreviewSidebar>
+              <PreviewCanvas>
+                <CanvasFrame>
+                  <CanvasText>Your Design Here</CanvasText>
+                  <CanvasSubtext>Click "Start Designing" to begin</CanvasSubtext>
+                </CanvasFrame>
+              </PreviewCanvas>
+            </PreviewContent>
+          </PreviewCard>
+        </PreviewContainer>
       </PreviewSection>
 
       {/* Features Section */}
-      <FeaturesSection>
+      <FeaturesSection id="features">
         <FeaturesContainer>
-          <SectionTitle>Everything you need to create</SectionTitle>
-          <SectionSubtitle>
-            Powerful features that make design accessible to everyone, from beginners to professionals.
-          </SectionSubtitle>
+          <SectionHeader>
+            <SectionTitle>Everything you need to create</SectionTitle>
+            <SectionSubtitle>
+              Powerful features that make design accessible to everyone, from beginners to professionals.
+            </SectionSubtitle>
+          </SectionHeader>
           <FeaturesGrid>
             {FEATURES.map((feature, index) => (
               <FeatureCard key={index}>
                 <FeatureIcon $bg={feature.bg}>
-                  <span style={{ fontSize: '24px' }}>{feature.icon}</span>
+                  {feature.icon}
                 </FeatureIcon>
                 <FeatureTitle>{feature.title}</FeatureTitle>
                 <FeatureDescription>{feature.description}</FeatureDescription>
@@ -518,18 +928,222 @@ function Landing() {
         </FeaturesContainer>
       </FeaturesSection>
 
+      {/* Detailed Features */}
+      <DetailedFeatureSection>
+        {/* AI Design Feature */}
+        <FeatureRow>
+          <FeatureRowContent>
+            <FeatureRowTitle>AI-Powered Design Assistant</FeatureRowTitle>
+            <FeatureRowDescription>
+              Our intelligent AI understands your creative vision and helps bring it to life. 
+              Simply describe what you want to create, and watch as the AI generates professional 
+              designs tailored to your needs.
+            </FeatureRowDescription>
+            <FeatureList>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Natural language prompts - just describe your design idea
+              </FeatureListItem>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Smart element placement and color suggestions
+              </FeatureListItem>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Automatic layout optimization for any format
+              </FeatureListItem>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Multiple AI models including GPT-4 and Claude
+              </FeatureListItem>
+            </FeatureList>
+          </FeatureRowContent>
+          <FeatureRowImage $bg="#8B7BF7">
+            <FeatureImageContent>
+              <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+              </svg>
+              <div style={{ marginTop: '20px', fontSize: '24px', fontWeight: 700, fontFamily: "'Georgia', serif" }}>
+                AI Design Engine
+              </div>
+            </FeatureImageContent>
+          </FeatureRowImage>
+        </FeatureRow>
+
+        {/* Stock Photos Feature */}
+        <FeatureRow $reverse>
+          <FeatureRowContent>
+            <FeatureRowTitle>Millions of Stock Photos</FeatureRowTitle>
+            <FeatureRowDescription>
+              Access an extensive library of high-quality, royalty-free images from Pexels. 
+              Find the perfect photo for any project without leaving the editor.
+            </FeatureRowDescription>
+            <FeatureList>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Millions of free, high-resolution photos
+              </FeatureListItem>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Smart search with keyword suggestions
+              </FeatureListItem>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                No attribution required for commercial use
+              </FeatureListItem>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Curated collections for trending topics
+              </FeatureListItem>
+            </FeatureList>
+          </FeatureRowContent>
+          <FeatureRowImage $bg="#2ECC71">
+            <FeatureImageContent>
+              <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
+              <div style={{ marginTop: '20px', fontSize: '24px', fontWeight: 700, fontFamily: "'Georgia', serif" }}>
+                Photo Library
+              </div>
+            </FeatureImageContent>
+          </FeatureRowImage>
+        </FeatureRow>
+
+        {/* Typography Feature */}
+        <FeatureRow>
+          <FeatureRowContent>
+            <FeatureRowTitle>Professional Typography</FeatureRowTitle>
+            <FeatureRowDescription>
+              Create stunning text designs with access to over 1,000 Google Fonts. 
+              From elegant serifs to modern sans-serifs, find the perfect typeface for your brand.
+            </FeatureRowDescription>
+            <FeatureList>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                1000+ Google Fonts with instant preview
+              </FeatureListItem>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Advanced text styling and effects
+              </FeatureListItem>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Font pairing suggestions
+              </FeatureListItem>
+              <FeatureListItem>
+                <CheckIcon>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </CheckIcon>
+                Custom spacing, shadows, and outlines
+              </FeatureListItem>
+            </FeatureList>
+          </FeatureRowContent>
+          <FeatureRowImage $bg="#FFD93D">
+            <FeatureImageContent style={{ color: '#1a1a1a' }}>
+              <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M4 7V4h16v3M9 20h6M12 4v16" />
+              </svg>
+              <div style={{ marginTop: '20px', fontSize: '24px', fontWeight: 700, fontFamily: "'Georgia', serif" }}>
+                Typography Tools
+              </div>
+            </FeatureImageContent>
+          </FeatureRowImage>
+        </FeatureRow>
+      </DetailedFeatureSection>
+
+      {/* Stats Section */}
+      <StatsSection>
+        <StatsContainer>
+          <StatItem>
+            <StatNumber>1M+</StatNumber>
+            <StatLabel>Stock Photos</StatLabel>
+          </StatItem>
+          <StatItem>
+            <StatNumber>1000+</StatNumber>
+            <StatLabel>Google Fonts</StatLabel>
+          </StatItem>
+          <StatItem>
+            <StatNumber>500+</StatNumber>
+            <StatLabel>Templates</StatLabel>
+          </StatItem>
+          <StatItem>
+            <StatNumber>100%</StatNumber>
+            <StatLabel>Free to Use</StatLabel>
+          </StatItem>
+        </StatsContainer>
+      </StatsSection>
+
+      {/* CTA Section */}
+      <CTASection>
+        <CTATitle>Ready to create something amazing?</CTATitle>
+        <CTASubtitle>
+          Join thousands of creators who use Marketifyall to bring their ideas to life.
+        </CTASubtitle>
+        <CTAButtonWhite onClick={handleStartDesigning}>
+          Start Designing Now
+        </CTAButtonWhite>
+      </CTASection>
+
       {/* Footer */}
       <Footer>
         <FooterContent>
           <Logo style={{ color: '#ffffff' }}>
-            <LogoIcon style={{ background: 'rgba(255, 255, 255, 0.1)' }}>
+            <LogoIcon>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
               </svg>
             </LogoIcon>
             Marketifyall
           </Logo>
-          <FooterText>© 2025-2026 Design Editor by Marketifyall. All rights reserved.</FooterText>
+          <FooterText>2025-2026 Design Editor by Marketifyall. All rights reserved.</FooterText>
           <FooterLinks>
             <FooterLink href="#">Privacy</FooterLink>
             <FooterLink href="#">Terms</FooterLink>
