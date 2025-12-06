@@ -32,6 +32,10 @@ export const panelListItems = [
     name: 'Photos',
   },
   {
+    id: 'video',
+    name: 'Video',
+  },
+  {
     id: 'ai-studio',
     name: 'AI Studio',
   },

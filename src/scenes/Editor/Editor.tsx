@@ -9,6 +9,7 @@ import Panels from './components/Panels'
 import Toolbox from './components/Toolbox'
 import Footer from './components/Footer'
 import ContextMenu from './components/ContextMenu'
+import VideoTimeline from './components/VideoTimeline'
 import Editor, { useEditor } from '@nkyo/scenify-sdk'
 
 function App() {
@@ -188,6 +189,7 @@ function App() {
             <Editor
               config={editorConfig}
             />
+            <VideoTimeline />
           </div>
           <Footer />
         </div>

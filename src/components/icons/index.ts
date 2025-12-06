@@ -10,6 +10,7 @@ import Uploads from './Uploads'
 import Logo from './Logo'
 import AiStudio from './AiStudio'
 import AIDesigner from './AIDesigner'
+import Video from './Video'
 
 class Icons {
   static Background = Background
@@ -26,6 +27,7 @@ class Icons {
   static ['AI Studio'] = AiStudio
   static AIDesigner = AIDesigner
   static ['AI Designer'] = AIDesigner
+  static Video = Video
 }
 
 export default Icons

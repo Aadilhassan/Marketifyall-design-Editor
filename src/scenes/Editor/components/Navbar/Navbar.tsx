@@ -6,6 +6,7 @@ import useAppContext from '@/hooks/useAppContext'
 import Resize from './components/Resize'
 import PreviewTemplate from './components/PreviewTemplate'
 import History from './components/History'
+import ExportModal from './components/ExportModal'
 
 const Container = styled('div', {
   height: '64px',
@@ -154,22 +155,10 @@ function NavbarEditor() {
   const history = useHistory()
   const { currentTemplate } = useAppContext()
   const [name, setName] = useState('Untitled design')
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
 
   const handleGoHome = () => {
     history.push('/')
-  }
-
-  const handleDownload = async () => {
-    if (editor) {
-      const exportedTemplate = editor.exportToJSON()
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportedTemplate, null, 2))
-      const downloadAnchorNode = document.createElement('a')
-      downloadAnchorNode.setAttribute("href", dataStr)
-      downloadAnchorNode.setAttribute("download", `${name}.json`)
-      document.body.appendChild(downloadAnchorNode)
-      downloadAnchorNode.click()
-      downloadAnchorNode.remove()
-    }
   }
 
   useEffect(() => {
@@ -210,13 +199,13 @@ function NavbarEditor() {
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
         </IconButton>
-        <SecondaryButton onClick={handleDownload}>
+        <SecondaryButton onClick={() => setIsExportModalOpen(true)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
             <line x1="12" y1="15" x2="12" y2="3" />
           </svg>
-          Download
+          Export
         </SecondaryButton>
         <PreviewTemplate />
         <PrimaryButton>
@@ -228,6 +217,12 @@ function NavbarEditor() {
           Share
         </PrimaryButton>
       </RightSection>
+
+      <ExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        designName={name}
+      />
     </Container>
   )
 }
