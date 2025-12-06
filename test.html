@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Design Editor Integration Example</title>
+  <style>
+    .editor-container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .result-container {
+      margin-top: 24px;
+      padding: 24px;
+      background: #f9fafb;
+      border-radius: 8px;
+    }
+    #result-image {
+      max-width: 100%;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>Product Designer</h1>
+  
+  <!-- Design Editor Embed -->
+  <div class="editor-container">
+    <iframe
+      id="design-editor"
+      src="http://localhost:3000/embed?embed=true&callback=true&branding=true"
+      width="100%"
+      height="600"
+      frameborder="0"
+      allow="clipboard-write"
+    ></iframe>
+  </div>
+
+  <!-- Result Preview -->
+  <div class="result-container" id="result-container" style="display: none;">
+    <h2>Your Design</h2>
+    <img id="result-image" alt="Edited design" />
+    <button onclick="downloadImage()">Download</button>
+    <button onclick="uploadToServer()">Save to Account</button>
+  </div>
+
+  <script>
+    let currentImageData = null;
+
+    window.addEventListener('message', function(event) {
+      // Security: verify origin
+      if (event.origin !== 'http://localhost:3000') return;
+      
+      const { type, data } = event.data;
+      
+      switch (type) {
+        case 'marketifyall:ready':
+          console.log('Editor ready!', data.features);
+          break;
+          
+        case 'marketifyall:design-complete':
+          currentImageData = data.image;
+          document.getElementById('result-image').src = data.image;
+          document.getElementById('result-container').style.display = 'block';
+          console.log('Design saved:', data.name, data.width + 'x' + data.height);
+          break;
+          
+        case 'marketifyall:cancelled':
+          console.log('User cancelled');
+          break;
+      }
+    });
+
+    function downloadImage() {
+      if (!currentImageData) return;
+      
+      const link = document.createElement('a');
+      link.download = 'my-design.png';
+      link.href = currentImageData;
+      link.click();
+    }
+
+    function uploadToServer() {
+      if (!currentImageData) return;
+      
+      // Convert base64 to blob for upload
+      fetch(currentImageData)
+        .then(res => res.blob())
+        .then(blob => {
+          const formData = new FormData();
+          formData.append('image', blob, 'design.png');
+          
+          // Upload to your server
+          fetch('/api/upload-design', {
+            method: 'POST',
+            body: formData
+          })
+          .then(response => response.json())
+          .then(data => {
+            console.log('Uploaded:', data);
+            alert('Design saved to your account!');
+          });
+        });
+    }
+  </script>
+</body>
+</html>

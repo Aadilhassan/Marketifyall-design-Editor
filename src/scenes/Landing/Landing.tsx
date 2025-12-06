@@ -834,6 +834,7 @@ function Landing() {
         <NavLinks>
           <NavLink onClick={() => history.push('/')}>Home</NavLink>
           <NavLink onClick={() => history.push('/features')}>Features</NavLink>
+          <NavLink onClick={() => history.push('/developers')}>Developers</NavLink>
           <NavLink onClick={() => history.push('/about')}>About</NavLink>
           <NavLink onClick={() => history.push('/contact')}>Contact</NavLink>
         </NavLinks>
@@ -1203,6 +1204,7 @@ function Landing() {
           </div>
           <FooterLinks>
             <FooterLink onClick={() => history.push('/features')}>Features</FooterLink>
+            <FooterLink onClick={() => history.push('/developers')}>Developers</FooterLink>
             <FooterLink onClick={() => history.push('/about')}>About</FooterLink>
             <FooterLink onClick={() => history.push('/contact')}>Contact</FooterLink>
             <FooterLink href="https://github.com/Aadilhassan/Marketifyall-design-Editor" target="_blank" rel="noopener noreferrer">GitHub</FooterLink>

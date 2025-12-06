@@ -96,6 +96,7 @@ function Navigation({ transparent = false }: NavigationProps) {
       <NavLinks>
         <NavLink onClick={() => history.push('/')}>Home</NavLink>
         <NavLink onClick={() => history.push('/features')}>Features</NavLink>
+        <NavLink onClick={() => history.push('/developers')}>Developers</NavLink>
         <NavLink onClick={() => history.push('/about')}>About</NavLink>
         <NavLink onClick={() => history.push('/contact')}>Contact</NavLink>
       </NavLinks>

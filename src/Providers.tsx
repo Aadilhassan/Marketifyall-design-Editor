@@ -6,6 +6,7 @@ import { LightTheme, BaseProvider } from 'baseui'
 import { EditorProvider } from '@nkyo/scenify-sdk'
 import { AppProvider } from './contexts/AppContext'
 import { VideoProvider } from './contexts/VideoContext'
+import { EmbedProvider } from './contexts/EmbedContext'
 import store, { persistor } from '@store/store'
 import { Provider } from 'react-redux'
 
@@ -18,9 +19,11 @@ const Providers: FC = ({ children }) => {
         <StyletronProvider value={engine}>
           <EditorProvider>
             <BaseProvider theme={LightTheme}>
-              <VideoProvider>
-                <AppProvider>{children}</AppProvider>
-              </VideoProvider>
+              <EmbedProvider>
+                <VideoProvider>
+                  <AppProvider>{children}</AppProvider>
+                </VideoProvider>
+              </EmbedProvider>
             </BaseProvider>
           </EditorProvider>
         </StyletronProvider>

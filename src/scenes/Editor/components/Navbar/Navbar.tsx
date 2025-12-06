@@ -3,6 +3,7 @@ import { useEditor } from '@nkyo/scenify-sdk'
 import { useEffect, useState } from 'react'
 import { useHistory } from 'react-router-dom'
 import useAppContext from '@/hooks/useAppContext'
+import { useEmbedMode } from '@/contexts/EmbedContext'
 import Resize from './components/Resize'
 import PreviewTemplate from './components/PreviewTemplate'
 import History from './components/History'
@@ -150,12 +151,55 @@ const PrimaryButton = styled('button', {
   },
 })
 
+const DoneButton = styled('button', {
+  padding: '10px 24px',
+  borderRadius: '8px',
+  border: 'none',
+  background: '#10B981',
+  color: '#ffffff',
+  fontSize: '14px',
+  fontWeight: 600,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  transition: 'all 0.2s',
+  boxShadow: '0 2px 4px rgba(16, 185, 129, 0.3)',
+  ':hover': {
+    background: '#059669',
+    transform: 'translateY(-1px)',
+    boxShadow: '0 4px 8px rgba(16, 185, 129, 0.4)',
+  },
+})
+
+const CancelButton = styled('button', {
+  padding: '10px 20px',
+  borderRadius: '8px',
+  border: '1px solid #e5e7eb',
+  background: '#ffffff',
+  color: '#6b7280',
+  fontSize: '14px',
+  fontWeight: 500,
+  cursor: 'pointer',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  transition: 'all 0.2s',
+  ':hover': {
+    background: '#f9fafb',
+    borderColor: '#d1d5db',
+    color: '#374151',
+  },
+})
+
 function NavbarEditor() {
   const editor = useEditor()
   const history = useHistory()
   const { currentTemplate } = useAppContext()
+  const { config, sendImageToParent, notifyCancel } = useEmbedMode()
   const [name, setName] = useState('Untitled design')
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
   const handleGoHome = () => {
     history.push('/')
@@ -167,6 +211,97 @@ function NavbarEditor() {
     }
   }, [currentTemplate])
 
+  // Handle "Done" button click in embed mode
+  const handleEmbedDone = async () => {
+    if (!editor) return
+
+    setIsExporting(true)
+    try {
+      // Export canvas as data URL using the SDK's toPNG method
+      // @ts-ignore - SDK method
+      const dataUrl = await editor.toPNG({})
+      
+      // Send image to parent window
+      sendImageToParent(dataUrl, {
+        name: name,
+        // @ts-ignore
+        width: editor.frame?.width,
+        // @ts-ignore
+        height: editor.frame?.height,
+      })
+    } catch (error) {
+      console.error('Failed to export image:', error)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  // Handle cancel in embed mode
+  const handleEmbedCancel = () => {
+    notifyCancel()
+  }
+
+  // If in embed mode, show simplified navbar with Done button
+  if (config.isEmbedMode) {
+    return (
+      <Container>
+        <LeftSection>
+          {config.showBranding && (
+            <>
+              <Logo style={{ cursor: 'default' }}>
+                <LogoIcon>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
+                </LogoIcon>
+                <LogoText>Marketifyall</LogoText>
+              </Logo>
+              <Divider />
+            </>
+          )}
+          <Resize />
+          <History />
+        </LeftSection>
+
+        <CenterSection>
+          <NameInput
+            value={name}
+            onChange={(e: any) => setName(e.target.value)}
+            placeholder="Untitled design"
+          />
+        </CenterSection>
+
+        <RightSection>
+          <CancelButton onClick={handleEmbedCancel}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+            Cancel
+          </CancelButton>
+          <DoneButton onClick={handleEmbedDone} disabled={isExporting}>
+            {isExporting ? (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
+                  <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12" />
+                </svg>
+                Saving...
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                Done
+              </>
+            )}
+          </DoneButton>
+        </RightSection>
+      </Container>
+    )
+  }
+
+  // Normal navbar for standalone mode
   return (
     <Container>
       <LeftSection>
