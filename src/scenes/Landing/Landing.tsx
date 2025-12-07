@@ -37,9 +37,12 @@ const Logo = styled('div', {
 const LogoIcon = styled('div', {
   width: '32px',
   height: '32px',
+  borderRadius: '8px',
+  background: 'linear-gradient(135deg, #ec7855ff 0%, #aaa55cff 100%)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  color: '#ffffff',
 })
 
 const NavLinks = styled('div', {
@@ -825,11 +828,9 @@ function Landing() {
       <Nav>
         <Logo style={{ cursor: 'pointer' }} onClick={() => history.push('/')}>
           <LogoIcon>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
+           M
           </LogoIcon>
-          Marketifyall
+          Design Editor
         </Logo>
         <NavLinks>
           <NavLink onClick={() => history.push('/')}>Home</NavLink>
