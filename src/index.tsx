@@ -3,13 +3,16 @@ import reportWebVitals from './reportWebVitals'
 import Providers from './Providers'
 import Routes from './Routes'
 import Container from './Container'
+import ErrorBoundary from './components/ErrorBoundary'
 
 ReactDOM.render(
-  <Providers>
-    <Container>
-      <Routes />
-    </Container>
-  </Providers>,
+  <ErrorBoundary>
+    <Providers>
+      <Container>
+        <Routes />
+      </Container>
+    </Providers>
+  </ErrorBoundary>,
   document.getElementById('root')
 )
 
