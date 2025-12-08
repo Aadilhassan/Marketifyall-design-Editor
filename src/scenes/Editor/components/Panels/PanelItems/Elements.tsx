@@ -376,7 +376,7 @@ function Panel() {
           startEnhancer={() => <Icons.Search size={16} />}
           value={searchValue}
           onChange={e => setSearchValue((e.target as any).value)}
-          placeholder="Search elements..."
+          placeholder="Search 1000+ icons..."
           clearOnEscape
           overrides={{
             Root: {
