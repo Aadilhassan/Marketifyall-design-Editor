@@ -5,6 +5,11 @@ import Routes from './Routes'
 import Container from './Container'
 import ErrorBoundary from './components/ErrorBoundary'
 
+// Polyfill process for browser environment
+if (typeof (window as any).process === 'undefined') {
+  ; (window as any).process = { env: {} }
+}
+
 ReactDOM.render(
   <ErrorBoundary>
     <Providers>

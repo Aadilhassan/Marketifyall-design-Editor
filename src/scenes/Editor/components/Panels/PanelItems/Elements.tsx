@@ -6,8 +6,8 @@ import { useEditor } from '@nkyo/scenify-sdk'
 import { useSelector } from 'react-redux'
 import { selectElements } from '@/store/slices/elements/selectors'
 import { styled } from 'baseui'
-import { 
-  getIconsByCategory, 
+import {
+  getIconsByCategory,
   getAllCategories,
   svgToBase64,
   searchIcons,
@@ -249,7 +249,7 @@ function Panel() {
   const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [addingIcon, setAddingIcon] = useState<string | null>(null)
-  
+
   const elements = useSelector(selectElements)
   const editor = useEditor()
   const scrollRef = useRef<Scrollbars>(null)
@@ -324,11 +324,12 @@ function Panel() {
   const handleAddIcon = useCallback(async (icon: LucideIcon) => {
     if (addingIcon) return
     setAddingIcon(icon.id)
-    
+
     try {
       const imageUrl = svgToBase64(icon.svg)
       editor.add({
-        type: 'StaticImage',
+        type: 'StaticVector',
+        width: 100,
         metadata: {
           src: imageUrl,
           name: icon.name,
@@ -342,10 +343,17 @@ function Panel() {
   }, [editor, addingIcon])
 
   // Handle adding shape to canvas
-  const handleAddShape = useCallback((shape: typeof BASIC_SHAPES[0]) => {
-    const imageUrl = svgToBase64(shape.svg)
+  const handleAddShape = useCallback((shape: { id: string; name: string; svg: string }) => {
+    // Ensure SVG has proper namespace for data URI
+    let svgContent = shape.svg
+    if (!svgContent.includes('xmlns="http://www.w3.org/2000/svg"')) {
+      svgContent = svgContent.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')
+    }
+
+    const imageUrl = svgToBase64(svgContent)
     editor.add({
-      type: 'StaticImage',
+      type: 'StaticVector',
+      width: 200,
       metadata: {
         src: imageUrl,
         name: shape.name,
@@ -495,7 +503,7 @@ function Panel() {
                   </ShapeItem>
                 ))}
               </IconGrid>
-              
+
               <SectionHeader>Arrows</SectionHeader>
               <IconGrid>
                 {ARROWS.map(arrow => (
@@ -511,7 +519,7 @@ function Panel() {
                   </ShapeItem>
                 ))}
               </IconGrid>
-              
+
               <SectionHeader>Dividers</SectionHeader>
               <IconGrid>
                 {DIVIDERS.map(divider => (
@@ -567,7 +575,7 @@ function Panel() {
                   </ShapeItem>
                 ))}
               </IconGrid>
-              
+
               <SectionHeader>Decorations</SectionHeader>
               <IconGrid>
                 {DECORATIONS.map(decor => (
