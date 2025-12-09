@@ -33,6 +33,20 @@ function Color() {
   const updateObjectFill = throttle((color: string) => {
     if (activeObject) {
       editor.update({ fill: color })
+      // @ts-ignore
+      if (activeObject._objects) {
+        // @ts-ignore
+        activeObject._objects.forEach((obj: any) => {
+          if (obj.fill && obj.fill !== 'none') {
+            obj.set({ fill: color })
+          }
+          if (obj.stroke && obj.stroke !== 'none') {
+            obj.set({ stroke: color })
+          }
+        })
+        // @ts-ignore
+        activeObject.canvas?.requestRenderAll()
+      }
     } else {
       editor.background.setBackgroundColor(color)
     }

@@ -46,6 +46,7 @@ const toolboxOptions = {
   Default: 'Default',
   StaticText: 'StaticText',
   StaticPath: 'StaticPath',
+  StaticVector: 'StaticVector',
   StaticImage: 'StaticImage',
   MultiElement: 'MultiElement',
   DynamicText: 'DynamicText',

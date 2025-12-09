@@ -40,9 +40,9 @@ const IconLock = (props?: any) => (
 )
 
 const IconRocket = (props?: any) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-    <circle cx="12" cy="12" r="10" fill="none" />
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z" />
+    <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z" />
   </svg>
 )
 
@@ -75,9 +75,8 @@ const IconMonitor = (props?: any) => (
 )
 
 const IconSignal = (props?: any) => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
-    <path d="M23 7l-7 5 -1.5-6 -5 -6 -2 6" />
-    <circle cx="12" cy="12" r="1" fill="currentColor" />
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
   </svg>
 )
 
@@ -1191,7 +1190,7 @@ function Embed() {
             Embed <GradientSpan>Design Editor</GradientSpan>
           </Title>
           <Subtitle>
-            Integrate our powerful design editor into your website or application. 
+            Integrate our powerful design editor into your website or application.
             Give your users the power to create stunning designs without leaving your platform.
           </Subtitle>
           <QuickNav>
@@ -1225,7 +1224,7 @@ function Embed() {
             Why Embed Marketifyall?
           </SectionTitle>
           <Text>
-            Add professional design capabilities to your platform in minutes. Perfect for e-commerce, 
+            Add professional design capabilities to your platform in minutes. Perfect for e-commerce,
             marketing platforms, print-on-demand services, and any application where users need to create graphics.
           </Text>
           <FeatureGrid>
@@ -1268,24 +1267,24 @@ function Embed() {
             Quick Start
           </SectionTitle>
           <Text>
-            Get the design editor running in your application with just a few lines of code. 
+            Get the design editor running in your application with just a few lines of code.
             Copy the snippet below and customize as needed.
           </Text>
-          
+
           <AlertBox $type="tip">
             <AlertIcon>
               <IconLightbulb />
             </AlertIcon>
             <div>
-              <strong>Pro Tip:</strong> Always verify the <InlineCode>event.origin</InlineCode> in 
+              <strong>Pro Tip:</strong> Always verify the <InlineCode>event.origin</InlineCode> in
               your message handler to ensure messages are from our editor and not malicious sources.
             </div>
           </AlertBox>
 
-          <CodeBlockWithCopy 
-            code={QUICK_START_CODE} 
-            language="HTML" 
-            fileName="index.html" 
+          <CodeBlockWithCopy
+            code={QUICK_START_CODE}
+            language="HTML"
+            fileName="index.html"
           />
         </Section>
 
@@ -1367,7 +1366,7 @@ function Embed() {
             </SectionIcon>
             Events Reference
           </SectionTitle>
-          
+
           <SubTitle>Events from Editor → Parent Window</SubTitle>
           <Text>
             Listen for these events using <InlineCode>window.addEventListener('message', handler)</InlineCode>:
@@ -1400,10 +1399,10 @@ function Embed() {
             </tbody>
           </Table>
 
-          <CodeBlockWithCopy 
-            code={EVENT_LISTENER_CODE} 
-            language="JavaScript" 
-            fileName="event-handler.js" 
+          <CodeBlockWithCopy
+            code={EVENT_LISTENER_CODE}
+            language="JavaScript"
+            fileName="event-handler.js"
           />
 
           <SubTitle>Commands from Parent Window → Editor</SubTitle>
@@ -1438,10 +1437,10 @@ function Embed() {
             </tbody>
           </Table>
 
-          <CodeBlockWithCopy 
-            code={SEND_COMMANDS_CODE} 
-            language="JavaScript" 
-            fileName="send-commands.js" 
+          <CodeBlockWithCopy
+            code={SEND_COMMANDS_CODE}
+            language="JavaScript"
+            fileName="send-commands.js"
           />
         </Section>
 
@@ -1469,9 +1468,9 @@ function Embed() {
               />
             </DemoPreview>
             <DemoLabel>Embed URL:</DemoLabel>
-            <CodeBlockWithCopy 
-              code={demoUrl} 
-              language="URL" 
+            <CodeBlockWithCopy
+              code={demoUrl}
+              language="URL"
             />
           </DemoContainer>
         </Section>
@@ -1489,30 +1488,30 @@ function Embed() {
           <Text>
             A reusable React component with TypeScript types for the embedded editor:
           </Text>
-          <CodeBlockWithCopy 
-            code={REACT_EXAMPLE_CODE} 
-            language="TSX" 
-            fileName="DesignEditor.tsx" 
+          <CodeBlockWithCopy
+            code={REACT_EXAMPLE_CODE}
+            language="TSX"
+            fileName="DesignEditor.tsx"
           />
 
           <SubTitle>Vue 3 (Composition API)</SubTitle>
           <Text>
             A Vue 3 component using the Composition API with full reactivity:
           </Text>
-          <CodeBlockWithCopy 
-            code={VUE_EXAMPLE_CODE} 
-            language="Vue" 
-            fileName="DesignEditor.vue" 
+          <CodeBlockWithCopy
+            code={VUE_EXAMPLE_CODE}
+            language="Vue"
+            fileName="DesignEditor.vue"
           />
 
           <SubTitle>Complete HTML Example</SubTitle>
           <Text>
             A production-ready HTML example with download and save functionality:
           </Text>
-          <CodeBlockWithCopy 
-            code={FULL_HTML_EXAMPLE} 
-            language="HTML" 
-            fileName="product-designer.html" 
+          <CodeBlockWithCopy
+            code={FULL_HTML_EXAMPLE}
+            language="HTML"
+            fileName="product-designer.html"
           />
         </Section>
       </MainContent>
@@ -1584,7 +1583,7 @@ function Embed() {
       <CTASection>
         <CTATitle>Ready to Integrate?</CTATitle>
         <CTAText>
-          Start embedding the design editor in your application today. 
+          Start embedding the design editor in your application today.
           It's free, open-source, and takes just minutes to set up.
         </CTAText>
         <CTAButton

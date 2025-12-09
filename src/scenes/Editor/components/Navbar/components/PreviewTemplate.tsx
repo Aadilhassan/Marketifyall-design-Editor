@@ -6,6 +6,8 @@ import { flatten, uniq } from 'lodash'
 import { useEditor } from '@nkyo/scenify-sdk'
 import { FormControl } from 'baseui/form-control'
 import { Input } from 'baseui/input'
+import ExportModal from './ExportModal'
+import useAppContext from '@/hooks/useAppContext'
 
 function PreviewTemplate() {
   const [isOpen, setIsOpen] = useState(false)
@@ -106,6 +108,22 @@ function PreviewTemplate() {
         a.click()
       }
     }
+  }
+
+  // Get design name from context
+  const { currentTemplate } = useAppContext()
+  const [designName, setDesignName] = useState('Untitled design')
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (currentTemplate) {
+      setDesignName(currentTemplate.name)
+    }
+  }, [currentTemplate])
+
+  const handleOpenExportModal = () => {
+    setIsOpen(false)
+    setIsExportModalOpen(true)
   }
 
   // Function to recover canvas state in case of problems
@@ -355,7 +373,7 @@ function PreviewTemplate() {
                     Cancel
                   </Button>
                   <Button
-                    onClick={() => handleDownloadImage()}
+                    onClick={handleOpenExportModal}
                     disabled={isProcessing}
                     overrides={{
                       BaseButton: {
@@ -500,6 +518,12 @@ function PreviewTemplate() {
             )}
           </ModalBody>
         </Modal>
+
+        <ExportModal
+          isOpen={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          designName={designName}
+        />
       </ThemeProvider>
     </>
   )

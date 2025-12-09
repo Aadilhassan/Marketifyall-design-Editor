@@ -99,16 +99,16 @@ const IconButton = styled('button', {
   height: '36px',
   borderRadius: '8px',
   border: 'none',
-  background: 'transparent',
-  color: '#6b7280',
+  background: '#f3f4f6', // Light gray background by default
+  color: '#374151',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   cursor: 'pointer',
   transition: 'all 0.2s',
   ':hover': {
-    background: '#f3f4f6',
-    color: '#374151',
+    background: '#e5e7eb', // Slightly darker on hover
+    color: '#111827',
   },
 })
 
@@ -220,7 +220,7 @@ function NavbarEditor() {
       // Export canvas as data URL using the SDK's toPNG method
       // @ts-ignore - SDK method
       const dataUrl = await editor.toPNG({})
-      
+
       // Send image to parent window
       sendImageToParent(dataUrl, {
         name: name,
@@ -307,7 +307,7 @@ function NavbarEditor() {
       <LeftSection>
         <Logo onClick={handleGoHome}>
           <LogoIcon>
-         M
+            M
           </LogoIcon>
           <LogoText>Design Editor</LogoText>
         </Logo>
@@ -326,10 +326,10 @@ function NavbarEditor() {
 
       <RightSection>
         <IconButton title="Help">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
             <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-            <line x1="12" y1="17" x2="12.01" y2="17" />
+            <path d="M12 17h.01" />
           </svg>
         </IconButton>
         <SecondaryButton onClick={() => setIsExportModalOpen(true)}>
