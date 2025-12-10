@@ -1,20 +1,20 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { styled } from 'baseui'
 import useVideoContext from '@/hooks/useVideoContext'
-import { useEditorContext } from '@nkyo/scenify-sdk'
+import { useEditorContext, useEditor } from '@nkyo/scenify-sdk'
 
 const TimelineShell = styled('div', {
   position: 'absolute',
   left: '0',
   right: '0',
-  bottom: '0',
-  height: '280px',
+  top: '0', // Moved to top as requested
+  height: '220px', // Slightly compacted
   zIndex: 12,
   display: 'flex',
   flexDirection: 'column',
   background: '#ffffff',
-  borderTop: '1px solid #e5e7eb',
-  boxShadow: '0 -4px 20px rgba(0,0,0,0.08)',
+  borderBottom: '1px solid #e5e7eb',
+  boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
 })
 
 const Toolbar = styled('div', {
@@ -271,7 +271,7 @@ const ResizeHandle = styled('div', ({ $position }: { $position: string }) => {
     'sw': { bottom: '-4px', left: '-4px', cursor: 'nesw-resize' },
     'se': { bottom: '-4px', right: '-4px', cursor: 'nwse-resize' },
   }
-  
+
   return {
     position: 'absolute',
     width: '12px',
@@ -331,15 +331,9 @@ const VideoTimeline: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [zoom, setZoom] = useState(100)
-  const [videoSize, setVideoSize] = useState({ width: 70, height: 60 })
-  const [videoPosition, setVideoPosition] = useState({ left: 15, top: 20 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [isResizing, setIsResizing] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const timelineRef = useRef<HTMLDivElement>(null)
-  const overlayRef = useRef<HTMLDivElement>(null)
-  const dragStartRef = useRef({ x: 0, y: 0, videoLeft: 15, videoTop: 20 })
-  const resizeStartRef = useRef({ x: 0, y: 0, width: 70, height: 60 })
+  const playPromiseRef = useRef<Promise<void> | null>(null)
 
   const activeClip = useMemo(() => clips.find(c => c.id === activeClipId) || clips[0], [clips, activeClipId])
 
@@ -378,7 +372,7 @@ const VideoTimeline: React.FC = () => {
         duration: layer.duration,
         color: layer.color,
       }
-      
+
       if (layer.type === 'text') {
         textTrack.items.push(item)
       } else if (layer.type === 'image') {
@@ -390,10 +384,11 @@ const VideoTimeline: React.FC = () => {
 
     // Add canvas objects as layers
     if (canvas) {
+      // @ts-ignore
       const canvasObjects = canvas.getObjects?.() || []
       canvasObjects.forEach((obj: any, idx: number) => {
         if (!obj || obj.name === 'clip') return
-        
+
         const layerId = `canvas-${obj.id || idx}`
         const item = {
           id: layerId,
@@ -426,24 +421,213 @@ const VideoTimeline: React.FC = () => {
     }
   }, [activeClip])
 
-  // Sync playback state
+  // Sync playback state - properly handles play() promise to prevent AbortError
   useEffect(() => {
     if (!videoRef.current) return
 
+    const video = videoRef.current
+
     if (isPlaying) {
-      videoRef.current.play().catch(err => {
-        console.error('Playback error:', err)
-        setIsPlaying(false)
-      })
+      // Store the play promise so we can wait for it if pause is called
+      playPromiseRef.current = video.play()
+      playPromiseRef.current
+        .then(() => {
+          playPromiseRef.current = null
+        })
+        .catch(err => {
+          // Only log if it's not an abort error
+          if (err.name !== 'AbortError') {
+            console.error('Playback error:', err)
+          }
+          playPromiseRef.current = null
+          setIsPlaying(false)
+        })
     } else {
-      videoRef.current.pause()
+      // If there's a pending play promise, wait for it before pausing
+      const pauseVideo = async () => {
+        if (playPromiseRef.current) {
+          try {
+            await playPromiseRef.current
+          } catch (error) {
+            // Ignore abort errors
+          }
+          playPromiseRef.current = null
+        }
+        video.pause()
+      }
+      pauseVideo()
     }
   }, [isPlaying])
 
-  // Update current time during playback
+  const handleTogglePlay = useCallback(() => {
+    setIsPlaying(prev => !prev)
+  }, [])
+
+  // Canvas Click to Play/Pause
+  useEffect(() => {
+    if (!canvas) return
+
+    const handleCanvasMouseDown = (e: any) => {
+      const target = e.target
+      if (target && target.metadata?.isVideo && target.metadata?.id === activeClip?.id) {
+        handleTogglePlay()
+      }
+    }
+
+    canvas.on('mouse:down', handleCanvasMouseDown)
+    return () => {
+      canvas.off('mouse:down', handleCanvasMouseDown)
+    }
+  }, [canvas, activeClip, handleTogglePlay]) // Added handleTogglePlay to dependencies
+
+  // Store reference to original poster for restoration
+  const posterImageRef = useRef<HTMLImageElement | null>(null)
+  const videoElementRef = useRef<HTMLVideoElement | null>(null)
+
+  // Create a persistent video element for canvas use
+  useEffect(() => {
+    if (activeClip?.src && !videoElementRef.current) {
+      const videoEl = document.createElement('video')
+      videoEl.src = activeClip.src
+      videoEl.crossOrigin = 'anonymous'
+      videoEl.muted = true
+      videoEl.playsInline = true
+      videoEl.loop = false
+      videoEl.preload = 'auto'
+      videoElementRef.current = videoEl
+    }
+
+    return () => {
+      if (videoElementRef.current) {
+        videoElementRef.current.pause()
+        videoElementRef.current.src = ''
+        videoElementRef.current = null
+      }
+    }
+  }, [activeClip?.src])
+
+  // Sync canvas video element with main video ref
+  useEffect(() => {
+    if (videoElementRef.current && videoRef.current) {
+      videoElementRef.current.currentTime = videoRef.current.currentTime
+    }
+  }, [currentTime])
+
+  // Handle canvas object selection and movement - ensure video stays visible
+  useEffect(() => {
+    if (!canvas) return
+
+    const handleObjectMoving = (e: any) => {
+      const target = e.target
+      if (target && target.metadata?.isVideo) {
+        // Ensure the object remains visible during drag
+        target.set('opacity', 1)
+        target.set('visible', true)
+        target.dirty = true
+      }
+    }
+
+    const handleObjectModified = (e: any) => {
+      const target = e.target
+      if (target && target.metadata?.isVideo) {
+        target.set('opacity', 1)
+        target.set('visible', true)
+        target.dirty = true
+        // @ts-ignore
+        canvas.requestRenderAll()
+      }
+    }
+
+    const handleSelectionCreated = (e: any) => {
+      const selected = e.selected?.[0]
+      if (selected && selected.metadata?.isVideo) {
+        selected.set('opacity', 1)
+        selected.set('visible', true)
+        selected.dirty = true
+      }
+    }
+
+    canvas.on('object:moving', handleObjectMoving)
+    canvas.on('object:modified', handleObjectModified)
+    canvas.on('selection:created', handleSelectionCreated)
+
+    return () => {
+      canvas.off('object:moving', handleObjectMoving)
+      canvas.off('object:modified', handleObjectModified)
+      canvas.off('selection:created', handleSelectionCreated)
+    }
+  }, [canvas])
+
+  // Initialize video objects on canvas when activeClip changes
+  useEffect(() => {
+    if (!canvas || !activeClip) return
+
+    // Small delay to ensure object is fully added to canvas
+    const initTimeout = setTimeout(() => {
+      // @ts-ignore
+      const objects = canvas.getObjects?.() || []
+
+      // Find video objects and ensure they're visible
+      objects.forEach((obj: any) => {
+        if (obj && obj.metadata?.isVideo) {
+          // Ensure visibility and opacity
+          if (obj.opacity !== 1) {
+            obj.set('opacity', 1)
+          }
+          if (!obj.visible) {
+            obj.set('visible', true)
+          }
+
+          // Disable object caching for video frames
+          obj.set('objectCaching', false)
+
+          // Mark as dirty to force re-render
+          obj.dirty = true
+        }
+      })
+
+      // Render all changes
+      // @ts-ignore
+      canvas.requestRenderAll?.()
+    }, 100)
+
+    return () => clearTimeout(initTimeout)
+  }, [canvas, activeClip, clips])
+
+  // Update current time during playback and sync video with canvas
   useEffect(() => {
     const video = videoRef.current
     if (!video) return
+
+    let animationFrame: number
+
+    const updateCanvas = () => {
+      if (video && canvas) {
+        // Try to find the canvas object corresponding to the active clip
+        // @ts-ignore
+        const objects = canvas.getObjects()
+        // @ts-ignore
+        const videoObj = objects.find(obj => obj.metadata?.id === activeClip?.id)
+
+        if (videoObj) {
+          // Disable caching to support video playback
+          videoObj.set('objectCaching', false)
+
+          // ALWAYS ensure visibility - this is critical
+          videoObj.set('opacity', 1)
+          videoObj.set('visible', true)
+
+          // Mark object as dirty so it redraws
+          videoObj.dirty = true
+          // @ts-ignore
+          canvas.requestRenderAll()
+        }
+
+        if (isPlaying) {
+          animationFrame = requestAnimationFrame(updateCanvas)
+        }
+      }
+    }
 
     const handleTimeUpdate = () => {
       if (videoRef.current) {
@@ -462,15 +646,19 @@ const VideoTimeline: React.FC = () => {
     video.addEventListener('timeupdate', handleTimeUpdate)
     video.addEventListener('ended', handleEnded)
 
+    if (isPlaying) {
+      animationFrame = requestAnimationFrame(updateCanvas)
+    } else {
+      // When not playing, still update canvas once to ensure visibility
+      updateCanvas()
+    }
+
     return () => {
       video.removeEventListener('timeupdate', handleTimeUpdate)
       video.removeEventListener('ended', handleEnded)
+      cancelAnimationFrame(animationFrame)
     }
-  }, [])
-
-  const handleTogglePlay = () => {
-    setIsPlaying(prev => !prev)
-  }
+  }, [isPlaying, canvas, activeClip])
 
   const handleSeek = (time: number) => {
     if (videoRef.current) {
@@ -487,90 +675,6 @@ const VideoTimeline: React.FC = () => {
     handleSeek(Math.max(0, Math.min(time, totalDuration)))
   }
 
-
-
-  // Drag and resize handlers for video overlay
-  const handleMouseDown = (e: React.MouseEvent, type: 'drag' | 'resize', corner?: string) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    if (type === 'drag') {
-      setIsDragging(true)
-      dragStartRef.current = {
-        x: e.clientX,
-        y: e.clientY,
-        videoLeft: videoPosition.left,
-        videoTop: videoPosition.top,
-      }
-    } else if (type === 'resize' && corner) {
-      setIsResizing(corner)
-      resizeStartRef.current = {
-        x: e.clientX,
-        y: e.clientY,
-        width: videoSize.width,
-        height: videoSize.height,
-      }
-    }
-  }
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        e.preventDefault()
-        const deltaX = e.clientX - dragStartRef.current.x
-        const deltaY = e.clientY - dragStartRef.current.y
-        
-        const newLeft = dragStartRef.current.videoLeft + (deltaX / window.innerWidth) * 100
-        const newTop = dragStartRef.current.videoTop + (deltaY / window.innerHeight) * 100
-        
-        setVideoPosition({
-          left: Math.max(0, Math.min(95 - videoSize.width, newLeft)),
-          top: Math.max(0, Math.min(95 - videoSize.height, newTop)),
-        })
-      } else if (isResizing) {
-        e.preventDefault()
-        const deltaX = e.clientX - resizeStartRef.current.x
-        const deltaY = e.clientY - resizeStartRef.current.y
-        
-        let newWidth = resizeStartRef.current.width
-        let newHeight = resizeStartRef.current.height
-        
-        if (isResizing.includes('e')) {
-          newWidth = resizeStartRef.current.width + (deltaX / window.innerWidth) * 100
-        }
-        if (isResizing.includes('w')) {
-          newWidth = resizeStartRef.current.width - (deltaX / window.innerWidth) * 100
-        }
-        if (isResizing.includes('s')) {
-          newHeight = resizeStartRef.current.height + (deltaY / window.innerHeight) * 100
-        }
-        if (isResizing.includes('n')) {
-          newHeight = resizeStartRef.current.height - (deltaY / window.innerHeight) * 100
-        }
-        
-        setVideoSize({
-          width: Math.max(30, Math.min(95, newWidth)),
-          height: Math.max(20, Math.min(80, newHeight)),
-        })
-      }
-    }
-
-    const handleMouseUp = () => {
-      setIsDragging(false)
-      setIsResizing(null)
-    }
-
-    if (isDragging || isResizing) {
-      document.addEventListener('mousemove', handleMouseMove)
-      document.addEventListener('mouseup', handleMouseUp)
-      
-      return () => {
-        document.removeEventListener('mousemove', handleMouseMove)
-        document.removeEventListener('mouseup', handleMouseUp)
-      }
-    }
-  }, [isDragging, isResizing, videoSize])
-
   if (!isTimelineOpen) return null
 
   const playheadPosition = currentTime * pixelsPerSecond
@@ -583,34 +687,9 @@ const VideoTimeline: React.FC = () => {
 
   return (
     <>
-      {activeClip && (
-        <Overlay ref={overlayRef} style={{ 
-          left: `${videoPosition.left}%`,
-          top: `${videoPosition.top}%`,
-          width: `${videoSize.width}%`, 
-          height: `${videoSize.height}%` 
-        }}>
-          <VideoControls>
-            <ControlLabel>Video Layer • Drag to move, corners to resize</ControlLabel>
-            <ControlBtn onClick={() => {
-              setVideoSize({ width: 70, height: 60 })
-              setVideoPosition({ left: 15, top: 20 })
-            }}>Reset</ControlBtn>
-          </VideoControls>
-          <VideoWrapper $isDragging={isDragging} onMouseDown={(e) => handleMouseDown(e, 'drag')}>
-            <OverlayVideo
-              ref={videoRef}
-              src={activeClip.src}
-              muted
-              playsInline
-            />
-            <ResizeHandle $position="nw" onMouseDown={(e) => handleMouseDown(e, 'resize', 'nw')} />
-            <ResizeHandle $position="ne" onMouseDown={(e) => handleMouseDown(e, 'resize', 'ne')} />
-            <ResizeHandle $position="sw" onMouseDown={(e) => handleMouseDown(e, 'resize', 'sw')} />
-            <ResizeHandle $position="se" onMouseDown={(e) => handleMouseDown(e, 'resize', 'se')} />
-          </VideoWrapper>
-        </Overlay>
-      )}
+      <div style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: '1px', height: '1px', overflow: 'hidden' }}>
+        <video ref={videoRef} playsInline muted src={activeClip?.src} crossOrigin="anonymous" />
+      </div>
 
       <TimelineShell>
         <Toolbar>
@@ -652,7 +731,7 @@ const VideoTimeline: React.FC = () => {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="11" cy="11" r="8" />
                   <path d="m21 21-4.35-4.35" />
-                  <line x1="11" y1="8" x2="11" y2="14" />
+                  <line x1="11" y1="11" x2="11" y2="14" />
                   <line x1="8" y1="11" x2="14" y2="11" />
                 </svg>
               </IconButton>

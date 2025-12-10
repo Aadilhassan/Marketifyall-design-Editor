@@ -10,6 +10,7 @@ import Toolbox from './components/Toolbox'
 import Footer from './components/Footer'
 import ContextMenu from './components/ContextMenu'
 import VideoTimeline from './components/VideoTimeline'
+import VideoCanvasOverlay from './components/VideoCanvasOverlay'
 import Editor, { useEditor } from '@nkyo/scenify-sdk'
 
 function App() {
@@ -18,7 +19,7 @@ function App() {
   const location = useLocation()
   const dispath = useAppDispatch()
   const [hasInitialized, setHasInitialized] = useState(false)
-  
+
   // Parse URL parameters
   const searchParams = new URLSearchParams(location.search)
   const imgUrl = searchParams.get('img_url')
@@ -35,7 +36,7 @@ function App() {
   useEffect(() => {
     if (editor && !hasInitialized) {
       setHasInitialized(true)
-      
+
       // Load template from prebuilt_json_url if provided
       if (prebuiltJsonUrl) {
         fetch(prebuiltJsonUrl)
@@ -54,7 +55,7 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
-  
+
   // Auto-save feature with debounced saves
   // Let the package handle autosave and change/save callbacks
 
@@ -120,7 +121,7 @@ function App() {
   const handleLoadImageTemplate = async (imageUrl: string) => {
     try {
       console.log('Starting to load image:', imageUrl)
-      
+
       // Add the image using the editor's add method
       setTimeout(() => {
         try {
@@ -177,10 +178,10 @@ function App() {
         <Panels />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
           <Toolbox />
-          <div 
-            style={{ 
-              flex: 1, 
-              display: 'flex', 
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
               background: '#e5e7eb',
               position: 'relative',
             }}
@@ -189,6 +190,7 @@ function App() {
             <Editor
               config={editorConfig}
             />
+            <VideoCanvasOverlay />
             <VideoTimeline />
           </div>
           <Footer />

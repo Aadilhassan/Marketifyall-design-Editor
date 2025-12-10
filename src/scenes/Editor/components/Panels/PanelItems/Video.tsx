@@ -495,12 +495,36 @@ const Slider = styled('input', {
   },
 })
 
-// Sample video templates
+// Sample video templates with actual video sources for testing
 const VIDEO_TEMPLATES = [
-  { id: 1, name: 'Intro Animation', duration: '0:05', color: '#667eea' },
-  { id: 2, name: 'Social Story', duration: '0:15', color: '#ec4899' },
-  { id: 3, name: 'Product Showcase', duration: '0:30', color: '#10b981' },
-  { id: 4, name: 'Promo Video', duration: '0:45', color: '#f59e0b' },
+  {
+    id: 1,
+    name: 'Intro Animation',
+    duration: '0:05',
+    color: '#667eea',
+    src: 'https://www.w3schools.com/html/mov_bbb.mp4'
+  },
+  {
+    id: 2,
+    name: 'Social Story',
+    duration: '0:15',
+    color: '#ec4899',
+    src: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
+  },
+  {
+    id: 3,
+    name: 'Product Showcase',
+    duration: '0:30',
+    color: '#10b981',
+    src: 'https://www.w3schools.com/html/movie.mp4'
+  },
+  {
+    id: 4,
+    name: 'Promo Video',
+    duration: '0:45',
+    color: '#f59e0b',
+    src: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'
+  },
 ]
 
 // Animation presets
@@ -526,7 +550,7 @@ function Video() {
   const previewVideoRef = useRef<HTMLVideoElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const recordedChunksRef = useRef<Blob[]>([])
-  
+
   const [uploadedVideo, setUploadedVideo] = useState<string | null>(null)
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [activeModal, setActiveModal] = useState<ModalType>(null)
@@ -586,21 +610,21 @@ function Video() {
       video.src = uploadedVideo
       video.crossOrigin = 'anonymous'
       video.currentTime = frameTime
-      
+
       video.onloadeddata = () => {
         video.currentTime = frameTime
       }
-      
+
       video.onseeked = () => {
         const canvas = document.createElement('canvas')
         canvas.width = video.videoWidth
         canvas.height = video.videoHeight
         const ctx = canvas.getContext('2d')
-        
+
         if (ctx) {
           ctx.drawImage(video, 0, 0)
           const frameDataUrl = canvas.toDataURL('image/png')
-          
+
           editor.add({
             type: 'StaticImage',
             metadata: {
@@ -615,27 +639,244 @@ function Video() {
     }
   }, [editor, uploadedVideo, frameTime])
 
+  // Handle template click
+  const handleTemplateClick = useCallback(async (template) => {
+    try {
+      if (!editor) return
+
+      // Parse duration string "MM:SS" to seconds
+      const [mins, secs] = template.duration.split(':').map(Number)
+      const durationInSeconds = mins * 60 + secs
+
+      const clipId = `template-${template.id}-${Date.now()}`
+
+      // Extract poster frame from video source
+      const video = document.createElement('video')
+      video.src = template.src
+      video.crossOrigin = 'anonymous'
+      video.currentTime = 0.5 // Seek a bit to get a frame
+
+      await new Promise((resolve, reject) => {
+        video.onloadeddata = () => resolve(true)
+        video.onerror = reject
+      })
+
+      video.currentTime = 0.5
+      await new Promise(resolve => { video.onseeked = resolve })
+
+      const videoWidth = video.videoWidth || 1920
+      const videoHeight = video.videoHeight || 1080
+
+      const canvas = document.createElement('canvas')
+      canvas.width = videoWidth
+      canvas.height = videoHeight
+      const ctx = canvas.getContext('2d')
+
+      let posterUrl = ''
+      if (ctx) {
+        ctx.drawImage(video, 0, 0)
+        posterUrl = canvas.toDataURL('image/png')
+      }
+
+      // Calculate proper sizing for canvas
+      const frameWidth = 900
+      const frameHeight = 1200
+
+      let targetWidth = videoWidth
+      let targetHeight = videoHeight
+      let scaleX = 1
+      let scaleY = 1
+
+      // Scale down if video is too large for canvas
+      const maxWidth = frameWidth * 0.8
+      const maxHeight = frameHeight * 0.6
+
+      if (targetWidth > maxWidth || targetHeight > maxHeight) {
+        const widthRatio = maxWidth / targetWidth
+        const heightRatio = maxHeight / targetHeight
+        const scaleRatio = Math.min(widthRatio, heightRatio)
+
+        scaleX = scaleRatio
+        scaleY = scaleRatio
+        targetWidth = videoWidth * scaleX
+        targetHeight = videoHeight * scaleY
+      }
+
+      // Center the video on canvas
+      const left = (frameWidth - targetWidth) / 2
+      const top = (frameHeight - targetHeight) / 2
+
+      // Add to Canvas as a native object with proper dimensions
+      editor.add({
+        type: 'StaticImage',
+        metadata: {
+          src: posterUrl,
+          videoSrc: template.src,
+          name: template.name,
+          duration: durationInSeconds,
+          id: clipId,
+          isVideo: true,
+        },
+        width: videoWidth,
+        height: videoHeight,
+        left,
+        top,
+        scaleX,
+        scaleY,
+        opacity: 1,
+        visible: true,
+      })
+
+      // Add to Timeline
+      addClip({
+        id: clipId,
+        name: template.name,
+        src: template.src,
+        duration: durationInSeconds,
+        start: 0,
+        end: durationInSeconds,
+        poster: posterUrl,
+      })
+
+      setActiveClip(clipId)
+      setTimelineOpen(true)
+    } catch (error) {
+      console.error('Error loading template:', error)
+    }
+  }, [editor, addClip, setActiveClip, setTimelineOpen])
+
   // Add video to global timeline instead of flattening to an image
   const handleAddVideoToTimeline = useCallback(async () => {
-    if (!uploadedVideo) return
+    if (!uploadedVideo || !editor) return
 
     const clipId = `clip-${Date.now()}`
-    const poster = await extractFrame(uploadedVideo, 0)
     const clipDuration = duration || videoRef.current?.duration || 1
 
-    addClip({
-      id: clipId,
-      name: videoFile?.name || 'Video clip',
-      src: uploadedVideo,
-      duration: clipDuration,
-      start: 0,
-      end: clipDuration,
-      poster: poster || undefined,
-    })
+    // Create a video element to get dimensions
+    const video = document.createElement('video')
+    video.src = uploadedVideo
+    video.crossOrigin = 'anonymous'
+    video.preload = 'metadata'
 
-    setActiveClip(clipId)
-    setTimelineOpen(true)
-  }, [uploadedVideo, extractFrame, duration, addClip, videoFile, setActiveClip, setTimelineOpen])
+    video.onloadedmetadata = async () => {
+      const videoWidth = video.videoWidth || 1920
+      const videoHeight = video.videoHeight || 1080
+
+      // Extract poster frame
+      video.currentTime = 0.1 // Seek a bit to get a proper frame
+
+      video.onseeked = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = videoWidth
+        canvas.height = videoHeight
+        const ctx = canvas.getContext('2d')
+
+        let posterUrl = ''
+        if (ctx) {
+          ctx.drawImage(video, 0, 0)
+          posterUrl = canvas.toDataURL('image/png')
+        }
+
+        // Calculate proper sizing for canvas (similar to Images component)
+        // Default canvas size
+        const frameWidth = 900
+        const frameHeight = 1200
+
+        let targetWidth = videoWidth
+        let targetHeight = videoHeight
+        let scaleX = 1
+        let scaleY = 1
+
+        // Scale down if video is too large for canvas
+        const maxWidth = frameWidth * 0.8
+        const maxHeight = frameHeight * 0.6
+
+        if (targetWidth > maxWidth || targetHeight > maxHeight) {
+          const widthRatio = maxWidth / targetWidth
+          const heightRatio = maxHeight / targetHeight
+          const scaleRatio = Math.min(widthRatio, heightRatio)
+
+          scaleX = scaleRatio
+          scaleY = scaleRatio
+          targetWidth = videoWidth * scaleX
+          targetHeight = videoHeight * scaleY
+        }
+
+        // Center the video on canvas
+        const left = (frameWidth - targetWidth) / 2
+        const top = (frameHeight - targetHeight) / 2
+
+        // Add to Canvas as a native object with proper dimensions
+        const options: any = {
+          type: 'StaticImage',
+          metadata: {
+            src: posterUrl || uploadedVideo,
+            videoSrc: uploadedVideo,
+            name: videoFile?.name || 'Video clip',
+            duration: clipDuration,
+            id: clipId,
+            isVideo: true,
+          },
+          width: videoWidth,
+          height: videoHeight,
+          left,
+          top,
+          scaleX,
+          scaleY,
+          opacity: 1,
+          visible: true,
+        }
+
+        editor.add(options)
+
+        // Add to Timeline
+        addClip({
+          id: clipId,
+          name: videoFile?.name || 'Video clip',
+          src: uploadedVideo,
+          duration: clipDuration,
+          start: 0,
+          end: clipDuration,
+          poster: posterUrl || undefined,
+        })
+
+        setActiveClip(clipId)
+        setTimelineOpen(true)
+      }
+    }
+
+    video.onerror = async () => {
+      // Fallback if video metadata fails to load
+      const poster = await extractFrame(uploadedVideo, 0)
+
+      editor.add({
+        type: 'StaticImage',
+        metadata: {
+          src: poster || uploadedVideo,
+          videoSrc: uploadedVideo,
+          name: videoFile?.name || 'Video clip',
+          duration: clipDuration,
+          id: clipId,
+          isVideo: true,
+        },
+        opacity: 1,
+        visible: true,
+      })
+
+      addClip({
+        id: clipId,
+        name: videoFile?.name || 'Video clip',
+        src: uploadedVideo,
+        duration: clipDuration,
+        start: 0,
+        end: clipDuration,
+        poster: poster || undefined,
+      })
+
+      setActiveClip(clipId)
+      setTimelineOpen(true)
+    }
+  }, [uploadedVideo, extractFrame, duration, addClip, videoFile, setActiveClip, setTimelineOpen, editor])
 
   const handleRemoveVideo = () => {
     if (uploadedVideo) {
@@ -678,10 +919,10 @@ function Video() {
 
   const handleApplyAnimation = useCallback(() => {
     if (!editor) return
-    
+
     // Apply CSS animation preview
     applyAnimationPreview(selectedAnimation, animationDuration)
-    
+
     setActiveModal(null)
     alert(`Animation "${selectedAnimation}" applied! Duration: ${animationDuration}s\n\nNote: Animation will play when exporting as video.`)
   }, [editor, selectedAnimation, animationDuration, applyAnimationPreview])
@@ -690,7 +931,7 @@ function Video() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { 
+        video: {
           width: { ideal: 1920 },
           height: { ideal: 1080 },
         },
@@ -747,29 +988,71 @@ function Video() {
     const video = document.createElement('video')
     video.src = recordedVideo
     video.crossOrigin = 'anonymous'
-    
+
     video.onloadeddata = () => {
       video.currentTime = 0
     }
-    
+
     video.onseeked = () => {
+      const videoWidth = video.videoWidth || 1920
+      const videoHeight = video.videoHeight || 1080
+
       const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth || 1920
-      canvas.height = video.videoHeight || 1080
+      canvas.width = videoWidth
+      canvas.height = videoHeight
       const ctx = canvas.getContext('2d')
-      
+
       if (ctx) {
         ctx.drawImage(video, 0, 0)
         const frameDataUrl = canvas.toDataURL('image/png')
-        
+
+        // Calculate proper sizing for canvas
+        const frameWidth = 900
+        const frameHeight = 1200
+
+        let targetWidth = videoWidth
+        let targetHeight = videoHeight
+        let scaleX = 1
+        let scaleY = 1
+
+        // Scale down if video is too large for canvas
+        const maxWidth = frameWidth * 0.8
+        const maxHeight = frameHeight * 0.6
+
+        if (targetWidth > maxWidth || targetHeight > maxHeight) {
+          const widthRatio = maxWidth / targetWidth
+          const heightRatio = maxHeight / targetHeight
+          const scaleRatio = Math.min(widthRatio, heightRatio)
+
+          scaleX = scaleRatio
+          scaleY = scaleRatio
+          targetWidth = videoWidth * scaleX
+          targetHeight = videoHeight * scaleY
+        }
+
+        // Center the video on canvas
+        const left = (frameWidth - targetWidth) / 2
+        const top = (frameHeight - targetHeight) / 2
+
+        const clipId = `recording-${Date.now()}`
+
         editor.add({
           type: 'StaticImage',
           metadata: {
             src: frameDataUrl,
             name: 'Screen Recording',
             videoSrc: recordedVideo,
+            id: clipId,
             isVideo: true,
           },
+          width: videoWidth,
+          height: videoHeight,
+          left,
+          top,
+          scaleX,
+          scaleY,
+          opacity: 1,
+          visible: true,
         })
       }
     }
@@ -779,7 +1062,7 @@ function Video() {
 
   const downloadRecording = () => {
     if (!recordedVideo) return
-    
+
     const a = document.createElement('a')
     a.href = recordedVideo
     a.download = `screen-recording-${Date.now()}.webm`
@@ -862,15 +1145,15 @@ function Video() {
             <UploadedVideoContainer>
               <SectionTitle>Your Video</SectionTitle>
               <UploadedVideo>
-                <VideoElement 
+                <VideoElement
                   ref={videoRef}
-                  src={uploadedVideo} 
+                  src={uploadedVideo}
                   controls
                   onTimeUpdate={handleVideoTimeUpdate}
                   onLoadedMetadata={handleVideoLoaded}
                 />
               </UploadedVideo>
-              
+
               {/* Frame Selector */}
               <FrameSlider>
                 <SliderLabel>
@@ -886,7 +1169,7 @@ function Video() {
                   onChange={(e) => setFrameTime(parseFloat(e.target.value))}
                 />
               </FrameSlider>
-              
+
               <VideoControls>
                 <ControlButton onClick={handleRemoveVideo}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -935,7 +1218,7 @@ function Video() {
           {/* Video Tools */}
           <ToolsSection>
             <SectionTitle>Video Tools</SectionTitle>
-            
+
             <ToolButton onClick={() => setActiveModal('animate')} $active={activeModal === 'animate'}>
               <ToolIcon $color="#667eea">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1060,7 +1343,7 @@ function Video() {
                 ) : (
                   <RecordingVideo ref={previewVideoRef} autoPlay muted />
                 )}
-                
+
                 <RecordingStatus $recording={isRecording}>
                   <RecordingDot $recording={isRecording} />
                   {isRecording ? 'Recording...' : recordedVideo ? 'Recording Complete' : 'Ready to Record'}
@@ -1075,7 +1358,7 @@ function Video() {
                       Start Recording
                     </RecordButton>
                   )}
-                  
+
                   {isRecording && (
                     <RecordButton $recording onClick={stopRecording}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -1129,9 +1412,9 @@ function Video() {
               {uploadedVideo ? (
                 <>
                   <UploadedVideo>
-                    <VideoElement 
+                    <VideoElement
                       ref={videoRef}
-                      src={uploadedVideo} 
+                      src={uploadedVideo}
                       onTimeUpdate={handleVideoTimeUpdate}
                       onLoadedMetadata={handleVideoLoaded}
                     />
