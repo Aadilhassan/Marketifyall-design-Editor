@@ -25,6 +25,10 @@ function Color() {
   const [color, setColor] = useState('#b32aa9')
   const [value, setValue] = useState('')
   const [showPicker, setShowPicker] = useState(false)
+  const [showGradientCreator, setShowGradientCreator] = useState(false)
+  const [gradientColor1, setGradientColor1] = useState('#ff0080')
+  const [gradientColor2, setGradientColor2] = useState('#ff8c00')
+  const [gradientAngle, setGradientAngle] = useState(90)
   const editor = useEditor()
   const activeObject = useActiveObject()
 
@@ -62,10 +66,32 @@ function Color() {
     setColor(color)
   }, 100)
 
+  const applyCustomGradient = () => {
+    const customGradient = {
+      angle: gradientAngle,
+      colors: [gradientColor1, gradientColor2]
+    }
+    updateObjectGradient(customGradient)
+  }
+
   return (
     <div style={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
       <div style={{ padding: '2rem 2rem' }}>
-        {showPicker ? (
+        {showGradientCreator ? (
+          <div
+            onClick={() => setShowGradientCreator(false)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              cursor: 'pointer',
+              color: '#333',
+            }}
+          >
+            <ArrowLeft size={24} />
+            <span style={{ fontWeight: 500 }}>Back</span>
+          </div>
+        ) : showPicker ? (
           <div
             onClick={() => setShowPicker(false)}
             style={{
@@ -106,7 +132,97 @@ function Color() {
       </div>
       <div style={{ flex: 1 }}>
         <Scrollbars>
-          {showPicker ? (
+          {showGradientCreator ? (
+            <div style={{ padding: '0 2rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div style={{ padding: '0.5rem 0', cursor: 'default', fontSize: '0.96rem', fontWeight: 500 }}>
+                Create Gradient
+              </div>
+              
+              {/* Gradient Preview */}
+              <div
+                style={{
+                  height: '80px',
+                  borderRadius: '8px',
+                  background: `linear-gradient(${gradientAngle}deg, ${gradientColor1}, ${gradientColor2})`,
+                  border: '1px solid #e5e5e5',
+                }}
+              />
+
+              {/* Color 1 Picker */}
+              <div>
+                <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 500 }}>Start Color</div>
+                <HexColorPicker color={gradientColor1} onChange={setGradientColor1} style={{ width: '100%' }} />
+                <div style={{ marginTop: '0.5rem' }}>
+                  <Input
+                    overrides={{ Input: { style: { textAlign: 'center' } } }}
+                    value={gradientColor1}
+                    onChange={e => setGradientColor1((e.target as any).value)}
+                    placeholder="#ff0080"
+                    clearOnEscape
+                  />
+                </div>
+              </div>
+
+              {/* Color 2 Picker */}
+              <div>
+                <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 500 }}>End Color</div>
+                <HexColorPicker color={gradientColor2} onChange={setGradientColor2} style={{ width: '100%' }} />
+                <div style={{ marginTop: '0.5rem' }}>
+                  <Input
+                    overrides={{ Input: { style: { textAlign: 'center' } } }}
+                    value={gradientColor2}
+                    onChange={e => setGradientColor2((e.target as any).value)}
+                    placeholder="#ff8c00"
+                    clearOnEscape
+                  />
+                </div>
+              </div>
+
+              {/* Angle Slider */}
+              <div>
+                <div style={{ fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 500 }}>
+                  Angle: {gradientAngle}°
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="360"
+                  value={gradientAngle}
+                  onChange={(e) => setGradientAngle(parseInt(e.target.value))}
+                  style={{
+                    width: '100%',
+                    height: '6px',
+                    borderRadius: '5px',
+                    background: '#e5e5e5',
+                    outline: 'none',
+                    opacity: 0.7,
+                    transition: 'opacity .2s',
+                    cursor: 'pointer',
+                  }}
+                />
+              </div>
+
+              {/* Apply Button */}
+              <button
+                onClick={applyCustomGradient}
+                style={{
+                  padding: '12px',
+                  background: '#7c3aed',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.background = '#6d28d9')}
+                onMouseOut={(e) => (e.currentTarget.style.background = '#7c3aed')}
+              >
+                Apply Gradient
+              </button>
+            </div>
+          ) : showPicker ? (
             <div style={{ padding: '0 2rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ padding: '0.5rem 0', cursor: 'default', fontSize: '0.96rem', fontWeight: 500 }}>
                 Pick a color
@@ -127,6 +243,30 @@ function Color() {
                 placeholder="#000000"
                 clearOnEscape
               />
+              
+              {/* Gradient Creator Button */}
+              <button
+                onClick={() => {
+                  setShowPicker(false)
+                  setShowGradientCreator(true)
+                }}
+                style={{
+                  padding: '12px',
+                  background: 'linear-gradient(90deg, #ff0080, #ff8c00)',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                }}
+                onMouseOver={(e) => (e.currentTarget.style.transform = 'translateY(-2px)')}
+                onMouseOut={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
+              >
+                🎨 Create Gradient
+              </button>
             </div>
           ) : (
             <>
