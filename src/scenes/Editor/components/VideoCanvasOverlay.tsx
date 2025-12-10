@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { styled } from 'baseui'
 import useVideoContext from '@/hooks/useVideoContext'
 import { useEditorContext } from '@nkyo/scenify-sdk'
@@ -35,7 +35,7 @@ const OverlayVideo = styled('video', {
     width: '100%',
     height: '100%',
     display: 'block',
-    objectFit: 'cover',
+    objectFit: 'contain',
     background: 'transparent',
     pointerEvents: 'none',
     borderRadius: '12px',
@@ -128,6 +128,17 @@ interface VideoOverlayState {
     width: number
     height: number
     isPlaying: boolean
+    aspectRatio: number
+    isPortrait: boolean
+}
+
+interface CanvasFrameBounds {
+    left: number
+    top: number
+    width: number
+    height: number
+    containerLeft: number
+    containerTop: number
 }
 
 const VideoCanvasOverlay: React.FC = () => {
@@ -137,60 +148,265 @@ const VideoCanvasOverlay: React.FC = () => {
     const [isDragging, setIsDragging] = useState(false)
     const [isResizing, setIsResizing] = useState(false)
     const [hoveredClipId, setHoveredClipId] = useState<string | null>(null)
+    const [canvasFrameBounds, setCanvasFrameBounds] = useState<CanvasFrameBounds | null>(null)
     const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({})
     const containerRef = useRef<HTMLDivElement>(null)
+    const initializedClipsRef = useRef<Set<string>>(new Set())
 
-    // Get canvas bounds for constraining video position
-    const getCanvasBounds = useCallback(() => {
-        if (!canvas) return null
+    // Get the actual canvas frame (white rectangle) bounds
+    const getCanvasFrameBounds = useCallback((): CanvasFrameBounds | null => {
+        if (!canvas || !containerRef.current) return null
 
-        const canvasEl = (canvas as any).lowerCanvasEl || document.querySelector('.canvas-container canvas')
-        if (!canvasEl) return null
+        try {
+            // Get the canvas container bounds
+            const containerRect = containerRef.current.getBoundingClientRect()
 
-        const rect = canvasEl.getBoundingClientRect()
-        return rect
+            // Try to find the clip object in the canvas
+            // @ts-ignore - canvas.getObjects is from fabric.js
+            const objects = canvas.getObjects?.() || []
+            // @ts-ignore
+            const clipObject = objects.find((obj: any) => obj.name === 'clip' || obj.id === 'clip')
+
+            if (clipObject) {
+                // Get the clip object's bounding rect in screen coordinates
+                // @ts-ignore
+                const clipBoundingRect = clipObject.getBoundingRect?.(true, true)
+
+                if (clipBoundingRect) {
+                    // Get the canvas element's position
+                    // @ts-ignore
+                    const canvasEl = canvas.lowerCanvasEl || document.querySelector('.canvas-container canvas')
+                    if (canvasEl) {
+                        const canvasRect = canvasEl.getBoundingClientRect()
+
+                        return {
+                            left: clipBoundingRect.left + canvasRect.left - containerRect.left,
+                            top: clipBoundingRect.top + canvasRect.top - containerRect.top,
+                            width: clipBoundingRect.width,
+                            height: clipBoundingRect.height,
+                            containerLeft: containerRect.left,
+                            containerTop: containerRect.top,
+                        }
+                    }
+                }
+            }
+
+            // Fallback: Try to detect the white canvas area via DOM
+            const canvasContainer = document.querySelector('.canvas-container')
+            if (canvasContainer) {
+                // Look for the actual canvas element
+                const upperCanvas = canvasContainer.querySelector('.upper-canvas') as HTMLCanvasElement
+                const lowerCanvas = canvasContainer.querySelector('.lower-canvas') as HTMLCanvasElement
+                const canvasEl = upperCanvas || lowerCanvas
+
+                if (canvasEl) {
+                    const canvasRect = canvasEl.getBoundingClientRect()
+
+                    // The frame is typically centered in the canvas
+                    // Default frame size is 900x1200 based on Editor.tsx
+                    const frameWidth = 900
+                    const frameHeight = 1200
+
+                    // Get the zoom level from canvas
+                    // @ts-ignore
+                    const zoom = canvas.getZoom?.() || 1
+
+                    const scaledWidth = frameWidth * zoom
+                    const scaledHeight = frameHeight * zoom
+
+                    // Calculate the frame's position (centered in canvas)
+                    const frameLeft = (canvasRect.width - scaledWidth) / 2
+                    const frameTop = (canvasRect.height - scaledHeight) / 2
+
+                    return {
+                        left: frameLeft + canvasRect.left - containerRect.left,
+                        top: frameTop + canvasRect.top - containerRect.top,
+                        width: scaledWidth,
+                        height: scaledHeight,
+                        containerLeft: containerRect.left,
+                        containerTop: containerRect.top,
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error getting canvas frame bounds:', error)
+        }
+
+        return null
     }, [canvas])
+
+    // Update canvas frame bounds when canvas changes or window resizes
+    useEffect(() => {
+        const updateBounds = () => {
+            const bounds = getCanvasFrameBounds()
+            if (bounds) {
+                setCanvasFrameBounds(bounds)
+            }
+        }
+
+        // Initial update after a short delay to let canvas render
+        const timeout = setTimeout(updateBounds, 500)
+
+        // Update on window resize
+        window.addEventListener('resize', updateBounds)
+
+        // Update periodically to catch zoom changes
+        const interval = setInterval(updateBounds, 1000)
+
+        return () => {
+            clearTimeout(timeout)
+            clearInterval(interval)
+            window.removeEventListener('resize', updateBounds)
+        }
+    }, [canvas, getCanvasFrameBounds])
+
+    // Load video dimensions and initialize overlay with correct aspect ratio
+    const loadVideoAndInitialize = useCallback((clip: { id: string; src: string }, index: number): Promise<VideoOverlayState> => {
+        return new Promise((resolve) => {
+            const video = document.createElement('video')
+            video.src = clip.src
+            video.crossOrigin = 'anonymous'
+            video.preload = 'metadata'
+
+            const handleLoad = () => {
+                const videoWidth = video.videoWidth || 1920
+                const videoHeight = video.videoHeight || 1080
+                const aspectRatio = videoWidth / videoHeight
+                const isPortrait = videoHeight > videoWidth
+
+                console.log(`Video ${clip.id} dimensions: ${videoWidth}x${videoHeight}, isPortrait: ${isPortrait}`)
+
+                // Get frame bounds
+                const frameBounds = canvasFrameBounds || getCanvasFrameBounds()
+
+                // Calculate proper dimensions based on video orientation
+                let overlayWidth: number
+                let overlayHeight: number
+
+                if (frameBounds) {
+                    // Size relative to canvas frame
+                    if (isPortrait) {
+                        overlayHeight = frameBounds.height * 0.5 // 50% of frame height
+                        overlayWidth = overlayHeight * aspectRatio
+                    } else {
+                        overlayWidth = frameBounds.width * 0.5 // 50% of frame width
+                        overlayHeight = overlayWidth / aspectRatio
+                    }
+
+                    // Center within canvas frame
+                    const x = frameBounds.left + (frameBounds.width - overlayWidth) / 2 + (index * 20)
+                    const y = frameBounds.top + (frameBounds.height - overlayHeight) / 2 + (index * 20)
+
+                    video.src = ''
+                    resolve({
+                        x,
+                        y,
+                        width: overlayWidth,
+                        height: overlayHeight,
+                        isPlaying: false,
+                        aspectRatio,
+                        isPortrait,
+                    })
+                } else {
+                    // Fallback if frame bounds not available
+                    if (isPortrait) {
+                        overlayHeight = 300
+                        overlayWidth = overlayHeight * aspectRatio
+                    } else {
+                        overlayWidth = 300
+                        overlayHeight = overlayWidth / aspectRatio
+                    }
+
+                    video.src = ''
+                    resolve({
+                        x: 100 + (index * 20),
+                        y: 100 + (index * 20),
+                        width: overlayWidth,
+                        height: overlayHeight,
+                        isPlaying: false,
+                        aspectRatio,
+                        isPortrait,
+                    })
+                }
+            }
+
+            video.onloadedmetadata = handleLoad
+
+            video.onerror = () => {
+                console.warn(`Failed to load video metadata for ${clip.id}`)
+                video.src = ''
+                resolve({
+                    x: 100 + (index * 20),
+                    y: 100 + (index * 20),
+                    width: 200,
+                    height: 112,
+                    isPlaying: false,
+                    aspectRatio: 16 / 9,
+                    isPortrait: false,
+                })
+            }
+
+            setTimeout(() => {
+                if (video.videoWidth && video.videoHeight) {
+                    handleLoad()
+                }
+            }, 2000)
+        })
+    }, [canvasFrameBounds, getCanvasFrameBounds])
 
     // Initialize overlay positions when clips change
     useEffect(() => {
-        const newStates: Record<string, VideoOverlayState> = {}
-        const canvasBounds = getCanvasBounds()
+        const initializeClips = async () => {
+            const clipsToInitialize = clips.filter(clip => !initializedClipsRef.current.has(clip.id))
 
-        clips.forEach((clip, index) => {
-            if (!overlayStates[clip.id]) {
-                // Calculate initial position - center in canvas area with slight offset for multiple videos
-                const baseX = canvasBounds ? canvasBounds.width / 2 - 160 : 200
-                const baseY = canvasBounds ? canvasBounds.height / 2 - 90 : 150
+            if (clipsToInitialize.length === 0) return
 
-                newStates[clip.id] = {
-                    x: baseX + (index * 30),
-                    y: baseY + (index * 30),
-                    width: 320,
-                    height: 180,
-                    isPlaying: false,
+            const newStates: Record<string, VideoOverlayState> = {}
+
+            for (let i = 0; i < clipsToInitialize.length; i++) {
+                const clip = clipsToInitialize[i]
+                try {
+                    const state = await loadVideoAndInitialize(clip, i)
+                    newStates[clip.id] = state
+                    initializedClipsRef.current.add(clip.id)
+                } catch (error) {
+                    console.error(`Failed to initialize clip ${clip.id}:`, error)
                 }
-            } else {
-                newStates[clip.id] = overlayStates[clip.id]
+            }
+
+            if (Object.keys(newStates).length > 0) {
+                setOverlayStates(prev => ({ ...prev, ...newStates }))
+            }
+        }
+
+        if (clips.length > 0 && canvasFrameBounds) {
+            initializeClips()
+        }
+
+        const currentClipIds = new Set(clips.map(c => c.id))
+        initializedClipsRef.current.forEach(id => {
+            if (!currentClipIds.has(id)) {
+                initializedClipsRef.current.delete(id)
             }
         })
+    }, [clips, loadVideoAndInitialize, canvasFrameBounds])
 
-        setOverlayStates(newStates)
-    }, [clips, getCanvasBounds])
-
-    // Constrain position within canvas bounds
+    // Constrain position within canvas frame bounds
     const constrainPosition = useCallback((x: number, y: number, width: number, height: number) => {
-        const container = containerRef.current?.parentElement
-        if (!container) return { x, y }
+        if (!canvasFrameBounds) {
+            return { x, y }
+        }
 
-        const containerRect = container.getBoundingClientRect()
-        const maxX = containerRect.width - width - 10
-        const maxY = containerRect.height - height - 10
+        const minX = canvasFrameBounds.left
+        const minY = canvasFrameBounds.top
+        const maxX = canvasFrameBounds.left + canvasFrameBounds.width - width
+        const maxY = canvasFrameBounds.top + canvasFrameBounds.height - height
 
         return {
-            x: Math.max(10, Math.min(x, maxX)),
-            y: Math.max(10, Math.min(y, maxY)),
+            x: Math.max(minX, Math.min(x, maxX)),
+            y: Math.max(minY, Math.min(y, maxY)),
         }
-    }, [])
+    }, [canvasFrameBounds])
 
     // Handle drag start
     const handleDragStart = useCallback((clipId: string, e: React.MouseEvent) => {
@@ -245,6 +461,9 @@ const VideoCanvasOverlay: React.FC = () => {
         const initialState = overlayStates[clipId]
         if (!initialState) return
 
+        const aspectRatio = initialState.aspectRatio || (16 / 9)
+        const isPortrait = initialState.isPortrait || false
+
         const handleResize = (moveEvent: MouseEvent) => {
             const deltaX = moveEvent.clientX - startX
             const deltaY = moveEvent.clientY - startY
@@ -254,25 +473,30 @@ const VideoCanvasOverlay: React.FC = () => {
             let newX = initialState.x
             let newY = initialState.y
 
-            // Maintain aspect ratio (16:9)
-            const aspectRatio = 16 / 9
+            const minWidth = isPortrait ? 60 : 100
+            const minHeight = isPortrait ? 100 : 60
 
             if (corner === 'se') {
-                newWidth = Math.max(160, initialState.width + deltaX)
+                newWidth = Math.max(minWidth, initialState.width + deltaX)
                 newHeight = newWidth / aspectRatio
             } else if (corner === 'sw') {
-                newWidth = Math.max(160, initialState.width - deltaX)
+                newWidth = Math.max(minWidth, initialState.width - deltaX)
                 newHeight = newWidth / aspectRatio
                 newX = initialState.x + (initialState.width - newWidth)
             } else if (corner === 'ne') {
-                newWidth = Math.max(160, initialState.width + deltaX)
+                newWidth = Math.max(minWidth, initialState.width + deltaX)
                 newHeight = newWidth / aspectRatio
                 newY = initialState.y + (initialState.height - newHeight)
             } else if (corner === 'nw') {
-                newWidth = Math.max(160, initialState.width - deltaX)
+                newWidth = Math.max(minWidth, initialState.width - deltaX)
                 newHeight = newWidth / aspectRatio
                 newX = initialState.x + (initialState.width - newWidth)
                 newY = initialState.y + (initialState.height - newHeight)
+            }
+
+            if (newHeight < minHeight) {
+                newHeight = minHeight
+                newWidth = newHeight * aspectRatio
             }
 
             const constrained = constrainPosition(newX, newY, newWidth, newHeight)
@@ -339,13 +563,12 @@ const VideoCanvasOverlay: React.FC = () => {
     // Delete clip
     const handleDeleteClip = useCallback((clipId: string, e: React.MouseEvent) => {
         e.stopPropagation()
-        // Remove from video context would go here
-        // For now just remove from local state
         setOverlayStates(prev => {
             const newState = { ...prev }
             delete newState[clipId]
             return newState
         })
+        initializedClipsRef.current.delete(clipId)
     }, [])
 
     if (clips.length === 0) return null

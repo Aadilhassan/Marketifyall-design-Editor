@@ -10,7 +10,7 @@ import Toolbox from './components/Toolbox'
 import Footer from './components/Footer'
 import ContextMenu from './components/ContextMenu'
 import VideoTimeline from './components/VideoTimeline'
-import VideoCanvasOverlay from './components/VideoCanvasOverlay'
+import VideoCanvasPlayer from './components/VideoCanvasPlayer'
 import Editor, { useEditor } from '@nkyo/scenify-sdk'
 
 function App() {
@@ -190,7 +190,7 @@ function App() {
             <Editor
               config={editorConfig}
             />
-            <VideoCanvasOverlay />
+            <VideoCanvasPlayer />
             <VideoTimeline />
           </div>
           <Footer />

@@ -598,8 +598,108 @@ function Video() {
       setVideoFile(file)
       const url = URL.createObjectURL(file)
       setUploadedVideo(url)
+
+      // Automatically add video to canvas
+      if (editor) {
+        const clipId = `clip-${Date.now()}`
+
+        // Create a video element to get dimensions and poster
+        const video = document.createElement('video')
+        video.src = url
+        video.crossOrigin = 'anonymous'
+        video.preload = 'metadata'
+
+        video.onloadedmetadata = () => {
+          const videoWidth = video.videoWidth || 1920
+          const videoHeight = video.videoHeight || 1080
+          const clipDuration = video.duration || 1
+
+          // Seek to get a poster frame
+          video.currentTime = 0.1
+
+          video.onseeked = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = videoWidth
+            canvas.height = videoHeight
+            const ctx = canvas.getContext('2d')
+
+            let posterUrl = ''
+            if (ctx) {
+              ctx.drawImage(video, 0, 0)
+              posterUrl = canvas.toDataURL('image/png')
+            }
+
+            // Calculate proper sizing for canvas
+            const frameWidth = 900
+            const frameHeight = 1200
+
+            let targetWidth = videoWidth
+            let targetHeight = videoHeight
+            let scaleX = 1
+            let scaleY = 1
+
+            // Scale down if video is too large for canvas
+            const maxWidth = frameWidth * 0.8
+            const maxHeight = frameHeight * 0.6
+
+            if (targetWidth > maxWidth || targetHeight > maxHeight) {
+              const widthRatio = maxWidth / targetWidth
+              const heightRatio = maxHeight / targetHeight
+              const scaleRatio = Math.min(widthRatio, heightRatio)
+
+              scaleX = scaleRatio
+              scaleY = scaleRatio
+              targetWidth = videoWidth * scaleX
+              targetHeight = videoHeight * scaleY
+            }
+
+            // Center the video on canvas
+            const left = (frameWidth - targetWidth) / 2
+            const top = (frameHeight - targetHeight) / 2
+
+            // Add to Canvas as a native object
+            editor.add({
+              type: 'StaticImage',
+              metadata: {
+                src: posterUrl || url,
+                videoSrc: url,
+                name: file.name || 'Video clip',
+                duration: clipDuration,
+                id: clipId,
+                isVideo: true,
+              },
+              width: videoWidth,
+              height: videoHeight,
+              left,
+              top,
+              scaleX,
+              scaleY,
+              opacity: 1,
+              visible: true,
+            })
+
+            // Add to Timeline
+            addClip({
+              id: clipId,
+              name: file.name || 'Video clip',
+              src: url,
+              duration: clipDuration,
+              start: 0,
+              end: clipDuration,
+              poster: posterUrl || undefined,
+            })
+
+            setActiveClip(clipId)
+            setDuration(clipDuration)
+          }
+        }
+
+        video.onerror = () => {
+          console.error('Failed to load video metadata')
+        }
+      }
     }
-  }, [])
+  }, [editor, addClip, setActiveClip])
 
   // Add video as image frame to canvas
   const handleAddFrame = useCallback(async () => {
@@ -1141,64 +1241,10 @@ function Video() {
           />
 
           {/* Uploaded Video Preview */}
-          {uploadedVideo && (
-            <UploadedVideoContainer>
-              <SectionTitle>Your Video</SectionTitle>
-              <UploadedVideo>
-                <VideoElement
-                  ref={videoRef}
-                  src={uploadedVideo}
-                  controls
-                  onTimeUpdate={handleVideoTimeUpdate}
-                  onLoadedMetadata={handleVideoLoaded}
-                />
-              </UploadedVideo>
-
-              {/* Frame Selector */}
-              <FrameSlider>
-                <SliderLabel>
-                  <span>Select Frame</span>
-                  <span>{formatTime(frameTime)}</span>
-                </SliderLabel>
-                <Slider
-                  type="range"
-                  min={0}
-                  max={duration || 100}
-                  step={0.1}
-                  value={frameTime}
-                  onChange={(e) => setFrameTime(parseFloat(e.target.value))}
-                />
-              </FrameSlider>
-
-              <VideoControls>
-                <ControlButton onClick={handleRemoveVideo}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                  Remove
-                </ControlButton>
-                <ControlButton onClick={handleAddFrame}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                    <circle cx="9" cy="9" r="2" />
-                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                  </svg>
-                  Add Frame
-                </ControlButton>
-                <ControlButton $primary onClick={handleAddVideoToTimeline}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polygon points="23 7 16 12 23 17 23 7" />
-                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                  </svg>
-                  Add to Timeline
-                </ControlButton>
-              </VideoControls>
-            </UploadedVideoContainer>
-          )}
+          
 
           {/* Video Templates */}
-          <SectionTitle>Video Templates</SectionTitle>
+          {/* <SectionTitle>Video Templates</SectionTitle>
           <VideoGrid>
             {VIDEO_TEMPLATES.map((template) => (
               <VideoCard key={template.id}>
@@ -1213,7 +1259,7 @@ function Video() {
                 <VideoLabel>{template.name}</VideoLabel>
               </VideoCard>
             ))}
-          </VideoGrid>
+          </VideoGrid> */}
 
           {/* Video Tools */}
           <ToolsSection>
