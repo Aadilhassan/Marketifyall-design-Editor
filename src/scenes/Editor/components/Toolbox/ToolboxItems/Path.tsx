@@ -4,9 +4,14 @@ import useAppContext from '@/hooks/useAppContext'
 import { SubMenuType } from '@/constants/editor'
 import Common from './components/Common'
 import Animate from './components/Animate'
+import { useActiveObject } from '@nkyo/scenify-sdk'
 
 function Path() {
   const { setActiveSubMenu } = useAppContext()
+  const activeObject = useActiveObject()
+  // @ts-ignore
+  const fill = activeObject ? (activeObject.fill || '#000000') : '#000000'
+
   return (
     <div
       style={{
@@ -24,7 +29,7 @@ function Path() {
           kind={KIND.tertiary}
           shape={SHAPE.square}
         >
-          <Icons.FillColor size={24} color="#000000" />
+          <Icons.FillColor size={24} color={fill} />
         </Button>
         <Animate />
       </div>

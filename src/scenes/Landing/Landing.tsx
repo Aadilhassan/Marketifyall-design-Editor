@@ -548,115 +548,6 @@ const FeatureDescription = styled('p', {
   lineHeight: 1.7,
 })
 
-const PreviewSection = styled('section', {
-  background: '#F5F3EF',
-  padding: '80px 60px',
-  '@media (max-width: 768px)': {
-    padding: '40px 24px',
-  },
-})
-
-const PreviewContainer = styled('div', {
-  maxWidth: '1200px',
-  margin: '0 auto',
-})
-
-const PreviewCard = styled('div', {
-  background: '#ffffff',
-  border: '2px solid #1a1a1a',
-  boxShadow: '8px 8px 0px #1a1a1a',
-  overflow: 'hidden',
-})
-
-const PreviewHeader = styled('div', {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px',
-  padding: '16px 20px',
-  background: '#F5F3EF',
-  borderBottom: '2px solid #1a1a1a',
-})
-
-const PreviewDot = styled('div', ({ $color }: { $color: string }) => ({
-  width: '12px',
-  height: '12px',
-  borderRadius: '50%',
-  background: $color,
-  border: '1px solid #1a1a1a',
-}))
-
-const PreviewContent = styled('div', {
-  display: 'flex',
-  height: '450px',
-  '@media (max-width: 768px)': {
-    height: '300px',
-  },
-})
-
-const PreviewSidebar = styled('div', {
-  width: '70px',
-  background: '#F5F3EF',
-  borderRight: '2px solid #1a1a1a',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  padding: '16px 0',
-  gap: '8px',
-})
-
-const SidebarIcon = styled('div', ({ $active }: { $active?: boolean }) => ({
-  width: '44px',
-  height: '44px',
-  background: $active ? '#FF6B5B' : 'transparent',
-  border: $active ? '2px solid #1a1a1a' : '2px solid transparent',
-  color: $active ? '#ffffff' : '#6b7280',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  cursor: 'pointer',
-  transition: 'all 0.2s',
-}))
-
-const PreviewCanvas = styled('div', {
-  flex: 1,
-  background: '#e5e5e5',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-})
-
-const CanvasFrame = styled('div', {
-  width: '350px',
-  height: '350px',
-  background: '#ffffff',
-  border: '2px solid #1a1a1a',
-  display: 'flex',
-  flexDirection: 'column',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '16px',
-  '@media (max-width: 768px)': {
-    width: '200px',
-    height: '200px',
-  },
-})
-
-const CanvasText = styled('div', {
-  fontSize: '24px',
-  fontWeight: 700,
-  color: '#1a1a1a',
-  fontFamily: "'Georgia', serif",
-  '@media (max-width: 768px)': {
-    fontSize: '16px',
-  },
-})
-
-const CanvasSubtext = styled('div', {
-  fontSize: '14px',
-  color: '#6b7280',
-  fontFamily: "'Courier New', monospace",
-})
-
 const Footer = styled('footer', {
   background: '#1a1a1a',
   padding: '60px 60px',
@@ -696,6 +587,73 @@ const FooterLink = styled('a', {
   ':hover': {
     color: '#ffffff',
   },
+})
+
+const ScreenshotSection = styled('section', {
+  background: '#1a1a1a',
+  padding: '100px 60px',
+  '@media (max-width: 768px)': {
+    padding: '60px 24px',
+  },
+})
+
+const ScreenshotContainer = styled('div', {
+  maxWidth: '1400px',
+  margin: '0 auto',
+})
+
+const ScreenshotHeader = styled('div', {
+  textAlign: 'center',
+  marginBottom: '60px',
+})
+
+const ScreenshotTitle = styled('h2', {
+  fontSize: '48px',
+  fontWeight: 700,
+  color: '#ffffff',
+  marginBottom: '16px',
+  letterSpacing: '-1px',
+  fontFamily: "'Georgia', serif",
+  '@media (max-width: 768px)': {
+    fontSize: '32px',
+  },
+})
+
+const ScreenshotSubtitle = styled('p', {
+  fontSize: '18px',
+  color: 'rgba(255, 255, 255, 0.7)',
+  maxWidth: '600px',
+  margin: '0 auto',
+  fontFamily: "'Georgia', serif",
+})
+
+const ScreenshotsGrid = styled('div', {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, 1fr)',
+  gap: '32px',
+  '@media (max-width: 968px)': {
+    gridTemplateColumns: '1fr',
+    gap: '24px',
+  },
+})
+
+const ScreenshotCard = styled('div', {
+  overflow: 'hidden',
+  borderRadius: '12px',
+  border: '2px solid rgba(255, 255, 255, 0.1)',
+  transition: 'all 0.3s ease',
+  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+  ':hover': {
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    transform: 'translateY(-4px)',
+    boxShadow: '0 12px 48px rgba(0, 0, 0, 0.4)',
+  },
+})
+
+const ScreenshotImage = styled('img', {
+  width: '100%',
+  height: 'auto',
+  display: 'block',
 })
 
 const FEATURES = [
@@ -901,50 +859,31 @@ function Landing() {
         </HeroGraphic>
       </HeroSection>
 
-      {/* Preview Section */}
-      <PreviewSection>
-        <PreviewContainer>
-          <PreviewCard>
-            <PreviewHeader>
-              <PreviewDot $color="#ff5f57" />
-              <PreviewDot $color="#febc2e" />
-              <PreviewDot $color="#28c840" />
-            </PreviewHeader>
-            <PreviewContent>
-              <PreviewSidebar>
-                <SidebarIcon $active>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                  </svg>
-                </SidebarIcon>
-                <SidebarIcon>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M4 7V4h16v3M9 20h6M12 4v16" />
-                  </svg>
-                </SidebarIcon>
-                <SidebarIcon>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <circle cx="9" cy="9" r="2" />
-                    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
-                  </svg>
-                </SidebarIcon>
-                <SidebarIcon>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                </SidebarIcon>
-              </PreviewSidebar>
-              <PreviewCanvas>
-                <CanvasFrame>
-                  <CanvasText>Your Design Here</CanvasText>
-                  <CanvasSubtext>Click "Start Designing" to begin</CanvasSubtext>
-                </CanvasFrame>
-              </PreviewCanvas>
-            </PreviewContent>
-          </PreviewCard>
-        </PreviewContainer>
-      </PreviewSection>
+      {/* Screenshots Section */}
+      <ScreenshotSection style={{ background: '#F5F3EF', padding: '80px 60px' }}>
+        <ScreenshotContainer>
+          <ScreenshotHeader style={{ marginBottom: '60px' }}>
+            <ScreenshotTitle style={{ color: '#1a1a1a' }}>See It In Action</ScreenshotTitle>
+            <ScreenshotSubtitle style={{ color: '#6b7280' }}>
+              Powerful design tools with an intuitive interface. Create, edit, and export in seconds.
+            </ScreenshotSubtitle>
+          </ScreenshotHeader>
+          <ScreenshotsGrid>
+            <ScreenshotCard>
+              <ScreenshotImage
+                src="/screenshot/screenshot2.png"
+                alt="Export dialog with multiple format options"
+              />
+            </ScreenshotCard>
+            <ScreenshotCard>
+              <ScreenshotImage
+                src="/screenshot/brave_screenshot_localhost.png"
+                alt="Design editor with image library"
+              />
+            </ScreenshotCard>
+          </ScreenshotsGrid>
+        </ScreenshotContainer>
+      </ScreenshotSection>
 
       {/* Features Section */}
       <FeaturesSection id="features">
