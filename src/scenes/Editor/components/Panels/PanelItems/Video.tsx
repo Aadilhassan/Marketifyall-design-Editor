@@ -767,18 +767,7 @@ function Video() {
       const videoWidth = video.videoWidth || 1920
       const videoHeight = video.videoHeight || 1080
 
-      const canvas = document.createElement('canvas')
-      canvas.width = videoWidth
-      canvas.height = videoHeight
-      const ctx = canvas.getContext('2d')
-
-      let posterUrl = ''
-      if (ctx) {
-        ctx.drawImage(video, 0, 0)
-        posterUrl = canvas.toDataURL('image/png')
-      }
-
-      // Calculate proper sizing for canvas
+      // Calculate proper sizing for canvas FIRST
       const frameWidth = 900
       const frameHeight = 1200
 
@@ -806,7 +795,23 @@ function Video() {
       const left = (frameWidth - targetWidth) / 2
       const top = (frameHeight - targetHeight) / 2
 
-      // Add to Canvas as a native object with proper dimensions
+      // Create poster image at TARGET dimensions (not original video dimensions)
+      // This ensures the poster matches the video playback size exactly
+      const canvas = document.createElement('canvas')
+      canvas.width = targetWidth
+      canvas.height = targetHeight
+      const ctx = canvas.getContext('2d')
+
+      let posterUrl = ''
+      if (ctx) {
+        // Draw video frame scaled to target dimensions
+        ctx.drawImage(video, 0, 0, videoWidth, videoHeight, 0, 0, targetWidth, targetHeight)
+        posterUrl = canvas.toDataURL('image/png')
+      }
+
+      // Add to Canvas with scaled dimensions directly
+      // Explicitly set scaleX: 1 and scaleY: 1 to ensure no additional scaling
+      // This ensures the poster image matches the video playback size exactly
       editor.add({
         type: 'StaticImage',
         metadata: {
@@ -817,12 +822,12 @@ function Video() {
           id: clipId,
           isVideo: true,
         },
-        width: videoWidth,
-        height: videoHeight,
+        width: targetWidth, // Use scaled width directly
+        height: targetHeight, // Use scaled height directly
         left,
         top,
-        scaleX,
-        scaleY,
+        scaleX: 1, // Explicitly set to 1 to ensure no scaling
+        scaleY: 1, // Explicitly set to 1 to ensure no scaling
         opacity: 1,
         visible: true,
       })
@@ -858,55 +863,59 @@ function Video() {
     video.crossOrigin = 'anonymous'
     video.preload = 'metadata'
 
-    video.onloadedmetadata = async () => {
+      video.onloadedmetadata = async () => {
       const videoWidth = video.videoWidth || 1920
       const videoHeight = video.videoHeight || 1080
 
-      // Extract poster frame
+      // Calculate proper sizing for canvas FIRST
+      // Default canvas size
+      const frameWidth = 900
+      const frameHeight = 1200
+
+      let targetWidth = videoWidth
+      let targetHeight = videoHeight
+      let scaleX = 1
+      let scaleY = 1
+
+      // Scale down if video is too large for canvas
+      const maxWidth = frameWidth * 0.8
+      const maxHeight = frameHeight * 0.6
+
+      if (targetWidth > maxWidth || targetHeight > maxHeight) {
+        const widthRatio = maxWidth / targetWidth
+        const heightRatio = maxHeight / targetHeight
+        const scaleRatio = Math.min(widthRatio, heightRatio)
+
+        scaleX = scaleRatio
+        scaleY = scaleRatio
+        targetWidth = videoWidth * scaleX
+        targetHeight = videoHeight * scaleY
+      }
+
+      // Center the video on canvas
+      const left = (frameWidth - targetWidth) / 2
+      const top = (frameHeight - targetHeight) / 2
+
+      // Extract poster frame at TARGET dimensions (not original video dimensions)
       video.currentTime = 0.1 // Seek a bit to get a proper frame
 
       video.onseeked = () => {
+        // Create poster image at TARGET dimensions to match video playback size
         const canvas = document.createElement('canvas')
-        canvas.width = videoWidth
-        canvas.height = videoHeight
+        canvas.width = targetWidth
+        canvas.height = targetHeight
         const ctx = canvas.getContext('2d')
 
         let posterUrl = ''
         if (ctx) {
-          ctx.drawImage(video, 0, 0)
+          // Draw video frame scaled to target dimensions
+          ctx.drawImage(video, 0, 0, videoWidth, videoHeight, 0, 0, targetWidth, targetHeight)
           posterUrl = canvas.toDataURL('image/png')
         }
 
-        // Calculate proper sizing for canvas (similar to Images component)
-        // Default canvas size
-        const frameWidth = 900
-        const frameHeight = 1200
-
-        let targetWidth = videoWidth
-        let targetHeight = videoHeight
-        let scaleX = 1
-        let scaleY = 1
-
-        // Scale down if video is too large for canvas
-        const maxWidth = frameWidth * 0.8
-        const maxHeight = frameHeight * 0.6
-
-        if (targetWidth > maxWidth || targetHeight > maxHeight) {
-          const widthRatio = maxWidth / targetWidth
-          const heightRatio = maxHeight / targetHeight
-          const scaleRatio = Math.min(widthRatio, heightRatio)
-
-          scaleX = scaleRatio
-          scaleY = scaleRatio
-          targetWidth = videoWidth * scaleX
-          targetHeight = videoHeight * scaleY
-        }
-
-        // Center the video on canvas
-        const left = (frameWidth - targetWidth) / 2
-        const top = (frameHeight - targetHeight) / 2
-
-        // Add to Canvas as a native object with proper dimensions
+        // Add to Canvas with scaled dimensions directly
+        // Explicitly set scaleX: 1 and scaleY: 1 to ensure no additional scaling
+        // This ensures the poster image matches the video playback size exactly
         const options: any = {
           type: 'StaticImage',
           metadata: {
@@ -917,12 +926,12 @@ function Video() {
             id: clipId,
             isVideo: true,
           },
-          width: videoWidth,
-          height: videoHeight,
+          width: targetWidth, // Use scaled width directly
+          height: targetHeight, // Use scaled height directly
           left,
           top,
-          scaleX,
-          scaleY,
+          scaleX: 1, // Explicitly set to 1 to ensure no scaling
+          scaleY: 1, // Explicitly set to 1 to ensure no scaling
           opacity: 1,
           visible: true,
         }

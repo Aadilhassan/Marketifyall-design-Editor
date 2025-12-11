@@ -29,7 +29,11 @@ export const panelListItems = [
   },
   {
     id: 'pexels',
-    name: 'Photos',
+    name: 'Stock Photos',
+  },
+  {
+    id: 'stockvideos',
+    name: 'Stock Videos',
   },
   {
     id: 'video',

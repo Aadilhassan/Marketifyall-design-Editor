@@ -13,6 +13,7 @@ import Animations from './Animations'
 import AiStudio from './AiStudio'
 import AIDesigner from './AIDesigner'
 import Video from './Video'
+import StockVideos from './StockVideos'
 
 class PanelItems {
   static Background = Background
@@ -26,6 +27,7 @@ class PanelItems {
   static Illustrations = Illustrations
   static Pexels = Pexels
   static Photos = Pexels
+  static ['Stock Photos'] = Pexels
   static Uploads = Uploads
   static Animations = Animations
   static AiStudio = AiStudio
@@ -33,6 +35,9 @@ class PanelItems {
   static AIDesigner = AIDesigner
   static ['AI Designer'] = AIDesigner
   static Video = Video
+  static StockVideos = StockVideos
+  static ['Stock Videos'] = StockVideos
 }
 
 export default PanelItems
+

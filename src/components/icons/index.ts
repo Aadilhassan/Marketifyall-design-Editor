@@ -11,6 +11,7 @@ import Logo from './Logo'
 import AiStudio from './AiStudio'
 import AIDesigner from './AIDesigner'
 import Video from './Video'
+import StockVideos from './StockVideos'
 
 class Icons {
   static Background = Background
@@ -21,6 +22,7 @@ class Icons {
   static Images = Images
   static Illustrations = Illustrations
   static Photos = Photos
+  static ['Stock Photos'] = Photos
   static Uploads = Uploads
   static Logo = Logo
   static AiStudio = AiStudio
@@ -28,6 +30,8 @@ class Icons {
   static AIDesigner = AIDesigner
   static ['AI Designer'] = AIDesigner
   static Video = Video
+  static StockVideos = StockVideos
+  static ['Stock Videos'] = StockVideos
 }
 
 export default Icons
