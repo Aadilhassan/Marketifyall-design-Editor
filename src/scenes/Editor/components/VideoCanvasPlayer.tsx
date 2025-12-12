@@ -31,7 +31,7 @@ const VideoElement = styled('video', {
     left: 0,
     width: '100%',
     height: '100%',
-    objectFit: 'fill', // Match exact canvas object dimensions (like Canva)
+    objectFit: 'cover', // Crop to fill standard size without distortion (Canva-like)
     display: 'block',
 })
 
@@ -110,7 +110,8 @@ const VideoCanvasPlayer: React.FC = () => {
         setCurrentTime,
         togglePlayback,
         registerVideoRef,
-        setActiveClip
+        setActiveClip,
+        setIsPlaying
     } = useVideoContext()
     const { canvas } = useEditorContext()
     const [videoInfos, setVideoInfos] = useState<VideoInfo[]>([])
@@ -318,12 +319,25 @@ const VideoCanvasPlayer: React.FC = () => {
         }
     }, [setCurrentTime])
 
-    // Sync video playback with shared state
+    // Sync video playback with shared state and handle sequential playback
     useEffect(() => {
         const activeVideo = activeClipId ? videoRefs.current[activeClipId] : null
         if (!activeVideo) return
 
+        // Find the active clip to get its start time
+        const activeClip = clips.find(c => c.id === activeClipId)
+        if (!activeClip) return
+
+        // Calculate video time relative to clip start
+        const clipStart = activeClip.start || 0
+        const videoTime = Math.max(0, currentTime - clipStart)
+
         if (isPlaying) {
+            // Set the correct time before playing
+            if (Math.abs(activeVideo.currentTime - videoTime) > 0.1) {
+                activeVideo.currentTime = Math.min(videoTime, activeVideo.duration || activeClip.duration)
+            }
+            
             // Start video playback
             activeVideo.play().then(() => {
                 // Unmute after play starts (needed for browser autoplay policies)
@@ -336,21 +350,47 @@ const VideoCanvasPlayer: React.FC = () => {
         } else {
             activeVideo.pause()
             activeVideo.muted = true // Mute when paused
+            // Update time when paused
+            if (videoTime < (activeVideo.duration || activeClip.duration)) {
+                activeVideo.currentTime = videoTime
+            }
         }
-    }, [isPlaying, activeClipId])
+    }, [isPlaying, activeClipId, currentTime, clips])
 
-    // Keep current time in sync with playing video
+    // Handle video ended - transition to next clip
     useEffect(() => {
         const activeVideo = activeClipId ? videoRefs.current[activeClipId] : null
-        if (!activeVideo || !isPlaying) return
+        if (!activeVideo) return
 
-        const updateTime = () => {
-            setCurrentTime(activeVideo.currentTime)
+        const handleEnded = () => {
+            const activeClip = clips.find(c => c.id === activeClipId)
+            if (!activeClip) return
+
+            // Sort clips by start time to find the next one
+            const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
+            const currentIndex = sortedClips.findIndex(c => c.id === activeClipId)
+            const nextIndex = currentIndex + 1
+
+            if (nextIndex < sortedClips.length) {
+                // Switch to next clip
+                const nextClip = sortedClips[nextIndex]
+                setActiveClip(nextClip.id)
+                setCurrentTime(nextClip.start || 0)
+                // Continue playing automatically
+                if (isPlaying) {
+                    // The play effect will handle starting the next video
+                }
+            } else {
+                // All clips finished
+                setIsPlaying(false)
+            }
         }
 
-        activeVideo.addEventListener('timeupdate', updateTime)
-        return () => activeVideo.removeEventListener('timeupdate', updateTime)
-    }, [isPlaying, activeClipId, setCurrentTime])
+        activeVideo.addEventListener('ended', handleEnded)
+        return () => {
+            activeVideo.removeEventListener('ended', handleEnded)
+        }
+    }, [activeClipId, clips, setActiveClip, setCurrentTime, setIsPlaying, isPlaying])
 
     // Register video refs with context for external control
     useEffect(() => {
@@ -612,8 +652,12 @@ const VideoCanvasPlayer: React.FC = () => {
                     videoHeight = Math.max(0, videoHeight)
 
                     // Check if this specific video is playing using shared context state
+                    // Ensure play button is completely hidden when playing
                     const isVideoPlaying = isPlaying && activeClipId === info.id
                     const buttonSize = Math.max(36, Math.min(56, Math.min(videoWidth, videoHeight) * 0.18))
+                    
+                    // For inactive videos when playing, completely hide the wrapper to prevent play button from showing
+                    const shouldShowWrapper = isVideoPlaying || !isPlaying
 
                     return (
                         <VideoPlayerWrapper
@@ -623,25 +667,53 @@ const VideoCanvasPlayer: React.FC = () => {
                                 top: relativeTop,
                                 width: videoWidth,
                                 height: videoHeight,
+                                // Hide entire wrapper for inactive videos when playing
+                                display: shouldShowWrapper ? 'block' : 'none',
+                                visibility: shouldShowWrapper ? 'visible' : 'hidden',
+                                opacity: shouldShowWrapper ? 1 : 0,
                             }}
                             onMouseEnter={() => setIsHovered(true)}
                             onMouseLeave={() => setIsHovered(false)}
                         >
                             <VideoElement
-                                ref={el => { videoRefs.current[info.id] = el }}
+                                ref={el => { 
+                                    if (el) {
+                                        videoRefs.current[info.id] = el
+                                        // Update video source if it changed (for clip switching)
+                                        if (el.src !== info.src) {
+                                            el.src = info.src
+                                            el.load()
+                                        }
+                                        // Remove poster when playing to avoid showing play button on poster
+                                        if (isVideoPlaying) {
+                                            el.removeAttribute('poster')
+                                        } else if (info.poster) {
+                                            el.poster = info.poster
+                                        }
+                                    }
+                                }}
                                 src={info.src}
-                                poster={info.poster}
+                                poster={isVideoPlaying ? '' : (info.poster || '')}
                                 muted={!isVideoPlaying}
                                 playsInline
                                 crossOrigin="anonymous"
-                                onEnded={() => handleEnded(info.id)}
-                                style={{ opacity: isVideoPlaying ? 1 : 0 }}
+                                controls={false}
+                                style={{ 
+                                    opacity: isVideoPlaying ? 1 : 0,
+                                    pointerEvents: isVideoPlaying ? 'auto' : 'none'
+                                }}
                             />
 
-                            {!isVideoPlaying && (
+                            {/* Only show play button when video is NOT playing - hide ALL play buttons when ANY video is playing */}
+                            {!isPlaying && !isVideoPlaying ? (
                                 <PlayButtonStyled
                                     onClick={(e) => handlePlayPause(info.id, e)}
-                                    style={{ width: buttonSize, height: buttonSize }}
+                                    style={{ 
+                                        width: buttonSize, 
+                                        height: buttonSize,
+                                        display: 'flex',
+                                        zIndex: 10,
+                                    }}
                                 >
                                     <svg
                                         width={buttonSize * 0.45}
@@ -652,8 +724,9 @@ const VideoCanvasPlayer: React.FC = () => {
                                         <polygon points="8 5 19 12 8 19 8 5" />
                                     </svg>
                                 </PlayButtonStyled>
-                            )}
+                            ) : null}
 
+                            {/* Clickable overlay when playing - no visible button */}
                             {isVideoPlaying && (
                                 <div
                                     style={{
@@ -661,38 +734,12 @@ const VideoCanvasPlayer: React.FC = () => {
                                         inset: 0,
                                         cursor: 'pointer',
                                         pointerEvents: 'auto',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
+                                        zIndex: 5,
+                                        // Ensure no background or visible elements
+                                        background: 'transparent'
                                     }}
                                     onClick={(e) => handlePlayPause(info.id, e)}
-                                >
-                                    {isHovered && (
-                                        <div
-                                            style={{
-                                                width: buttonSize,
-                                                height: buttonSize,
-                                                borderRadius: '50%',
-                                                background: 'rgba(0,0,0,0.7)',
-                                                border: '3px solid rgba(255,255,255,0.9)',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                color: '#fff',
-                                            }}
-                                        >
-                                            <svg
-                                                width={buttonSize * 0.4}
-                                                height={buttonSize * 0.4}
-                                                viewBox="0 0 24 24"
-                                                fill="currentColor"
-                                            >
-                                                <rect x="6" y="4" width="4" height="16" />
-                                                <rect x="14" y="4" width="4" height="16" />
-                                            </svg>
-                                        </div>
-                                    )}
-                                </div>
+                                />
                             )}
                         </VideoPlayerWrapper>
                     )

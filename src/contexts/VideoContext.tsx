@@ -41,6 +41,7 @@ type VideoContextValue = {
   removeClip: (id: string) => void
   setActiveClip: (id: string | null) => void
   updateClip: (id: string, patch: Partial<VideoClip>) => void
+  reorderClips: (newOrder: VideoClip[]) => void
   addAudioClip: (clip: AudioClip) => void
   removeAudioClip: (id: string) => void
   updateAudioClip: (id: string, patch: Partial<AudioClip>) => void
@@ -58,6 +59,7 @@ type VideoContextValue = {
   pause: () => void
   togglePlayback: () => void
   seek: (time: number) => void
+  setIsPlaying: (playing: boolean) => void
   registerVideoRef: (id: string, ref: HTMLVideoElement | null) => void
   getVideoRef: (id: string) => HTMLVideoElement | null
 }
@@ -74,6 +76,7 @@ export const VideoContext = createContext<VideoContextValue>({
   removeClip: () => { },
   setActiveClip: () => { },
   updateClip: () => { },
+  reorderClips: () => { },
   addAudioClip: () => { },
   removeAudioClip: () => { },
   updateAudioClip: () => { },
@@ -90,6 +93,7 @@ export const VideoContext = createContext<VideoContextValue>({
   pause: () => { },
   togglePlayback: () => { },
   seek: () => { },
+  setIsPlaying: () => { },
   registerVideoRef: () => { },
   getVideoRef: () => null,
 })
@@ -124,7 +128,21 @@ export const VideoProvider: React.FC = ({ children }) => {
   }, [])
 
   const updateClip = useCallback((id: string, patch: Partial<VideoClip>) => {
-    setClips(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)))
+    setClips(prev => prev.map(c => {
+      if (c.id === id) {
+        const updated = { ...c, ...patch }
+        // Auto-calculate end time if start or duration changed
+        if (patch.start !== undefined || patch.duration !== undefined) {
+          updated.end = updated.start + updated.duration
+        }
+        return updated
+      }
+      return c
+    }))
+  }, [])
+
+  const reorderClips = useCallback((newOrder: VideoClip[]) => {
+    setClips(newOrder)
   }, [])
 
   // Audio clip functions
@@ -254,6 +272,7 @@ export const VideoProvider: React.FC = ({ children }) => {
       removeClip,
       setActiveClip: setActiveClipId,
       updateClip,
+      reorderClips,
       addAudioClip,
       removeAudioClip,
       updateAudioClip,
@@ -270,10 +289,11 @@ export const VideoProvider: React.FC = ({ children }) => {
       pause,
       togglePlayback,
       seek,
+      setIsPlaying,
       registerVideoRef,
       getVideoRef,
     }),
-    [clips, audioClips, layers, activeClipId, selectedClipIds, isTimelineOpen, addClip, removeClip, updateClip, addAudioClip, removeAudioClip, updateAudioClip, addLayer, removeLayer, updateLayer, selectClip, clearSelection, isPlaying, currentTime, play, pause, togglePlayback, seek, registerVideoRef, getVideoRef]
+    [clips, audioClips, layers, activeClipId, selectedClipIds, isTimelineOpen, addClip, removeClip, updateClip, reorderClips, addAudioClip, removeAudioClip, updateAudioClip, addLayer, removeLayer, updateLayer, selectClip, clearSelection, isPlaying, currentTime, play, pause, togglePlayback, seek, setIsPlaying, registerVideoRef, getVideoRef]
   )
 
   return <VideoContext.Provider value={value}>{children}</VideoContext.Provider>

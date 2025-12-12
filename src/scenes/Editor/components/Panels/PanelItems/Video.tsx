@@ -544,7 +544,18 @@ type ModalType = 'animate' | 'record' | 'timeline' | null
 
 function Video() {
   const editor = useEditor()
-  const { addClip, setActiveClip, setTimelineOpen } = useVideoContext()
+  const { addClip, setActiveClip, setTimelineOpen, clips } = useVideoContext()
+
+  // Helper function to calculate next available start time (end of last video clip)
+  const getNextVideoStartTime = useCallback(() => {
+    if (clips.length === 0) {
+      return 0 // Start at beginning if no clips exist
+    }
+    
+    // Find the maximum end time of all existing video clips
+    const maxEndTime = Math.max(...clips.map(clip => (clip.start || 0) + (clip.duration || 0)))
+    return maxEndTime
+  }, [clips])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const previewVideoRef = useRef<HTMLVideoElement>(null)
@@ -678,14 +689,17 @@ function Video() {
               visible: true,
             })
 
+            // Calculate start time to place video sequentially after existing videos
+            const startTime = getNextVideoStartTime()
+            
             // Add to Timeline
             addClip({
               id: clipId,
               name: file.name || 'Video clip',
               src: url,
               duration: clipDuration,
-              start: 0,
-              end: clipDuration,
+              start: startTime,
+              end: startTime + clipDuration,
               poster: posterUrl || undefined,
             })
 
@@ -832,14 +846,17 @@ function Video() {
         visible: true,
       })
 
+      // Calculate start time to place video sequentially after existing videos
+      const startTime = getNextVideoStartTime()
+      
       // Add to Timeline
       addClip({
         id: clipId,
         name: template.name,
         src: template.src,
         duration: durationInSeconds,
-        start: 0,
-        end: durationInSeconds,
+        start: startTime,
+        end: startTime + durationInSeconds,
         poster: posterUrl,
       })
 
@@ -938,14 +955,17 @@ function Video() {
 
         editor.add(options)
 
+        // Calculate start time to place video sequentially after existing videos
+        const startTime = getNextVideoStartTime()
+        
         // Add to Timeline
         addClip({
           id: clipId,
           name: videoFile?.name || 'Video clip',
           src: uploadedVideo,
           duration: clipDuration,
-          start: 0,
-          end: clipDuration,
+          start: startTime,
+          end: startTime + clipDuration,
           poster: posterUrl || undefined,
         })
 
@@ -972,13 +992,16 @@ function Video() {
         visible: true,
       })
 
+      // Calculate start time to place video sequentially after existing videos
+      const startTime = getNextVideoStartTime()
+      
       addClip({
         id: clipId,
         name: videoFile?.name || 'Video clip',
         src: uploadedVideo,
         duration: clipDuration,
-        start: 0,
-        end: clipDuration,
+        start: startTime,
+        end: startTime + clipDuration,
         poster: poster || undefined,
       })
 

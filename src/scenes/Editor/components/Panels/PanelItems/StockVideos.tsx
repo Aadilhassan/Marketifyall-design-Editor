@@ -205,8 +205,19 @@ function StockVideos() {
     const [apiKeyMissing] = useState(!isApiKeyConfigured())
 
     const editor = useEditor()
-    const { addClip, setActiveClip } = useVideoContext()
+    const { addClip, setActiveClip, clips } = useVideoContext()
     const scrollRef = useRef<Scrollbars>(null)
+
+    // Helper function to calculate next available start time (end of last video clip)
+    const getNextVideoStartTime = useCallback(() => {
+        if (clips.length === 0) {
+            return 0 // Start at beginning if no clips exist
+        }
+        
+        // Find the maximum end time of all existing video clips
+        const maxEndTime = Math.max(...clips.map(clip => (clip.start || 0) + (clip.duration || 0)))
+        return maxEndTime
+    }, [clips])
 
     // Load videos for category
     const loadVideos = useCallback(async (query: string, cacheKey: string, isPopular: boolean = false) => {
@@ -276,73 +287,168 @@ function StockVideos() {
             const videoUrl = videoFile.link
             const clipId = `stock-${video.id}-${Date.now()}`
 
-            // Calculate proper sizing for canvas
+            // Load video to get actual dimensions and extract proper poster frame
+            const videoElement = document.createElement('video')
+            videoElement.src = videoUrl
+            videoElement.crossOrigin = 'anonymous'
+            videoElement.preload = 'metadata'
+
+            await new Promise<void>((resolve, reject) => {
+                videoElement.onloadedmetadata = () => {
+                    videoElement.currentTime = 0.1 // Seek to get a frame
+                    resolve()
+                }
+                videoElement.onerror = reject
+            })
+
+            // Wait for video to seek to frame
+            await new Promise<void>((resolve) => {
+                videoElement.onseeked = () => resolve()
+            })
+
+            // Get actual video dimensions
+            const videoWidth = videoElement.videoWidth || videoFile.width || 1920
+            const videoHeight = videoElement.videoHeight || videoFile.height || 1080
+
+            // Canvas frame dimensions
             const frameWidth = 900
             const frameHeight = 1200
 
-            let targetWidth = videoFile.width || 1920
-            let targetHeight = videoFile.height || 1080
-            let scaleX = 1
-            let scaleY = 1
+            // STANDARD SIZE for all videos (Canva-like behavior)
+            // All videos will be normalized to this size regardless of aspect ratio
+            // Using 16:9 aspect ratio as standard (720x405)
+            const STANDARD_WIDTH = 720
+            const STANDARD_HEIGHT = 405
+            const STANDARD_ASPECT_RATIO = STANDARD_WIDTH / STANDARD_HEIGHT // 16:9
 
-            // Scale down if video is too large for canvas
-            const maxWidth = frameWidth * 0.8
-            const maxHeight = frameHeight * 0.6
+            // Calculate how to fit/crop the video to standard size (cover mode)
+            const videoAspectRatio = videoWidth / videoHeight
+            let sourceX = 0
+            let sourceY = 0
+            let sourceWidth = videoWidth
+            let sourceHeight = videoHeight
 
-            if (targetWidth > maxWidth || targetHeight > maxHeight) {
-                const widthRatio = maxWidth / targetWidth
-                const heightRatio = maxHeight / targetHeight
-                const scaleRatio = Math.min(widthRatio, heightRatio)
-
-                scaleX = scaleRatio
-                scaleY = scaleRatio
-                targetWidth = (videoFile.width || 1920) * scaleX
-                targetHeight = (videoFile.height || 1080) * scaleY
+            // If video is wider than standard (landscape), crop sides
+            // If video is taller than standard (portrait), crop top/bottom
+            if (videoAspectRatio > STANDARD_ASPECT_RATIO) {
+                // Video is wider - crop left/right (fit to height, crop width)
+                sourceHeight = videoHeight
+                sourceWidth = videoHeight * STANDARD_ASPECT_RATIO
+                sourceX = (videoWidth - sourceWidth) / 2
+            } else {
+                // Video is taller - crop top/bottom (fit to width, crop height)
+                sourceWidth = videoWidth
+                sourceHeight = videoWidth / STANDARD_ASPECT_RATIO
+                sourceY = (videoHeight - sourceHeight) / 2
             }
+
+            // Use standard dimensions for all videos
+            const targetWidth = STANDARD_WIDTH
+            const targetHeight = STANDARD_HEIGHT
 
             // Center the video on canvas
             const left = (frameWidth - targetWidth) / 2
             const top = (frameHeight - targetHeight) / 2
 
-            // Add to Canvas as a native object with video metadata
+            // Extract poster frame from video, cropped and scaled to standard size
+            const posterCanvas = document.createElement('canvas')
+            posterCanvas.width = targetWidth
+            posterCanvas.height = targetHeight
+            const ctx = posterCanvas.getContext('2d')
+
+            let posterUrl = ''
+            if (ctx) {
+                // Draw video frame: crop from source and scale to standard size
+                // This ensures all videos appear at the same size (cover mode)
+                ctx.drawImage(
+                    videoElement,
+                    sourceX, sourceY, sourceWidth, sourceHeight, // Source crop
+                    0, 0, targetWidth, targetHeight // Destination size
+                )
+                posterUrl = posterCanvas.toDataURL('image/png')
+            }
+
+            // Add to Canvas with standard dimensions
+            // All videos use the same size (STANDARD_WIDTH x STANDARD_HEIGHT)
             editor.add({
                 type: 'StaticImage',
                 metadata: {
-                    src: video.image, // Use thumbnail as poster
+                    src: posterUrl || video.image, // Use extracted frame or fallback to thumbnail
                     videoSrc: videoUrl,
                     name: `Stock Video by ${video.user.name}`,
                     duration: video.duration,
                     id: clipId,
                     isVideo: true,
+                    // Store crop info for video playback
+                    videoCrop: {
+                        sourceX,
+                        sourceY,
+                        sourceWidth,
+                        sourceHeight,
+                        videoWidth,
+                        videoHeight,
+                    },
                 },
-                width: videoFile.width || 1920,
-                height: videoFile.height || 1080,
+                width: targetWidth, // Standard width (720)
+                height: targetHeight, // Standard height (405)
                 left,
                 top,
-                scaleX,
-                scaleY,
+                scaleX: 1, // No additional scaling
+                scaleY: 1, // No additional scaling
                 opacity: 1,
                 visible: true,
             })
 
-            // Add to Timeline
-            addClip({
+            // Calculate start time to place video sequentially after existing videos
+            const startTime = getNextVideoStartTime()
+            
+            // Ensure duration is valid (fallback to 10 seconds if invalid)
+            const videoDuration = video.duration && video.duration > 0 ? video.duration : 10
+            
+            // Validate clip data before adding
+            const clipData = {
                 id: clipId,
                 name: `Stock Video by ${video.user.name}`,
                 src: videoUrl,
-                duration: video.duration,
-                start: 0,
-                end: video.duration,
-                poster: video.image,
-            })
-
-            setActiveClip(clipId)
+                duration: videoDuration,
+                start: startTime,
+                end: startTime + videoDuration,
+                poster: posterUrl || video.image, // Use extracted poster frame
+            }
+            
+            // Verify all required fields are present
+            if (!clipData.id || !clipData.src || !clipData.duration || clipData.duration <= 0) {
+                console.error('Invalid clip data:', clipData)
+                throw new Error('Invalid clip data')
+            }
+            
+            // Add to Timeline - ensure this happens even if there are minor errors
+            try {
+                addClip(clipData)
+                setActiveClip(clipId)
+            } catch (clipError) {
+                console.error('Failed to add clip to timeline:', clipError)
+                // Still try to set active clip even if addClip failed
+                try {
+                    setActiveClip(clipId)
+                } catch (e) {
+                    console.error('Failed to set active clip:', e)
+                }
+            }
         } catch (error) {
-            console.error('Failed to add video:', error)
+            console.error('Failed to add video to canvas:', error)
+            // Even if canvas addition failed, try to add to timeline if we have the data
+            if (clipData && clipData.id && clipData.src) {
+                try {
+                    addClip(clipData)
+                } catch (e) {
+                    console.error('Failed to add clip after error:', e)
+                }
+            }
         } finally {
             setAddingVideo(null)
         }
-    }, [editor, addClip, setActiveClip, addingVideo])
+    }, [editor, addClip, setActiveClip, addingVideo, getNextVideoStartTime, clips])
 
     return (
         <Container>

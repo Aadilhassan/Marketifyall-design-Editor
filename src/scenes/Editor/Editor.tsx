@@ -14,11 +14,16 @@ import VideoCanvasPlayer from './components/VideoCanvasPlayer'
 import Editor, { useEditor } from '@nkyo/scenify-sdk'
 
 function App() {
-  const { setCurrentTemplate } = useAppContext()
+  const { setCurrentTemplate, activePanel } = useAppContext()
   const editor = useEditor()
   const location = useLocation()
   const dispath = useAppDispatch()
   const [hasInitialized, setHasInitialized] = useState(false)
+  
+  // Check if video-related panels are active
+  // activePanel can be a string or PanelType enum, so we compare as strings
+  const activePanelStr = String(activePanel)
+  const isVideoPanelActive = activePanelStr === 'Video' || activePanelStr === 'Stock Videos'
 
   // Parse URL parameters
   const searchParams = new URLSearchParams(location.search)
@@ -184,6 +189,8 @@ function App() {
               display: 'flex',
               background: '#e5e7eb',
               position: 'relative',
+              // Only add bottom padding when video panels are active
+              paddingBottom: isVideoPanelActive ? '300px' : '0', // Timeline height (260px) + bottom offset (20px) + extra spacing (20px)
             }}
             className="canvas-container"
           >
