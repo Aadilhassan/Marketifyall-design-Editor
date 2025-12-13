@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { styled } from 'baseui'
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
 import { Scrollbars } from 'react-custom-scrollbars'
 
@@ -544,6 +544,7 @@ type ModalType = 'animate' | 'record' | 'timeline' | null
 
 function Video() {
   const editor = useEditor()
+  const { frameSize } = useEditorContext() as any
   const { addClip, setActiveClip, setTimelineOpen, clips } = useVideoContext()
 
   // Helper function to calculate next available start time (end of last video clip)
@@ -640,9 +641,9 @@ function Video() {
               posterUrl = canvas.toDataURL('image/png')
             }
 
-            // Calculate proper sizing for canvas
-            const frameWidth = 900
-            const frameHeight = 1200
+            // Get canvas frame dimensions from editor context
+            const frameWidth = frameSize?.width || 900
+            const frameHeight = frameSize?.height || 1200
 
             let targetWidth = videoWidth
             let targetHeight = videoHeight
@@ -664,7 +665,8 @@ function Video() {
               targetHeight = videoHeight * scaleY
             }
 
-            // Center the video on canvas
+            // Center the video on canvas frame (same approach as Images.tsx)
+            // Frame coordinates start at (0,0), so we just center relative to frame dimensions
             const left = (frameWidth - targetWidth) / 2
             const top = (frameHeight - targetHeight) / 2
 
@@ -781,9 +783,9 @@ function Video() {
       const videoWidth = video.videoWidth || 1920
       const videoHeight = video.videoHeight || 1080
 
-      // Calculate proper sizing for canvas FIRST
-      const frameWidth = 900
-      const frameHeight = 1200
+      // Get canvas frame dimensions from editor context
+      const frameWidth = frameSize?.width || 900
+      const frameHeight = frameSize?.height || 1200
 
       let targetWidth = videoWidth
       let targetHeight = videoHeight
@@ -805,7 +807,8 @@ function Video() {
         targetHeight = videoHeight * scaleY
       }
 
-      // Center the video on canvas
+      // Center the video on canvas frame (same approach as Images.tsx)
+      // Frame coordinates start at (0,0), so we just center relative to frame dimensions
       const left = (frameWidth - targetWidth) / 2
       const top = (frameHeight - targetHeight) / 2
 
@@ -884,10 +887,9 @@ function Video() {
       const videoWidth = video.videoWidth || 1920
       const videoHeight = video.videoHeight || 1080
 
-      // Calculate proper sizing for canvas FIRST
-      // Default canvas size
-      const frameWidth = 900
-      const frameHeight = 1200
+      // Get canvas frame dimensions from editor context
+      const frameWidth = frameSize?.width || 900
+      const frameHeight = frameSize?.height || 1200
 
       let targetWidth = videoWidth
       let targetHeight = videoHeight
@@ -909,7 +911,8 @@ function Video() {
         targetHeight = videoHeight * scaleY
       }
 
-      // Center the video on canvas
+      // Center the video on canvas frame (same approach as Images.tsx)
+      // Frame coordinates start at (0,0), so we just center relative to frame dimensions
       const left = (frameWidth - targetWidth) / 2
       const top = (frameHeight - targetHeight) / 2
 
@@ -1138,33 +1141,34 @@ function Video() {
         ctx.drawImage(video, 0, 0)
         const frameDataUrl = canvas.toDataURL('image/png')
 
-        // Calculate proper sizing for canvas
-        const frameWidth = 900
-        const frameHeight = 1200
+      // Get canvas frame dimensions from editor context
+      const frameWidth = frameSize?.width || 900
+      const frameHeight = frameSize?.height || 1200
 
-        let targetWidth = videoWidth
-        let targetHeight = videoHeight
-        let scaleX = 1
-        let scaleY = 1
+      let targetWidth = videoWidth
+      let targetHeight = videoHeight
+      let scaleX = 1
+      let scaleY = 1
 
-        // Scale down if video is too large for canvas
-        const maxWidth = frameWidth * 0.8
-        const maxHeight = frameHeight * 0.6
+      // Scale down if video is too large for canvas
+      const maxWidth = frameWidth * 0.8
+      const maxHeight = frameHeight * 0.6
 
-        if (targetWidth > maxWidth || targetHeight > maxHeight) {
-          const widthRatio = maxWidth / targetWidth
-          const heightRatio = maxHeight / targetHeight
-          const scaleRatio = Math.min(widthRatio, heightRatio)
+      if (targetWidth > maxWidth || targetHeight > maxHeight) {
+        const widthRatio = maxWidth / targetWidth
+        const heightRatio = maxHeight / targetHeight
+        const scaleRatio = Math.min(widthRatio, heightRatio)
 
-          scaleX = scaleRatio
-          scaleY = scaleRatio
-          targetWidth = videoWidth * scaleX
-          targetHeight = videoHeight * scaleY
-        }
+        scaleX = scaleRatio
+        scaleY = scaleRatio
+        targetWidth = videoWidth * scaleX
+        targetHeight = videoHeight * scaleY
+      }
 
-        // Center the video on canvas
-        const left = (frameWidth - targetWidth) / 2
-        const top = (frameHeight - targetHeight) / 2
+      // Center the video on canvas frame (same approach as Images.tsx)
+      // Frame coordinates start at (0,0), so we just center relative to frame dimensions
+      const left = (frameWidth - targetWidth) / 2
+      const top = (frameHeight - targetHeight) / 2
 
         const clipId = `recording-${Date.now()}`
 

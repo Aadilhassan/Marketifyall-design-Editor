@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { Input } from 'baseui/input'
 import Icons from '@components/icons'
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { searchPexelsVideos, getPopularVideos, isApiKeyConfigured, PexelsVideo, getBestVideoFile } from '@/services/pexels'
 import { useDebounce } from 'use-debounce'
 import { styled } from 'baseui'
@@ -205,6 +205,7 @@ function StockVideos() {
     const [apiKeyMissing] = useState(!isApiKeyConfigured())
 
     const editor = useEditor()
+    const { frameSize } = useEditorContext() as any
     const { addClip, setActiveClip, clips } = useVideoContext()
     const scrollRef = useRef<Scrollbars>(null)
 
@@ -310,9 +311,9 @@ function StockVideos() {
             const videoWidth = videoElement.videoWidth || videoFile.width || 1920
             const videoHeight = videoElement.videoHeight || videoFile.height || 1080
 
-            // Canvas frame dimensions
-            const frameWidth = 900
-            const frameHeight = 1200
+            // Get canvas frame dimensions from editor context
+            const frameWidth = frameSize?.width || 900
+            const frameHeight = frameSize?.height || 1200
 
             // STANDARD SIZE for all videos (Canva-like behavior)
             // All videos will be normalized to this size regardless of aspect ratio
@@ -346,7 +347,8 @@ function StockVideos() {
             const targetWidth = STANDARD_WIDTH
             const targetHeight = STANDARD_HEIGHT
 
-            // Center the video on canvas
+            // Center the video on canvas frame (same approach as Images.tsx)
+            // Frame coordinates start at (0,0), so we just center relative to frame dimensions
             const left = (frameWidth - targetWidth) / 2
             const top = (frameHeight - targetHeight) / 2
 
@@ -405,7 +407,7 @@ function StockVideos() {
             // Ensure duration is valid (fallback to 10 seconds if invalid)
             const videoDuration = video.duration && video.duration > 0 ? video.duration : 10
             
-            // Validate clip data before adding
+            // Prepare clip data for timeline
             const clipData = {
                 id: clipId,
                 name: `Stock Video by ${video.user.name}`,
@@ -422,29 +424,11 @@ function StockVideos() {
                 throw new Error('Invalid clip data')
             }
             
-            // Add to Timeline - ensure this happens even if there are minor errors
-            try {
-                addClip(clipData)
-                setActiveClip(clipId)
-            } catch (clipError) {
-                console.error('Failed to add clip to timeline:', clipError)
-                // Still try to set active clip even if addClip failed
-                try {
-                    setActiveClip(clipId)
-                } catch (e) {
-                    console.error('Failed to set active clip:', e)
-                }
-            }
+            // Add to Timeline
+            addClip(clipData)
+            setActiveClip(clipId)
         } catch (error) {
-            console.error('Failed to add video to canvas:', error)
-            // Even if canvas addition failed, try to add to timeline if we have the data
-            if (clipData && clipData.id && clipData.src) {
-                try {
-                    addClip(clipData)
-                } catch (e) {
-                    console.error('Failed to add clip after error:', e)
-                }
-            }
+            console.error('Failed to add video:', error)
         } finally {
             setAddingVideo(null)
         }

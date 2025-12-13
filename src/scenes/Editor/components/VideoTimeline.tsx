@@ -203,10 +203,12 @@ const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
       default: return '#6b7280'
     }
   }
+  // Video tracks are taller to show thumbnails better (Canva-style)
+  const trackHeight = $type === 'video' ? '88px' : '52px'
   return {
-    height: '52px',
-    minHeight: '52px',
-    maxHeight: '52px',
+    height: trackHeight,
+    minHeight: trackHeight,
+    maxHeight: trackHeight,
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
@@ -225,7 +227,7 @@ const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
     '::before': {
       content: '""',
       width: '3px',
-      height: '24px',
+      height: $type === 'video' ? '40px' : '24px',
       background: getColor(),
       borderRadius: '2px',
       flexShrink: 0,
@@ -405,37 +407,43 @@ const TracksArea = styled('div', {
   contain: 'layout',
 })
 
-const TrackRow = styled('div', {
-  height: '52px',
-  minHeight: '52px',
-  maxHeight: '52px',
+const TrackRow = styled('div', ({ $type }: { $type?: string }) => ({
+  // Video tracks are taller to show thumbnails better (Canva-style)
+  height: $type === 'video' ? '88px' : '52px',
+  minHeight: $type === 'video' ? '88px' : '52px',
+  maxHeight: $type === 'video' ? '88px' : '52px',
   borderBottom: '1px solid #e5e7eb',
   position: 'relative',
   background: '#ffffff',
   flexShrink: 0,
   flexGrow: 0,
-})
+}))
 
-const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected }: {
-  $left: number; $width: number; $color: string; $active?: boolean; $selected?: boolean
+const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $poster }: {
+  $left: number; $width: number; $color: string; $active?: boolean; $selected?: boolean; $poster?: string
 }) => ({
   position: 'absolute',
   left: `${$left}px`,
-  top: '8px',
-  bottom: '8px',
+  top: '6px', // Reduced top margin for better thumbnail visibility
+  bottom: '6px', // Reduced bottom margin for better thumbnail visibility
   width: `${$width}px`,
   minWidth: '30px',
-  background: $color,
+  background: $poster 
+    ? `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${$poster})` 
+    : $color,
+  backgroundSize: $poster ? 'cover' : 'auto',
+  backgroundPosition: $poster ? 'center' : 'auto',
+  backgroundRepeat: $poster ? 'no-repeat' : 'repeat',
   borderRadius: '6px',
-  padding: '0 8px',
+  padding: $poster ? '0' : '0 8px', // No padding when showing thumbnail
   color: '#ffffff',
   fontSize: '11px',
   fontWeight: 500,
   cursor: 'grab',
   display: 'flex',
-  alignItems: 'center',
+  alignItems: $poster ? 'flex-end' : 'center', // Align text to bottom when showing thumbnail
   gap: '6px',
-  overflow: 'visible', // Changed to visible so delete button can show
+  overflow: 'hidden', // Changed to hidden to clip video thumbnail
   border: $selected ? '2px solid #ffffff' : ($active ? '2px solid rgba(255,255,255,0.7)' : 'none'),
   boxShadow: $selected ? '0 0 0 2px rgba(139, 92, 246, 0.3)' : 'none',
   transition: 'box-shadow 0.15s ease, border 0.1s ease',
@@ -613,6 +621,8 @@ interface TimelineClip {
   color: string
   type: TrackType
   thumbnail?: string
+  poster?: string
+  videoSrc?: string
   canvasObjectId?: string
 }
 
@@ -674,6 +684,8 @@ const VideoTimeline: React.FC = () => {
   const tracksScrollRef = useRef<HTMLDivElement>(null)
   // Local state for drag/resize preview (doesn't affect main tracks calculation)
   const [dragPreview, setDragPreview] = useState<Record<string, { start?: number; duration?: number }>>({})
+  // Refs for timeline video elements (mini players in clips)
+  const timelineVideoRefs = useRef<Record<string, HTMLVideoElement>>({})
   const [openMenuTrackId, setOpenMenuTrackId] = useState<string | null>(null)
   const [menuPosition, setMenuPosition] = useState<number>(0)
   const [dragOverTrackId, setDragOverTrackId] = useState<string | null>(null)
@@ -719,6 +731,34 @@ const VideoTimeline: React.FC = () => {
 
   const pixelsPerSecond = zoom
   
+  // Track canvas object changes to force timeline updates
+  const [canvasObjectVersion, setCanvasObjectVersion] = useState(0)
+  
+  // Listen to canvas object changes to update timeline
+  useEffect(() => {
+    if (!canvas) return
+    
+    const updateVersion = () => {
+      setCanvasObjectVersion(prev => prev + 1)
+    }
+    
+    // @ts-ignore
+    canvas.on?.('object:added', updateVersion)
+    // @ts-ignore
+    canvas.on?.('object:removed', updateVersion)
+    // @ts-ignore
+    canvas.on?.('object:modified', updateVersion)
+    
+    return () => {
+      // @ts-ignore
+      canvas.off?.('object:added', updateVersion)
+      // @ts-ignore
+      canvas.off?.('object:removed', updateVersion)
+      // @ts-ignore
+      canvas.off?.('object:modified', updateVersion)
+    }
+  }, [canvas])
+  
   // Calculate total duration based on all video clips (with some padding)
   const calculateTotalDuration = useMemo(() => {
     if (clips.length === 0) {
@@ -763,6 +803,8 @@ const VideoTimeline: React.FC = () => {
       duration: clip.duration || 60,
       color: '#8b5cf6',
       type: 'video' as TrackType,
+      poster: clip.poster, // Include poster for video thumbnail
+      videoSrc: clip.src, // Include video source for playback
     }))
 
     // Always show video track (even if empty) to maintain consistent layout
@@ -788,12 +830,20 @@ const VideoTimeline: React.FC = () => {
 
       if (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
         obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text') {
+        // Use timeline metadata if available, otherwise default to full duration
+        const timelineStart = obj.metadata?.timelineStart ?? 0
+        const timelineDuration = obj.metadata?.timelineDuration ?? totalDuration
+        
+        // Use different colors for different text elements (Canva-style)
+        const textColors = ['#10b981', '#059669', '#047857', '#065f46', '#064e3b']
+        const colorIndex = textClips.length % textColors.length
+        
         textClips.push({
           id: clipId,
           name: clipName,
-          start: 0,
-          duration: totalDuration,
-          color: '#10b981',
+          start: timelineStart,
+          duration: timelineDuration,
+          color: textColors[colorIndex],
           type: 'text',
           canvasObjectId: clipId,
         })
@@ -810,12 +860,19 @@ const VideoTimeline: React.FC = () => {
       }
     })
 
+    // Text tracks - each text element gets its own track for better visibility (Canva-style)
+    // Different colors for visual distinction
+    const textColors = ['#10b981', '#059669', '#047857', '#065f46', '#064e3b']
+    
     if (textClips.length > 0) {
-      newTracks.push({
-        id: 'track-text',
-        name: 'Text',
-        type: 'text',
-        clips: textClips,
+      textClips.forEach((clip, idx) => {
+        const color = textColors[idx % textColors.length]
+        newTracks.push({
+          id: `track-text-${clip.id}`,
+          name: idx === 0 ? 'Text' : `Text ${idx + 1}`,
+          type: 'text',
+          clips: [clip],
+        })
       })
     }
 
@@ -860,7 +917,7 @@ const VideoTimeline: React.FC = () => {
     }
 
     return newTracks
-  }, [canvas, clips, audioClips, totalDuration])
+  }, [canvas, clips, audioClips, totalDuration, canvasObjectVersion])
 
   // Synchronize scrolling between track labels and tracks area
   useEffect(() => {
@@ -1069,9 +1126,9 @@ const VideoTimeline: React.FC = () => {
     }
   }, [])
 
-  // Get active clip based on currentTime
+  // Get active clip based on currentTime - memoized for performance
   // If multiple clips overlap, prioritize the first one (lowest start time)
-  const getActiveClip = useCallback(() => {
+  const activeClip = useMemo(() => {
     if (clips.length === 0) return null
     
     // Find all clips that contain currentTime
@@ -1087,6 +1144,9 @@ const VideoTimeline: React.FC = () => {
     const sortedActiveClips = activeClips.sort((a, b) => (a.start || 0) - (b.start || 0))
     return sortedActiveClips[0]
   }, [clips, currentTime])
+  
+  // Keep getActiveClip for backward compatibility but use memoized value
+  const getActiveClip = useCallback(() => activeClip, [activeClip])
 
   // Update master video when active clip changes
   useEffect(() => {
@@ -1203,72 +1263,144 @@ const VideoTimeline: React.FC = () => {
     }
   }, [clips, getActiveClip, setActiveClip, setCurrentTime, totalDuration, setIsPlaying, isPlaying])
 
-  // Sync master video playback with timeline
+  // Sync master video playback with timeline - optimized with requestAnimationFrame
   useEffect(() => {
-    const masterVideo = masterVideoRef.current
-    const activeClip = getActiveClip()
-    
-    if (!masterVideo || !activeClip) return
+    if (!isPlaying) {
+      // When paused, sync once
+      const masterVideo = masterVideoRef.current
+      if (masterVideo && activeClip) {
+        const clipStart = activeClip.start || 0
+        const videoTime = Math.max(0, currentTime - clipStart)
+        const videoDuration = masterVideo.duration || activeClip.duration
+        if (videoTime < videoDuration) {
+          masterVideo.currentTime = videoTime
+        }
+        if (!masterVideo.paused) {
+          masterVideo.pause()
+        }
+      }
+      return
+    }
 
-    const clipStart = activeClip.start || 0
-    const videoTime = Math.max(0, currentTime - clipStart)
-    const videoDuration = masterVideo.duration || activeClip.duration
+    // Use requestAnimationFrame for smooth updates during playback
+    let animationId: number
+    let lastSyncTime = 0
+    const SYNC_INTERVAL = 83 // Sync every 83ms (~12fps) for better performance balance
 
-    if (isPlaying) {
-      // Sync video time if drifted
-      if (Math.abs(masterVideo.currentTime - videoTime) > 0.15 && videoTime < videoDuration) {
-        masterVideo.currentTime = videoTime
+    const syncVideos = () => {
+      const now = performance.now()
+      const masterVideo = masterVideoRef.current
+      
+      if (!masterVideo || !activeClip) {
+        animationId = requestAnimationFrame(syncVideos)
+        return
+      }
+
+      const clipStart = activeClip.start || 0
+      const videoTime = Math.max(0, currentTimeRef.current - clipStart)
+      const videoDuration = masterVideo.duration || activeClip.duration
+
+      // Sync master video time if drifted (throttled)
+      if (now - lastSyncTime > SYNC_INTERVAL) {
+        if (Math.abs(masterVideo.currentTime - videoTime) > 0.15 && videoTime < videoDuration) {
+          masterVideo.currentTime = videoTime
+        }
+        
+        if (masterVideo.paused) {
+          masterVideo.play().catch(err => {
+            if (err.name !== 'AbortError') {
+              console.error('Video play error:', err)
+            }
+          })
+        }
+        lastSyncTime = now
       }
       
-      if (masterVideo.paused) {
-        masterVideo.play().catch(err => {
-          if (err.name !== 'AbortError') {
-            console.error('Video play error:', err)
+      // Only sync the active timeline mini video player (optimized)
+      if (activeClip && timelineVideoRefs.current[activeClip.id]) {
+        const videoEl = timelineVideoRefs.current[activeClip.id]
+        const expectedTime = Math.max(0, currentTimeRef.current - clipStart)
+        
+        if (expectedTime >= 0 && expectedTime <= activeClip.duration) {
+          // Only update if significantly drifted (reduce updates)
+          if (Math.abs(videoEl.currentTime - expectedTime) > 0.2) {
+            videoEl.currentTime = expectedTime
+          }
+          if (videoEl.paused) {
+            videoEl.play().catch(() => {}) // Ignore errors
+          }
+        }
+      }
+      
+      // Pause inactive clips (only check occasionally)
+      if (now - lastSyncTime > SYNC_INTERVAL) {
+        Object.entries(timelineVideoRefs.current).forEach(([clipId, videoEl]) => {
+          if (clipId !== activeClip?.id && !videoEl.paused) {
+            videoEl.pause()
+            videoEl.currentTime = 0
           }
         })
       }
-    } else {
-      if (!masterVideo.paused) {
-        masterVideo.pause()
-      }
-      // Update time when paused
-      if (videoTime < videoDuration) {
-        masterVideo.currentTime = videoTime
-      }
-    }
-  }, [isPlaying, currentTime, getActiveClip])
 
-  // Update canvas to show active video - ensure the correct video object is visible
+      animationId = requestAnimationFrame(syncVideos)
+    }
+
+    animationId = requestAnimationFrame(syncVideos)
+    return () => {
+      cancelAnimationFrame(animationId)
+    }
+  }, [isPlaying, activeClip])
+
+  // Update canvas to show active video - debounced for performance
+  const lastActiveClipIdRef = useRef<string | null>(null)
   useEffect(() => {
-    const activeClip = getActiveClip()
     if (!editor || !activeClip || !canvas) return
-
-    // @ts-ignore
-    const objects = canvas.getObjects?.() || []
     
-    // Hide all video objects first
-    objects.forEach((obj: any) => {
-      if (obj.metadata?.isVideo || obj.metadata?.videoSrc) {
-        // Only show the active clip's video object
-        const isActive = obj.metadata?.id === activeClip.id
-        obj.set('opacity', isActive ? 1 : 0)
-        obj.dirty = true
+    // Skip if active clip hasn't changed
+    if (lastActiveClipIdRef.current === activeClip.id) return
+    lastActiveClipIdRef.current = activeClip.id
+
+    // Debounce canvas updates to avoid lag
+    const timeoutId = setTimeout(() => {
+      // @ts-ignore
+      const objects = canvas.getObjects?.() || []
+      
+      // Batch canvas updates
+      let needsRender = false
+      objects.forEach((obj: any) => {
+        if (obj.metadata?.isVideo || obj.metadata?.videoSrc) {
+          // Only show the active clip's video object
+          const isActive = obj.metadata?.id === activeClip.id
+          const currentOpacity = obj.opacity || 0
+          const targetOpacity = isActive ? 1 : 0
+          
+          if (currentOpacity !== targetOpacity) {
+            obj.set('opacity', targetOpacity)
+            obj.dirty = true
+            needsRender = true
+          }
+        }
+      })
+
+      // Only render if something changed
+      if (needsRender) {
+        canvas.renderAll()
       }
-    })
 
-    // Find and select the active video object
-    const videoObject = objects.find((obj: any) => 
-      obj.metadata?.id === activeClip.id
-    )
+      // Find and select the active video object
+      const videoObject = objects.find((obj: any) => 
+        obj.metadata?.id === activeClip.id
+      )
 
-    if (videoObject) {
-      // Update existing video object and make it visible
-      // @ts-ignore
-      canvas.setActiveObject?.(videoObject)
-      // @ts-ignore
-      canvas.requestRenderAll?.()
-    }
-  }, [getActiveClip, editor, canvas, activeClipId])
+      if (videoObject) {
+        // Update existing video object and make it visible
+        // @ts-ignore
+        canvas.setActiveObject?.(videoObject)
+      }
+    }, 50) // Debounce by 50ms to reduce lag
+
+    return () => clearTimeout(timeoutId)
+  }, [activeClip, editor, canvas])
 
   // Timer to update currentTime when playing (drives audio and playhead)
   const currentTimeRef = useRef(currentTime)
@@ -1305,16 +1437,22 @@ const VideoTimeline: React.FC = () => {
     }
   }, [isPlaying, setCurrentTime, totalDuration, togglePlayback])
 
-  // Handle toggle play - Canva style: ALWAYS start from first clip (sorted by start time)
+  // Handle toggle play - Canva style: ALWAYS start from beginning or first clip
   const handleTogglePlay = useCallback(() => {
-    if (!isPlaying && clips.length > 0) {
-      // Sort clips by start time to get the actual first clip
-      const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
-      const firstClip = sortedClips[0]
-      
-      // Always start from the first clip (lowest start time)
-      setActiveClip(firstClip.id)
-      setCurrentTime(firstClip.start || 0)
+    if (!isPlaying) {
+      // If there are video clips, start from the first one
+      if (clips.length > 0) {
+        // Sort clips by start time to get the actual first clip
+        const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
+        const firstClip = sortedClips[0]
+        
+        // Always start from the first clip (lowest start time)
+        setActiveClip(firstClip.id)
+        setCurrentTime(firstClip.start || 0)
+      } else {
+        // No video clips, but might have text/audio - start from beginning
+        setCurrentTime(0)
+      }
     }
     togglePlayback()
   }, [togglePlayback, isPlaying, clips, setActiveClip, setCurrentTime])
@@ -1461,12 +1599,22 @@ const VideoTimeline: React.FC = () => {
     return () => document.removeEventListener('keydown', handleEscape)
   }, [contextMenu.visible])
 
+  // Track if we're dragging to prevent click events
+  const dragStartPositionRef = useRef<{ x: number; y: number } | null>(null)
+  const hasDraggedRef = useRef(false)
+
   // Drag handlers
   const handleDragStart = (clipId: string, trackId: string, e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
+    
     const track = tracks.find(t => t.id === trackId)
     const clip = track?.clips.find(c => c.id === clipId)
     if (!clip) return
+
+    // Store initial mouse position to detect if user actually dragged
+    dragStartPositionRef.current = { x: e.clientX, y: e.clientY }
+    hasDraggedRef.current = false
 
     setDragging({
       clipId,
@@ -1503,12 +1651,43 @@ const VideoTimeline: React.FC = () => {
         } else if (track?.type === 'video') {
           // Update video clip position in context
           updateClip(clip.id, { start: newStart, end: newStart + clip.duration })
+        } else if (track?.type === 'text' && clip.canvasObjectId && canvas) {
+          // Update text track position in canvas metadata
+          // @ts-ignore
+          const objects = canvas.getObjects?.() || []
+          const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
+          if (obj && obj.metadata) {
+            obj.metadata.timelineStart = newStart
+            obj.dirty = true
+            // @ts-ignore
+            canvas.requestRenderAll?.()
+            // Trigger object:modified event to force tracks recalculation
+            // @ts-ignore
+            canvas.fire?.('object:modified', { target: obj })
+          }
+        } else if (track?.type === 'image' && clip.canvasObjectId && canvas) {
+          // Update image track position in canvas metadata (if it has timeline metadata)
+          // @ts-ignore
+          const objects = canvas.getObjects?.() || []
+          const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
+          if (obj && obj.metadata && obj.metadata.timelineStart !== undefined) {
+            obj.metadata.timelineStart = newStart
+            obj.dirty = true
+            // @ts-ignore
+            canvas.requestRenderAll?.()
+            // @ts-ignore
+            canvas.fire?.('object:modified', { target: obj })
+          }
         }
       }
     }
     setDragging(null)
     setDragPreview({}) // Clear preview
-  }, [dragging, tracks, dragPreview, updateAudioClip, updateClip])
+    if (dragStartPositionRef.current) {
+      dragStartPositionRef.current = null
+    }
+    hasDraggedRef.current = false
+  }, [dragging, tracks, dragPreview, updateAudioClip, updateClip, canvas])
 
   // Resize handlers
   const handleResizeStart = (clipId: string, trackId: string, handle: 'left' | 'right', e: React.MouseEvent) => {
@@ -1563,12 +1742,43 @@ const VideoTimeline: React.FC = () => {
         } else if (track?.type === 'video') {
           // Update video clip duration in context
           updateClip(clip.id, { start: newStart, duration: newDuration, end: newStart + newDuration })
+        } else if (track?.type === 'text' && clip.canvasObjectId && canvas) {
+          // Update text track duration in canvas metadata
+          // @ts-ignore
+          const objects = canvas.getObjects?.() || []
+          const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
+          if (obj && obj.metadata) {
+            obj.metadata.timelineStart = newStart
+            obj.metadata.timelineDuration = newDuration
+            obj.dirty = true
+            // @ts-ignore
+            canvas.requestRenderAll?.()
+            // Trigger object:modified event to force tracks recalculation
+            // @ts-ignore
+            canvas.fire?.('object:modified', { target: obj })
+          }
+        } else if (track?.type === 'image' && clip.canvasObjectId && canvas) {
+          // Update image track duration in canvas metadata (if it has timeline metadata)
+          // @ts-ignore
+          const objects = canvas.getObjects?.() || []
+          const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
+          if (obj && obj.metadata && obj.metadata.timelineStart !== undefined) {
+            obj.metadata.timelineStart = newStart
+            if (obj.metadata.timelineDuration !== undefined) {
+              obj.metadata.timelineDuration = newDuration
+            }
+            obj.dirty = true
+            // @ts-ignore
+            canvas.requestRenderAll?.()
+            // @ts-ignore
+            canvas.fire?.('object:modified', { target: obj })
+          }
         }
       }
     }
     setResizing(null)
     setDragPreview({}) // Clear preview
-  }, [resizing, tracks, dragPreview, updateAudioClip, updateClip])
+  }, [resizing, tracks, dragPreview, updateAudioClip, updateClip, canvas])
 
   // Mouse move/up listeners for drag and resize
   useEffect(() => {
@@ -2054,15 +2264,29 @@ const VideoTimeline: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isTimelineOpen, selectedClipIds, audioClips, clips, removeAudioClip, removeClip, clearSelection, canvas])
 
-  // Show timeline button when closed
-  // Only show timeline UI when video panels are active
-  if (!isVideoPanelActive) {
+  // Check if there's any video/animation content on canvas
+  const hasVideoContent = clips.length > 0 || audioClips.length > 0
+  
+  // Also check canvas for video objects (in case clips aren't synced)
+  const hasCanvasVideoContent = useMemo(() => {
+    if (!canvas) return false
+    // @ts-ignore
+    const objects = canvas.getObjects?.() || []
+    return objects.some((obj: any) => 
+      obj.metadata?.isVideo || 
+      obj.metadata?.videoSrc ||
+      (obj.metadata?.animation && obj.metadata.animation !== 'none')
+    )
+  }, [canvas, clips.length]) // Re-check when clips change
+
+  // Only show timeline if there's video/animation content
+  const shouldShowTimeline = hasVideoContent || hasCanvasVideoContent
+  
+  if (!shouldShowTimeline) {
     return null
   }
 
   if (!isTimelineOpen) {
-    const hasContent = clips.length > 0 || audioClips.length > 0
-    if (!hasContent) return null
 
     return (
       <ShowTimelineButton onClick={() => setTimelineOpen(true)}>
@@ -2206,7 +2430,8 @@ const VideoTimeline: React.FC = () => {
           >
             {tracks.map(track => (
               <TrackRow 
-                key={track.id} 
+                key={track.id}
+                $type={track.type}
                 data-track-row
                 onDragOver={(e) => handleDragOver(e, track.id)}
                 onDragLeave={handleDragLeave}
@@ -2271,6 +2496,9 @@ const VideoTimeline: React.FC = () => {
                   const displayStart = preview?.start ?? clip.start
                   const displayDuration = preview?.duration ?? clip.duration
                   
+                  // Check if this clip is currently playing
+                  const isClipPlaying = isPlaying && clip.id === activeClipId && clip.type === 'video'
+                  
                   return (
                     <TrackClip
                       key={clip.id}
@@ -2279,37 +2507,127 @@ const VideoTimeline: React.FC = () => {
                       $color={clip.color}
                       $active={clip.id === activeClipId}
                       $selected={selectedClipIds.includes(clip.id)}
+                      $poster={clip.type === 'video' ? (clip.poster || undefined) : undefined}
                       onClick={(e) => handleClipClick(clip.id, track.id, e)}
                       onContextMenu={(e) => handleClipContextMenu(clip.id, track.id, e)}
                       onMouseDown={(e) => handleDragStart(clip.id, track.id, e)}
                       onMouseEnter={() => setHoveredClipId(clip.id)}
                       onMouseLeave={() => setHoveredClipId(null)}
                     >
-                    <ClipThumbnail>
-                      {clip.type === 'video' && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                          <polygon points="5 3 19 12 5 21 5 3" />
-                        </svg>
-                      )}
-                      {clip.type === 'text' && (
-                        <span style={{ fontSize: '12px', fontWeight: 700 }}>T</span>
-                      )}
-                      {clip.type === 'image' && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                          <rect x="3" y="3" width="18" height="18" rx="2" />
-                          <circle cx="8.5" cy="8.5" r="1.5" />
-                          <path d="M21 15l-5-5L5 21h14a2 2 0 002-2v-4z" />
-                        </svg>
-                      )}
-                      {clip.type === 'audio' && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M9 18V5l12-2v13" />
-                          <circle cx="6" cy="18" r="3" />
-                          <circle cx="18" cy="16" r="3" />
-                        </svg>
-                      )}
-                    </ClipThumbnail>
-                    <ClipName>{clip.name}</ClipName>
+                    {/* Show video thumbnail/poster for video clips - with mini video player when playing */}
+                    {clip.type === 'video' && clip.poster ? (
+                      <ClipThumbnail style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                        pointerEvents: 'none',
+                      }}>
+                        {/* Show actual video when playing, poster when paused */}
+                        {isClipPlaying && clip.videoSrc ? (
+                          <video
+                            ref={(el) => {
+                              if (el) {
+                                timelineVideoRefs.current[clip.id] = el
+                                // Initial sync only - ongoing sync handled by requestAnimationFrame
+                                if (isClipPlaying) {
+                                  const clipStart = clip.start || 0
+                                  const expectedTime = currentTime - clipStart
+                                  if (expectedTime >= 0 && expectedTime <= clip.duration) {
+                                    el.currentTime = expectedTime
+                                  }
+                                }
+                              } else {
+                                // Cleanup ref when element unmounts
+                                delete timelineVideoRefs.current[clip.id]
+                              }
+                            }}
+                            src={clip.videoSrc}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                              pointerEvents: 'none',
+                            }}
+                            muted
+                            playsInline
+                            autoPlay
+                            loop={false}
+                          />
+                        ) : (
+                          <img 
+                            src={clip.poster} 
+                            alt={clip.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                            }}
+                          />
+                        )}
+                        {/* Overlay for text readability */}
+                        <div style={{
+                          position: 'absolute',
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                          padding: '4px 8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          zIndex: 1,
+                        }}>
+                          <ClipThumbnail style={{ 
+                            width: '20px', 
+                            height: '20px', 
+                            background: 'rgba(255,255,255,0.2)',
+                            flexShrink: 0,
+                          }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                              <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                          </ClipThumbnail>
+                          <ClipName style={{ 
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            color: '#ffffff',
+                            textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                          }}>{clip.name}</ClipName>
+                        </div>
+                      </ClipThumbnail>
+                    ) : (
+                      <>
+                        <ClipThumbnail>
+                          {clip.type === 'video' && (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                              <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                          )}
+                          {clip.type === 'text' && (
+                            <span style={{ fontSize: '12px', fontWeight: 700 }}>T</span>
+                          )}
+                          {clip.type === 'image' && (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                              <rect x="3" y="3" width="18" height="18" rx="2" />
+                              <circle cx="8.5" cy="8.5" r="1.5" />
+                              <path d="M21 15l-5-5L5 21h14a2 2 0 002-2v-4z" />
+                            </svg>
+                          )}
+                          {clip.type === 'audio' && (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M9 18V5l12-2v13" />
+                              <circle cx="6" cy="18" r="3" />
+                              <circle cx="18" cy="16" r="3" />
+                            </svg>
+                          )}
+                        </ClipThumbnail>
+                        <ClipName>{clip.name}</ClipName>
+                      </>
+                    )}
 
                     <ClipHandle
                       $position="left"

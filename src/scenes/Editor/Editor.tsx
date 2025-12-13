@@ -4,6 +4,7 @@ import { useLocation } from 'react-router'
 import { getElements } from '@store/slices/elements/actions'
 import { getFonts } from '@store/slices/fonts/actions'
 import { useAppDispatch } from '@store/store'
+import useVideoContext from '@/hooks/useVideoContext'
 import Navbar from './components/Navbar'
 import Panels from './components/Panels'
 import Toolbox from './components/Toolbox'
@@ -19,11 +20,11 @@ function App() {
   const location = useLocation()
   const dispath = useAppDispatch()
   const [hasInitialized, setHasInitialized] = useState(false)
+  const { clips, audioClips, isTimelineOpen } = useVideoContext()
   
-  // Check if video-related panels are active
-  // activePanel can be a string or PanelType enum, so we compare as strings
-  const activePanelStr = String(activePanel)
-  const isVideoPanelActive = activePanelStr === 'Video' || activePanelStr === 'Stock Videos'
+  // Check if timeline should be visible (has video/animation content)
+  const hasTimelineContent = clips.length > 0 || audioClips.length > 0
+  const shouldShowTimeline = hasTimelineContent && isTimelineOpen
 
   // Parse URL parameters
   const searchParams = new URLSearchParams(location.search)
@@ -189,8 +190,8 @@ function App() {
               display: 'flex',
               background: '#e5e7eb',
               position: 'relative',
-              // Only add bottom padding when video panels are active
-              paddingBottom: isVideoPanelActive ? '300px' : '0', // Timeline height (260px) + bottom offset (20px) + extra spacing (20px)
+              // Add padding when timeline is open and visible
+              paddingBottom: shouldShowTimeline ? '300px' : '0', // Timeline height (260px) + bottom offset (20px) + extra spacing (20px)
             }}
             className="canvas-container"
           >

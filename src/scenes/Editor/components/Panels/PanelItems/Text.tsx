@@ -3,6 +3,7 @@ import { Scrollbars } from 'react-custom-scrollbars'
 import { Input } from 'baseui/input'
 import Icons from '@components/icons'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import useVideoContext from '@/hooks/useVideoContext'
 
 type TextPresetType = 'StaticText' | 'DynamicText'
 
@@ -226,6 +227,7 @@ function Panel() {
   const [fontLoading, setFontLoading] = useState<Record<string, boolean>>({})
 
   const editor = useEditor()
+  const { currentTime, clips } = useVideoContext()
 
   const defaultStaticPreset = TEXT_PRESETS.find(preset => preset.id === 'static-default')
 
@@ -287,6 +289,11 @@ function Panel() {
   const handleAddText = (preset: TextPreset) => {
     if (!editor) return
 
+    // If there's video content, add timeline metadata so text appears in timeline
+    const hasVideoContent = clips.length > 0
+    const timelineStart = hasVideoContent ? currentTime : 0
+    const timelineDuration = hasVideoContent ? 5 : undefined // Default 5 seconds if video exists
+
     const options = {
       type: preset.type,
       width: 320,
@@ -297,6 +304,11 @@ function Panel() {
         fontFamily: preset.fontFamily,
         textAlign: 'center',
         ...(preset.fontURL ? { fontURL: preset.fontURL } : {}),
+        // Add timeline metadata if video content exists
+        ...(hasVideoContent ? {
+          timelineStart,
+          timelineDuration,
+        } : {}),
       },
     }
 
@@ -309,12 +321,22 @@ function Panel() {
 
       const fontUrl = await ensureFontAvailable(font)
 
+      // If there's video content, add timeline metadata so text appears in timeline
+      const hasVideoContent = clips.length > 0
+      const timelineStart = hasVideoContent ? currentTime : 0
+      const timelineDuration = hasVideoContent ? 5 : undefined // Default 5 seconds if video exists
+
       const metadata: Record<string, any> = {
         text: font.preview,
         fontSize: font.fontSize,
         fontWeight: font.fontWeight,
         fontFamily: font.fontFamily,
         textAlign: 'center',
+        // Add timeline metadata if video content exists
+        ...(hasVideoContent ? {
+          timelineStart,
+          timelineDuration,
+        } : {}),
       }
 
       if (fontUrl) {
@@ -327,7 +349,7 @@ function Panel() {
         metadata,
       })
     },
-    [editor, ensureFontAvailable],
+    [editor, ensureFontAvailable, clips, currentTime],
   )
 
   return (

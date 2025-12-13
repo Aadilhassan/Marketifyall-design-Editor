@@ -430,14 +430,37 @@ const VideoCanvasPlayer: React.FC = () => {
             }
         })
 
-        // Extract ALL text elements when video is playing (not just those above video)
+        // Extract ALL text elements when video is playing or when scrubbing
         const newTextOverlays: TextOverlayInfo[] = []
 
-        if (isPlaying && videoObjIndex >= 0) {
+        // Show text overlays when playing OR when there's no video (just text/audio)
+        const shouldShowTextOverlays = isPlaying || videoObjIndex < 0
+        
+        if (shouldShowTextOverlays) {
             objects.forEach((obj: any, idx: number) => {
                 // Process ALL text elements (both above and below video)
                 if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
                     obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
+
+                    // Check if text has timeline metadata and if it should be visible at currentTime
+                    const timelineStart = obj.metadata?.timelineStart ?? 0
+                    const timelineDuration = obj.metadata?.timelineDuration
+                    
+                    // If timelineDuration is set, check if currentTime is within the text's time range
+                    // If timelineDuration is not set, show text always (for backward compatibility)
+                    if (timelineDuration !== undefined && timelineDuration > 0) {
+                        const timelineEnd = timelineStart + timelineDuration
+                        if (currentTime < timelineStart || currentTime >= timelineEnd) {
+                            // Text is outside its time range, hide it
+                            if (!obj._wasHiddenForPlayback) {
+                                obj._originalOpacity = obj.opacity ?? 1
+                                obj._wasHiddenForPlayback = true
+                            }
+                            obj.set('opacity', 0)
+                            obj.dirty = true
+                            return // Skip adding to overlays
+                        }
+                    }
 
                     // Save original opacity if not already saved
                     if (!obj._wasHiddenForPlayback) {
@@ -453,16 +476,16 @@ const VideoCanvasPlayer: React.FC = () => {
 
                     newTextOverlays.push({
                         id: obj.id || `text-${idx}`,
-                        text: obj.text || '',
+                        text: obj.text || obj.metadata?.text || '',
                         left: objLeft + (canvasRect.left - overlayRect.left),
                         top: objTop + (canvasRect.top - overlayRect.top),
                         width: objWidth,
                         height: objHeight,
-                        fontSize: (obj.fontSize || 16) * (obj.scaleY || 1) * zoom,
-                        fontFamily: obj.fontFamily || 'Arial',
-                        fill: obj.fill || '#000000',
-                        fontWeight: obj.fontWeight || 'normal',
-                        textAlign: obj.textAlign || 'left',
+                        fontSize: (obj.fontSize || obj.metadata?.fontSize || 16) * (obj.scaleY || 1) * zoom,
+                        fontFamily: obj.fontFamily || obj.metadata?.fontFamily || 'Arial',
+                        fill: obj.fill || obj.metadata?.fill || '#000000',
+                        fontWeight: obj.fontWeight || obj.metadata?.fontWeight || 'normal',
+                        textAlign: obj.textAlign || obj.metadata?.textAlign || 'left',
                         opacity: obj._originalOpacity ?? 1,
                     })
 
@@ -472,16 +495,42 @@ const VideoCanvasPlayer: React.FC = () => {
                 }
             })
         } else {
-            // Restore all text elements when not playing
+            // When not playing, show/hide text elements based on timeline timing
             objects.forEach((obj: any) => {
                 if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
                     obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
-                    // Restore if it was hidden for playback
-                    if (obj._wasHiddenForPlayback) {
-                        obj.set('opacity', obj._originalOpacity ?? 1)
+                    
+                    // Check if text has timeline metadata
+                    const timelineStart = obj.metadata?.timelineStart ?? 0
+                    const timelineDuration = obj.metadata?.timelineDuration
+                    
+                    // If timelineDuration is set and > 0, use timeline timing
+                    // Otherwise, show text always (for backward compatibility or text without timing)
+                    if (timelineDuration !== undefined && timelineDuration > 0) {
+                        // Text has timeline timing - show/hide based on currentTime
+                        const timelineEnd = timelineStart + timelineDuration
+                        const shouldBeVisible = currentTime >= timelineStart && currentTime < timelineEnd
+                        
+                        // Save original opacity if not already saved
+                        if (obj._originalOpacity === undefined) {
+                            obj._originalOpacity = obj.opacity ?? 1
+                        }
+                        
+                        // Set opacity based on timeline
+                        obj.set('opacity', shouldBeVisible ? (obj._originalOpacity ?? 1) : 0)
                         obj.dirty = true
-                        delete obj._wasHiddenForPlayback
-                        delete obj._originalOpacity
+                    } else {
+                        // No timeline metadata or duration is 0 - show text always
+                        if (obj._wasHiddenForPlayback) {
+                            obj.set('opacity', obj._originalOpacity ?? 1)
+                            obj.dirty = true
+                            delete obj._wasHiddenForPlayback
+                            delete obj._originalOpacity
+                        } else if (obj.opacity === 0 && obj._originalOpacity !== undefined) {
+                            // Restore if it was hidden
+                            obj.set('opacity', obj._originalOpacity)
+                            obj.dirty = true
+                        }
                     }
                 }
             })
@@ -491,7 +540,7 @@ const VideoCanvasPlayer: React.FC = () => {
 
         // @ts-ignore
         canvas.requestRenderAll?.()
-    }, [isPlaying, activeClipId, canvas, videoInfos])
+    }, [isPlaying, activeClipId, canvas, videoInfos, currentTime])
 
     // Listen to canvas object changes to update text overlays in real-time
     useEffect(() => {
@@ -527,12 +576,34 @@ const VideoCanvasPlayer: React.FC = () => {
                     }
                 })
 
-                // Extract text elements if playing
+                // Extract text elements if playing or when scrubbing
                 const newTextOverlays: TextOverlayInfo[] = []
-                if (isPlaying && videoObjIndex >= 0) {
+                const shouldShowTextOverlays = isPlaying || videoObjIndex < 0
+                
+                if (shouldShowTextOverlays) {
                     objects.forEach((obj: any, idx: number) => {
                         if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
                             obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
+
+                            // Check if text has timeline metadata and if it should be visible at currentTime
+                            const timelineStart = obj.metadata?.timelineStart ?? 0
+                            const timelineDuration = obj.metadata?.timelineDuration
+                            
+                            // If timelineDuration is set and > 0, check if currentTime is within the text's time range
+                            // If timelineDuration is not set, show text always (for backward compatibility)
+                            if (timelineDuration !== undefined && timelineDuration > 0) {
+                                const timelineEnd = timelineStart + timelineDuration
+                                if (currentTime < timelineStart || currentTime >= timelineEnd) {
+                                    // Text is outside its time range, hide it
+                                    if (!obj._wasHiddenForPlayback) {
+                                        obj._originalOpacity = obj.opacity ?? 1
+                                        obj._wasHiddenForPlayback = true
+                                    }
+                                    obj.set('opacity', 0)
+                                    obj.dirty = true
+                                    return // Skip adding to overlays
+                                }
+                            }
 
                             // Save original opacity if not already saved
                             if (!obj._wasHiddenForPlayback) {
@@ -548,16 +619,16 @@ const VideoCanvasPlayer: React.FC = () => {
 
                             newTextOverlays.push({
                                 id: obj.id || `text-${idx}`,
-                                text: obj.text || '',
+                                text: obj.text || obj.metadata?.text || '',
                                 left: objLeft + (canvasRect.left - overlayRect.left),
                                 top: objTop + (canvasRect.top - overlayRect.top),
                                 width: objWidth,
                                 height: objHeight,
-                                fontSize: (obj.fontSize || 16) * (obj.scaleY || 1) * zoom,
-                                fontFamily: obj.fontFamily || 'Arial',
-                                fill: obj.fill || '#000000',
-                                fontWeight: obj.fontWeight || 'normal',
-                                textAlign: obj.textAlign || 'left',
+                                fontSize: (obj.fontSize || obj.metadata?.fontSize || 16) * (obj.scaleY || 1) * zoom,
+                                fontFamily: obj.fontFamily || obj.metadata?.fontFamily || 'Arial',
+                                fill: obj.fill || obj.metadata?.fill || '#000000',
+                                fontWeight: obj.fontWeight || obj.metadata?.fontWeight || 'normal',
+                                textAlign: obj.textAlign || obj.metadata?.textAlign || 'left',
                                 opacity: obj._originalOpacity ?? 1,
                             })
 
