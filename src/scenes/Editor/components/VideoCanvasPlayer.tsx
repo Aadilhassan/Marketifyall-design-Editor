@@ -427,8 +427,36 @@ const VideoCanvasPlayer: React.FC = () => {
         let videoObjIndex = -1
         objects.forEach((obj: any, idx: number) => {
             if (obj && obj.metadata?.isVideo) {
+                // Find the clip for this video to check timeline position
+                const objId = obj.metadata?.id || obj.id
+                const objSrc = obj.metadata?.videoSrc || obj.metadata?.src
+                let clip = clips.find(c => c.id === objId)
+                if (!clip && objSrc) {
+                    clip = clips.find(c => c.src === objSrc)
+                }
+
+                const clipStart = clip?.start || 0
+                const clipEnd = clipStart + (clip?.duration || 0)
+                const isWithinTimeRange = currentTime >= clipStart && currentTime < clipEnd
+
                 const isThisVideoPlaying = isPlaying && obj.metadata?.id === activeClipId
-                obj.set('opacity', isThisVideoPlaying ? 0 : 1)
+
+                // Only show video if:
+                // 1. It's currently playing (then we hide canvas and show HTML video)
+                // 2. We're within its time range on the timeline
+                let targetOpacity = 0
+                if (isThisVideoPlaying) {
+                    // Playing - hide canvas object, HTML video shows
+                    targetOpacity = 0
+                } else if (isWithinTimeRange) {
+                    // Within time range but not playing - show thumbnail
+                    targetOpacity = 1
+                } else {
+                    // Outside time range - hide
+                    targetOpacity = 0
+                }
+
+                obj.set('opacity', targetOpacity)
                 obj.dirty = true
                 if (isThisVideoPlaying) {
                     videoObjIndex = idx

@@ -586,20 +586,40 @@ const Playhead = styled('div', ({ $left }: { $left: number }) => ({
   left: `${$left}px`,
   top: 0,
   bottom: 0,
-  width: '2px',
-  background: '#ef4444',
-  zIndex: 20,
-  pointerEvents: 'none',
+  width: '12px',
+  marginLeft: '-6px',
+  background: 'transparent',
+  zIndex: 50,
+  cursor: 'grab',
+  // The visible playhead line
+  '::after': {
+    content: '""',
+    position: 'absolute',
+    left: '5px',
+    top: 0,
+    bottom: 0,
+    width: '2px',
+    background: '#ef4444',
+    pointerEvents: 'none',
+  },
+  // The playhead handle at top
   '::before': {
     content: '""',
     position: 'absolute',
     top: '0',
-    left: '-5px',
-    width: '0',
-    height: '0',
-    borderLeft: '6px solid transparent',
-    borderRight: '6px solid transparent',
-    borderTop: '10px solid #ef4444',
+    left: '0',
+    width: '12px',
+    height: '14px',
+    background: '#ef4444',
+    borderRadius: '2px 2px 4px 4px',
+    cursor: 'grab',
+  },
+  ':active': {
+    cursor: 'grabbing',
+  },
+  ':hover::before': {
+    background: '#dc2626',
+    transform: 'scale(1.1)',
   },
 }))
 
@@ -1686,39 +1706,9 @@ const VideoTimeline: React.FC = () => {
     }
   }, [canvas, currentTime, totalDuration])
 
-  // Restore original opacity when timeline is closed or playback stops
-  useEffect(() => {
-    if (!canvas) return
-
-    // Only restore when not playing and timeline is open (editing mode)
-    if (isPlaying) return
-
-    // Small delay to allow final fade to complete
-    const timeoutId = setTimeout(() => {
-      // @ts-ignore
-      const objects = canvas.getObjects?.() || []
-      let needsRender = false
-
-      objects.forEach((obj: any) => {
-        // Restore original opacity if stored
-        if (obj._originalOpacity !== undefined) {
-          const currentOpacity = obj.opacity ?? 1
-          if (currentOpacity !== obj._originalOpacity) {
-            obj.set('opacity', obj._originalOpacity)
-            obj.dirty = true
-            needsRender = true
-          }
-          delete obj._originalOpacity
-        }
-      })
-
-      if (needsRender) {
-        canvas.renderAll()
-      }
-    }, 100)
-
-    return () => clearTimeout(timeoutId)
-  }, [canvas, isPlaying])
+  // NOTE: We intentionally do NOT restore opacity when paused
+  // Visibility is ALWAYS based on currentTime, even when scrubbing while paused
+  // This gives a Clipchamp-like preview where you can see what's at the current playhead position
 
   // Timer to update currentTime when playing (drives audio and playhead)
   const currentTimeRef = useRef(currentTime)
@@ -2772,7 +2762,31 @@ const VideoTimeline: React.FC = () => {
                 <TimeMarkerLine $isMajor={idx % 2 === 0} />
               </TimeMarker>
             ))}
-            <Playhead $left={playheadPosition} />
+            <Playhead
+              $left={playheadPosition}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const timelineEl = timelineRef.current
+                if (!timelineEl) return
+
+                const timelineRect = timelineEl.getBoundingClientRect()
+
+                const handleMouseMove = (moveEvent: MouseEvent) => {
+                  const x = moveEvent.clientX - timelineRect.left
+                  const time = Math.max(0, Math.min(x / pixelsPerSecond, totalDuration))
+                  handleSeek(time)
+                }
+
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove)
+                  document.removeEventListener('mouseup', handleMouseUp)
+                }
+
+                document.addEventListener('mousemove', handleMouseMove)
+                document.addEventListener('mouseup', handleMouseUp)
+              }}
+            />
           </TimeRuler>
 
           <TracksArea
@@ -3036,7 +3050,31 @@ const VideoTimeline: React.FC = () => {
               </TrackRow>
             ))}
 
-            <Playhead $left={playheadPosition} />
+            <Playhead
+              $left={playheadPosition}
+              onMouseDown={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                const timelineEl = timelineRef.current
+                if (!timelineEl) return
+
+                const timelineRect = timelineEl.getBoundingClientRect()
+
+                const handleMouseMove = (moveEvent: MouseEvent) => {
+                  const x = moveEvent.clientX - timelineRect.left
+                  const time = Math.max(0, Math.min(x / pixelsPerSecond, totalDuration))
+                  handleSeek(time)
+                }
+
+                const handleMouseUp = () => {
+                  document.removeEventListener('mousemove', handleMouseMove)
+                  document.removeEventListener('mouseup', handleMouseUp)
+                }
+
+                document.addEventListener('mousemove', handleMouseMove)
+                document.addEventListener('mouseup', handleMouseUp)
+              }}
+            />
           </TracksArea>
         </TracksScrollContainer>
       </TimelineBody>
