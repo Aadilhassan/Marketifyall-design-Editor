@@ -467,8 +467,9 @@ const VideoCanvasPlayer: React.FC = () => {
         // Extract ALL text elements when video is playing or when scrubbing
         const newTextOverlays: TextOverlayInfo[] = []
 
-        // Show text overlays when playing OR when there's no video (just text/audio)
-        const shouldShowTextOverlays = isPlaying || videoObjIndex < 0
+        // Show text overlays during playback for HTML rendering
+        // When not playing, text visibility is handled by the timeline's visibility effect
+        const shouldShowTextOverlays = isPlaying
 
         if (shouldShowTextOverlays) {
             objects.forEach((obj: any, idx: number) => {
@@ -525,50 +526,11 @@ const VideoCanvasPlayer: React.FC = () => {
 
                     // Hide the canvas text element (we'll render it as HTML overlay)
                     obj.set('opacity', 0)
-                    obj.dirty = true
-                }
-            })
-        } else {
-            // When not playing, show/hide text elements based on timeline timing
-            objects.forEach((obj: any) => {
-                if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
-                    obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
-
-                    // Check if text has timeline metadata
-                    const timelineStart = obj.metadata?.timelineStart ?? 0
-                    const timelineDuration = obj.metadata?.timelineDuration
-
-                    // If timelineDuration is set and > 0, use timeline timing
-                    // Otherwise, show text always (for backward compatibility or text without timing)
-                    if (timelineDuration !== undefined && timelineDuration > 0) {
-                        // Text has timeline timing - show/hide based on currentTime
-                        const timelineEnd = timelineStart + timelineDuration
-                        const shouldBeVisible = currentTime >= timelineStart && currentTime < timelineEnd
-
-                        // Save original opacity if not already saved
-                        if (obj._originalOpacity === undefined) {
-                            obj._originalOpacity = obj.opacity ?? 1
-                        }
-
-                        // Set opacity based on timeline
-                        obj.set('opacity', shouldBeVisible ? (obj._originalOpacity ?? 1) : 0)
-                        obj.dirty = true
-                    } else {
-                        // No timeline metadata or duration is 0 - show text always
-                        if (obj._wasHiddenForPlayback) {
-                            obj.set('opacity', obj._originalOpacity ?? 1)
-                            obj.dirty = true
-                            delete obj._wasHiddenForPlayback
-                            delete obj._originalOpacity
-                        } else if (obj.opacity === 0 && obj._originalOpacity !== undefined) {
-                            // Restore if it was hidden
-                            obj.set('opacity', obj._originalOpacity)
-                            obj.dirty = true
-                        }
-                    }
                 }
             })
         }
+        // When not playing, don't touch text visibility here
+        // VideoTimeline's visibility effect handles text/image/shape opacity based on currentTime
 
         setTextOverlays(newTextOverlays)
 

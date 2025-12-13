@@ -999,7 +999,10 @@ const VideoTimeline: React.FC = () => {
           canvasObjectId: clipId,
         })
       } else if (obj.type === 'rect' || obj.type === 'circle' || obj.type === 'triangle' ||
-        obj.type === 'polygon' || obj.type === 'path') {
+        obj.type === 'polygon' || obj.type === 'path' || obj.type === 'ellipse' ||
+        obj.type === 'line' || obj.type === 'polyline' || obj.type === 'group' ||
+        obj.type === 'Frame' || obj.type === 'StaticFrame' || obj.type === 'StaticPath' ||
+        obj.type === 'StaticVector' || obj.type?.toLowerCase().includes('shape')) {
         // Shape objects - add to shapes array
         const timelineStart = obj.metadata?.timelineStart ?? 0
         const timelineDuration = obj.metadata?.timelineDuration ?? totalDuration
@@ -1652,7 +1655,16 @@ const VideoTimeline: React.FC = () => {
         obj.type === 'circle' ||
         obj.type === 'triangle' ||
         obj.type === 'polygon' ||
-        obj.type === 'path'
+        obj.type === 'path' ||
+        obj.type === 'ellipse' ||
+        obj.type === 'line' ||
+        obj.type === 'polyline' ||
+        obj.type === 'group' ||
+        obj.type === 'Frame' ||
+        obj.type === 'StaticFrame' ||
+        obj.type === 'StaticPath' ||
+        obj.type === 'StaticVector' ||
+        obj.type?.toLowerCase().includes('shape')
 
       if (!isTimelineObject) return
 
