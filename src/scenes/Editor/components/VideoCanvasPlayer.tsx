@@ -244,8 +244,14 @@ const VideoCanvasPlayer: React.FC = () => {
                 const videoSrc = obj.metadata?.videoSrc || obj.metadata?.src
                 if (!videoSrc) return
 
-                const clipId = obj.metadata?.id || `video-obj-${newVideoInfos.length}`
-                const clip = clips.find(c => c.id === clipId)
+                const clipId = obj.metadata?.id || obj.id || `video-obj-${newVideoInfos.length}`
+                const videoSrcForMatch = obj.metadata?.videoSrc || obj.metadata?.src
+
+                // Try to find clip by ID first, then by source URL
+                let clip = clips.find(c => c.id === clipId)
+                if (!clip && videoSrcForMatch) {
+                    clip = clips.find(c => c.src === videoSrcForMatch)
+                }
 
                 const objLeft = obj.left || 0
                 const objTop = obj.top || 0
@@ -259,7 +265,7 @@ const VideoCanvasPlayer: React.FC = () => {
                 const top = screenY + (canvasRect.top - overlayRect.top)
 
                 newVideoInfos.push({
-                    id: clipId,
+                    id: clip?.id || clipId,
                     left,
                     top,
                     width: objWidth * zoom,
@@ -337,7 +343,7 @@ const VideoCanvasPlayer: React.FC = () => {
             if (Math.abs(activeVideo.currentTime - videoTime) > 0.1) {
                 activeVideo.currentTime = Math.min(videoTime, activeVideo.duration || activeClip.duration)
             }
-            
+
             // Start video playback
             activeVideo.play().then(() => {
                 // Unmute after play starts (needed for browser autoplay policies)
@@ -435,7 +441,7 @@ const VideoCanvasPlayer: React.FC = () => {
 
         // Show text overlays when playing OR when there's no video (just text/audio)
         const shouldShowTextOverlays = isPlaying || videoObjIndex < 0
-        
+
         if (shouldShowTextOverlays) {
             objects.forEach((obj: any, idx: number) => {
                 // Process ALL text elements (both above and below video)
@@ -445,7 +451,7 @@ const VideoCanvasPlayer: React.FC = () => {
                     // Check if text has timeline metadata and if it should be visible at currentTime
                     const timelineStart = obj.metadata?.timelineStart ?? 0
                     const timelineDuration = obj.metadata?.timelineDuration
-                    
+
                     // If timelineDuration is set, check if currentTime is within the text's time range
                     // If timelineDuration is not set, show text always (for backward compatibility)
                     if (timelineDuration !== undefined && timelineDuration > 0) {
@@ -499,23 +505,23 @@ const VideoCanvasPlayer: React.FC = () => {
             objects.forEach((obj: any) => {
                 if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
                     obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
-                    
+
                     // Check if text has timeline metadata
                     const timelineStart = obj.metadata?.timelineStart ?? 0
                     const timelineDuration = obj.metadata?.timelineDuration
-                    
+
                     // If timelineDuration is set and > 0, use timeline timing
                     // Otherwise, show text always (for backward compatibility or text without timing)
                     if (timelineDuration !== undefined && timelineDuration > 0) {
                         // Text has timeline timing - show/hide based on currentTime
                         const timelineEnd = timelineStart + timelineDuration
                         const shouldBeVisible = currentTime >= timelineStart && currentTime < timelineEnd
-                        
+
                         // Save original opacity if not already saved
                         if (obj._originalOpacity === undefined) {
                             obj._originalOpacity = obj.opacity ?? 1
                         }
-                        
+
                         // Set opacity based on timeline
                         obj.set('opacity', shouldBeVisible ? (obj._originalOpacity ?? 1) : 0)
                         obj.dirty = true
@@ -579,7 +585,7 @@ const VideoCanvasPlayer: React.FC = () => {
                 // Extract text elements if playing or when scrubbing
                 const newTextOverlays: TextOverlayInfo[] = []
                 const shouldShowTextOverlays = isPlaying || videoObjIndex < 0
-                
+
                 if (shouldShowTextOverlays) {
                     objects.forEach((obj: any, idx: number) => {
                         if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
@@ -588,7 +594,7 @@ const VideoCanvasPlayer: React.FC = () => {
                             // Check if text has timeline metadata and if it should be visible at currentTime
                             const timelineStart = obj.metadata?.timelineStart ?? 0
                             const timelineDuration = obj.metadata?.timelineDuration
-                            
+
                             // If timelineDuration is set and > 0, check if currentTime is within the text's time range
                             // If timelineDuration is not set, show text always (for backward compatibility)
                             if (timelineDuration !== undefined && timelineDuration > 0) {
@@ -725,10 +731,15 @@ const VideoCanvasPlayer: React.FC = () => {
                     // Check if this specific video is playing using shared context state
                     // Ensure play button is completely hidden when playing
                     const isVideoPlaying = isPlaying && activeClipId === info.id
-                    const buttonSize = Math.max(36, Math.min(56, Math.min(videoWidth, videoHeight) * 0.18))
-                    
-                    // For inactive videos when playing, completely hide the wrapper to prevent play button from showing
-                    const shouldShowWrapper = isVideoPlaying || !isPlaying
+
+                    // Check if video should be visible based on timeline position
+                    const clip = clips.find(c => c.id === info.id)
+                    const clipStart = clip?.start || 0
+                    const clipEnd = clipStart + (clip?.duration || 0)
+                    const isWithinTimeRange = currentTime >= clipStart && currentTime < clipEnd
+
+                    // Only show video if playhead is within its time range
+                    const shouldShowWrapper = isWithinTimeRange
 
                     return (
                         <VideoPlayerWrapper
@@ -747,7 +758,7 @@ const VideoCanvasPlayer: React.FC = () => {
                             onMouseLeave={() => setIsHovered(false)}
                         >
                             <VideoElement
-                                ref={el => { 
+                                ref={el => {
                                     if (el) {
                                         videoRefs.current[info.id] = el
                                         // Update video source if it changed (for clip switching)
@@ -769,35 +780,13 @@ const VideoCanvasPlayer: React.FC = () => {
                                 playsInline
                                 crossOrigin="anonymous"
                                 controls={false}
-                                style={{ 
+                                style={{
                                     opacity: isVideoPlaying ? 1 : 0,
                                     pointerEvents: isVideoPlaying ? 'auto' : 'none'
                                 }}
                             />
 
-                            {/* Only show play button when video is NOT playing - hide ALL play buttons when ANY video is playing */}
-                            {!isPlaying && !isVideoPlaying ? (
-                                <PlayButtonStyled
-                                    onClick={(e) => handlePlayPause(info.id, e)}
-                                    style={{ 
-                                        width: buttonSize, 
-                                        height: buttonSize,
-                                        display: 'flex',
-                                        zIndex: 10,
-                                    }}
-                                >
-                                    <svg
-                                        width={buttonSize * 0.45}
-                                        height={buttonSize * 0.45}
-                                        viewBox="0 0 24 24"
-                                        fill="currentColor"
-                                    >
-                                        <polygon points="8 5 19 12 8 19 8 5" />
-                                    </svg>
-                                </PlayButtonStyled>
-                            ) : null}
-
-                            {/* Clickable overlay when playing - no visible button */}
+                            {/* No play button - videos autoplay with timeline */}
                             {isVideoPlaying && (
                                 <div
                                     style={{

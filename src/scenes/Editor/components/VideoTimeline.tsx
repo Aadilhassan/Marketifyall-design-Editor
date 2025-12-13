@@ -199,6 +199,7 @@ const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
       case 'video': return '#8b5cf6'
       case 'text': return '#10b981'
       case 'image': return '#f59e0b'
+      case 'shape': return '#ec4899'
       case 'audio': return '#3b82f6'
       default: return '#6b7280'
     }
@@ -428,8 +429,8 @@ const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $p
   bottom: '6px', // Reduced bottom margin for better thumbnail visibility
   width: `${$width}px`,
   minWidth: '30px',
-  background: $poster 
-    ? `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${$poster})` 
+  background: $poster
+    ? `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${$poster})`
     : $color,
   backgroundSize: $poster ? 'cover' : 'auto',
   backgroundPosition: $poster ? 'center' : 'auto',
@@ -451,6 +452,9 @@ const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $p
   ':hover': {
     filter: 'brightness(1.05)',
     '.audio-delete-btn': {
+      opacity: '1 !important',
+    },
+    '.clip-add-btn': {
       opacity: '1 !important',
     },
   },
@@ -498,6 +502,34 @@ const ClipHandle = styled('div', ({ $position }: { $position: 'left' | 'right' }
     background: 'rgba(255,255,255,0.8)',
   },
 }))
+
+// Add segment button at end of clips
+const ClipAddButton = styled('div', {
+  position: 'absolute',
+  right: '-14px',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  width: '20px',
+  height: '20px',
+  borderRadius: '50%',
+  background: 'rgba(99, 102, 241, 0.9)',
+  color: '#ffffff',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  opacity: 0,
+  transition: 'opacity 0.15s ease, transform 0.15s ease',
+  zIndex: 10,
+  fontSize: '14px',
+  fontWeight: 'bold',
+  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+  ':hover': {
+    opacity: 1,
+    transform: 'translateY(-50%) scale(1.1)',
+    background: 'rgba(99, 102, 241, 1)',
+  },
+})
 
 // Context menu for timeline clips
 const ContextMenuOverlay = styled('div', {
@@ -611,7 +643,7 @@ function formatTime(value: number) {
 }
 
 // Track type definitions
-type TrackType = 'video' | 'text' | 'image' | 'audio'
+type TrackType = 'video' | 'text' | 'image' | 'shape' | 'audio'
 
 interface TimelineClip {
   id: string
@@ -668,7 +700,7 @@ const VideoTimeline: React.FC = () => {
   const { canvas } = useEditorContext()
   const editor = useEditor()
   const { setActivePanel, activePanel } = useAppContext()
-  
+
   // Check if video-related panels are active
   // activePanel can be a string or PanelType enum, so we compare as strings
   const activePanelStr = String(activePanel)
@@ -691,11 +723,11 @@ const VideoTimeline: React.FC = () => {
   const [dragOverTrackId, setDragOverTrackId] = useState<string | null>(null)
   const mediaInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef = useRef<HTMLInputElement>(null)
-  
+
   // Master video element for sequential playback (Canva-style)
   const masterVideoRef = useRef<HTMLVideoElement | null>(null)
   const [isTransitioning, setIsTransitioning] = useState(false)
-  
+
   // Context menu state for right-click on clips
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean
@@ -730,45 +762,117 @@ const VideoTimeline: React.FC = () => {
   } | null>(null)
 
   const pixelsPerSecond = zoom
-  
+
   // Track canvas object changes to force timeline updates
   const [canvasObjectVersion, setCanvasObjectVersion] = useState(0)
-  
+
   // Listen to canvas object changes to update timeline
   useEffect(() => {
     if (!canvas) return
-    
+
     const updateVersion = () => {
       setCanvasObjectVersion(prev => prev + 1)
     }
-    
+
+    // Initialize timeline metadata for newly added objects
+    const onObjectAdded = (e: any) => {
+      const obj = e.target
+      if (!obj) return
+
+      // Skip video objects (handled separately)
+      if (obj.metadata?.isVideo || obj.metadata?.videoSrc) return
+      // Skip clip placeholder
+      if (obj.name === 'clip') return
+
+      // Check if this is a timeline-enabled object type
+      const isTimelineObject =
+        obj.type === 'StaticText' ||
+        obj.type === 'DynamicText' ||
+        obj.type === 'textbox' ||
+        obj.type === 'text' ||
+        obj.type === 'i-text' ||
+        obj.type === 'StaticImage' ||
+        obj.type === 'image' ||
+        obj.type === 'rect' ||
+        obj.type === 'circle' ||
+        obj.type === 'triangle' ||
+        obj.type === 'polygon' ||
+        obj.type === 'path'
+
+      if (isTimelineObject) {
+        // Generate a stable ID for the object if it doesn't have one
+        // This is CRITICAL for drag/resize handlers to find the object
+        if (!obj.id) {
+          obj.id = `timeline-obj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        }
+
+        // Also store ID in metadata for fallback matching
+        if (!obj.metadata) obj.metadata = {}
+        if (!obj.metadata.id) {
+          obj.metadata.id = obj.id
+        }
+
+        // Initialize timeline metadata if not already set
+        if (obj.metadata.timelineStart === undefined) {
+          obj.metadata.timelineStart = 0
+        }
+        if (obj.metadata.timelineDuration === undefined) {
+          obj.metadata.timelineDuration = 5 // Default 5 seconds for new elements
+        }
+      }
+
+      updateVersion()
+    }
+
     // @ts-ignore
-    canvas.on?.('object:added', updateVersion)
+    canvas.on?.('object:added', onObjectAdded)
     // @ts-ignore
     canvas.on?.('object:removed', updateVersion)
     // @ts-ignore
     canvas.on?.('object:modified', updateVersion)
-    
+
     return () => {
       // @ts-ignore
-      canvas.off?.('object:added', updateVersion)
+      canvas.off?.('object:added', onObjectAdded)
       // @ts-ignore
       canvas.off?.('object:removed', updateVersion)
       // @ts-ignore
       canvas.off?.('object:modified', updateVersion)
     }
   }, [canvas])
-  
-  // Calculate total duration based on all video clips (with some padding)
+
+  // Calculate total duration based on all clips/elements (videos, audio, text, images, shapes)
+  // Timeline length = last element's end time + small padding
   const calculateTotalDuration = useMemo(() => {
-    if (clips.length === 0) {
-      return 60 // Default 60 seconds if no clips
+    // Start with video clips
+    let maxEndTime = 0
+    clips.forEach(clip => {
+      const clipEnd = (clip.start || 0) + (clip.duration || 0)
+      if (clipEnd > maxEndTime) maxEndTime = clipEnd
+    })
+
+    // Also check audio clips
+    audioClips.forEach(clip => {
+      const clipEnd = (clip.start || 0) + (clip.duration || 0)
+      if (clipEnd > maxEndTime) maxEndTime = clipEnd
+    })
+
+    // Check canvas objects for text/image/shape timeline end times
+    if (canvas) {
+      // @ts-ignore
+      const objects = canvas.getObjects?.() || []
+      objects.forEach((obj: any) => {
+        if (obj.metadata?.timelineStart !== undefined) {
+          const objEnd = (obj.metadata.timelineStart || 0) + (obj.metadata.timelineDuration || 5)
+          if (objEnd > maxEndTime) maxEndTime = objEnd
+        }
+      })
     }
-    // Find the maximum end time of all clips and add 10 seconds padding
-    const maxEndTime = Math.max(...clips.map(clip => (clip.start || 0) + (clip.duration || 0)))
-    return Math.max(60, maxEndTime + 10) // At least 60 seconds, or max end time + padding
-  }, [clips])
-  
+
+    // Add 5 seconds padding for breathing room, minimum 15 seconds for usability
+    return Math.max(15, maxEndTime + 5)
+  }, [clips, audioClips, canvas, canvasObjectVersion])
+
   const totalDuration = calculateTotalDuration
   const timelineWidth = totalDuration * pixelsPerSecond
 
@@ -778,14 +882,14 @@ const VideoTimeline: React.FC = () => {
     if (clips.length === 0) {
       return 0 // Start at beginning if no clips exist
     }
-    
+
     // Sort clips by start time to find the last one
     const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
     const lastClip = sortedClips[sortedClips.length - 1]
-    
+
     // Calculate end time of the last clip
     const lastClipEnd = (lastClip.start || 0) + (lastClip.duration || 0)
-    
+
     return lastClipEnd
   }, [clips])
 
@@ -821,11 +925,20 @@ const VideoTimeline: React.FC = () => {
 
     const textClips: TimelineClip[] = []
     const imageClips: TimelineClip[] = []
+    const shapeClips: TimelineClip[] = []
 
     objects.forEach((obj: any, idx: number) => {
       if (!obj || obj.name === 'clip') return
 
-      const clipId = obj.id || `obj-${idx}`
+      // Ensure object has a stable ID for drag/resize handlers
+      // This is critical for existing objects that may not have gone through onObjectAdded
+      if (!obj.id) {
+        obj.id = `timeline-obj-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        if (!obj.metadata) obj.metadata = {}
+        obj.metadata.id = obj.id
+      }
+
+      const clipId = obj.id
       const clipName = obj.name || obj.text?.substring(0, 15) || obj.type || 'Element'
 
       if (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
@@ -833,11 +946,11 @@ const VideoTimeline: React.FC = () => {
         // Use timeline metadata if available, otherwise default to full duration
         const timelineStart = obj.metadata?.timelineStart ?? 0
         const timelineDuration = obj.metadata?.timelineDuration ?? totalDuration
-        
+
         // Use different colors for different text elements (Canva-style)
         const textColors = ['#10b981', '#059669', '#047857', '#065f46', '#064e3b']
         const colorIndex = textClips.length % textColors.length
-        
+
         textClips.push({
           id: clipId,
           name: clipName,
@@ -848,13 +961,40 @@ const VideoTimeline: React.FC = () => {
           canvasObjectId: clipId,
         })
       } else if ((obj.type === 'StaticImage' || obj.type === 'image') && !obj.metadata?.isVideo) {
+        // Use timeline metadata if available, otherwise default to full duration
+        const timelineStart = obj.metadata?.timelineStart ?? 0
+        const timelineDuration = obj.metadata?.timelineDuration ?? totalDuration
+
+        // Use different colors for different image elements
+        const imageColors = ['#f59e0b', '#ea580c', '#d97706', '#b45309', '#92400e']
+        const colorIndex = imageClips.length % imageColors.length
+
         imageClips.push({
           id: clipId,
           name: clipName,
-          start: 0,
-          duration: totalDuration,
-          color: '#f59e0b',
+          start: timelineStart,
+          duration: timelineDuration,
+          color: imageColors[colorIndex],
           type: 'image',
+          canvasObjectId: clipId,
+        })
+      } else if (obj.type === 'rect' || obj.type === 'circle' || obj.type === 'triangle' ||
+        obj.type === 'polygon' || obj.type === 'path') {
+        // Shape objects - add to shapes array
+        const timelineStart = obj.metadata?.timelineStart ?? 0
+        const timelineDuration = obj.metadata?.timelineDuration ?? totalDuration
+
+        // Use pink/purple colors for shapes
+        const shapeColors = ['#ec4899', '#d946ef', '#a855f7', '#8b5cf6', '#7c3aed']
+        const colorIndex = shapeClips.length % shapeColors.length
+
+        shapeClips.push({
+          id: clipId,
+          name: clipName || obj.type,
+          start: timelineStart,
+          duration: timelineDuration,
+          color: shapeColors[colorIndex],
+          type: 'shape' as TrackType,
           canvasObjectId: clipId,
         })
       }
@@ -863,7 +1003,7 @@ const VideoTimeline: React.FC = () => {
     // Text tracks - each text element gets its own track for better visibility (Canva-style)
     // Different colors for visual distinction
     const textColors = ['#10b981', '#059669', '#047857', '#065f46', '#064e3b']
-    
+
     if (textClips.length > 0) {
       textClips.forEach((clip, idx) => {
         const color = textColors[idx % textColors.length]
@@ -876,12 +1016,27 @@ const VideoTimeline: React.FC = () => {
       })
     }
 
+    // Image tracks - each image element gets its own track for individual control (Clipchamp-style)
     if (imageClips.length > 0) {
-      newTracks.push({
-        id: 'track-images',
-        name: 'Images',
-        type: 'image',
-        clips: imageClips,
+      imageClips.forEach((clip, idx) => {
+        newTracks.push({
+          id: `track-image-${clip.id}`,
+          name: idx === 0 ? 'Image' : `Image ${idx + 1}`,
+          type: 'image',
+          clips: [clip],
+        })
+      })
+    }
+
+    // Shapes tracks - each shape gets its own track for individual control
+    if (shapeClips.length > 0) {
+      shapeClips.forEach((clip, idx) => {
+        newTracks.push({
+          id: `track-shape-${clip.id}`,
+          name: idx === 0 ? 'Shape' : `Shape ${idx + 1}`,
+          type: 'shape',
+          clips: [clip],
+        })
       })
     }
 
@@ -923,7 +1078,7 @@ const VideoTimeline: React.FC = () => {
   useEffect(() => {
     const tracksScroll = tracksScrollRef.current
     const labelsScroll = trackLabelsScrollRef.current
-    
+
     if (!tracksScroll || !labelsScroll) return
 
     const handleScroll = (e: Event) => {
@@ -1108,7 +1263,7 @@ const VideoTimeline: React.FC = () => {
   }, [])
 
   // ============ CANVA-STYLE SEQUENTIAL VIDEO PLAYBACK ============
-  
+
   // Create master video element for sequential playback
   useEffect(() => {
     if (!masterVideoRef.current) {
@@ -1130,21 +1285,21 @@ const VideoTimeline: React.FC = () => {
   // If multiple clips overlap, prioritize the first one (lowest start time)
   const activeClip = useMemo(() => {
     if (clips.length === 0) return null
-    
+
     // Find all clips that contain currentTime
     const activeClips = clips.filter(clip => {
       const clipStart = clip.start || 0
       const clipEnd = clipStart + (clip.duration || 0)
       return currentTime >= clipStart && currentTime < clipEnd
     })
-    
+
     if (activeClips.length === 0) return null
-    
+
     // If multiple clips overlap, return the one with the lowest start time (first added)
     const sortedActiveClips = activeClips.sort((a, b) => (a.start || 0) - (b.start || 0))
     return sortedActiveClips[0]
   }, [clips, currentTime])
-  
+
   // Keep getActiveClip for backward compatibility but use memoized value
   const getActiveClip = useCallback(() => activeClip, [activeClip])
 
@@ -1152,11 +1307,12 @@ const VideoTimeline: React.FC = () => {
   useEffect(() => {
     const activeClip = getActiveClip()
     const masterVideo = masterVideoRef.current
-    
+
     if (!masterVideo || !activeClip) {
-      if (masterVideo) {
+      // Just pause the video when no active clip, don't clear source
+      // This prevents the start/stop loop issue
+      if (masterVideo && !masterVideo.paused) {
         masterVideo.pause()
-        masterVideo.src = ''
       }
       return
     }
@@ -1164,7 +1320,7 @@ const VideoTimeline: React.FC = () => {
     // Only update if clip changed
     if (masterVideo.src !== activeClip.src) {
       setIsTransitioning(true)
-      
+
       // Fade out canvas
       if (canvas) {
         // @ts-ignore
@@ -1179,14 +1335,14 @@ const VideoTimeline: React.FC = () => {
       setTimeout(() => {
         masterVideo.src = activeClip.src
         masterVideo.load()
-        
+
         // Calculate video time relative to clip start
         const clipStart = activeClip.start || 0
         const videoTime = Math.max(0, currentTime - clipStart)
-        
+
         masterVideo.onloadeddata = () => {
           masterVideo.currentTime = Math.min(videoTime, masterVideo.duration || activeClip.duration)
-          
+
           if (isPlaying) {
             masterVideo.play().catch(err => {
               if (err.name !== 'AbortError') {
@@ -1282,6 +1438,16 @@ const VideoTimeline: React.FC = () => {
       return
     }
 
+    // If there's no active clip, don't run the sync loop - just pause and exit
+    // This prevents CPU usage when video shouldn't be playing
+    if (!activeClip) {
+      const masterVideo = masterVideoRef.current
+      if (masterVideo && !masterVideo.paused) {
+        masterVideo.pause()
+      }
+      return // Don't start animation loop when no video to play
+    }
+
     // Use requestAnimationFrame for smooth updates during playback
     let animationId: number
     let lastSyncTime = 0
@@ -1290,9 +1456,9 @@ const VideoTimeline: React.FC = () => {
     const syncVideos = () => {
       const now = performance.now()
       const masterVideo = masterVideoRef.current
-      
+
       if (!masterVideo || !activeClip) {
-        animationId = requestAnimationFrame(syncVideos)
+        // Stop the loop if no active clip anymore
         return
       }
 
@@ -1300,12 +1466,22 @@ const VideoTimeline: React.FC = () => {
       const videoTime = Math.max(0, currentTimeRef.current - clipStart)
       const videoDuration = masterVideo.duration || activeClip.duration
 
+      // Check if we're still within the active clip's time range
+      const clipEnd = clipStart + (activeClip.duration || 0)
+      if (currentTimeRef.current < clipStart || currentTimeRef.current >= clipEnd) {
+        // Outside clip range, pause and stop
+        if (!masterVideo.paused) {
+          masterVideo.pause()
+        }
+        return
+      }
+
       // Sync master video time if drifted (throttled)
       if (now - lastSyncTime > SYNC_INTERVAL) {
         if (Math.abs(masterVideo.currentTime - videoTime) > 0.15 && videoTime < videoDuration) {
           masterVideo.currentTime = videoTime
         }
-        
+
         if (masterVideo.paused) {
           masterVideo.play().catch(err => {
             if (err.name !== 'AbortError') {
@@ -1315,23 +1491,23 @@ const VideoTimeline: React.FC = () => {
         }
         lastSyncTime = now
       }
-      
+
       // Only sync the active timeline mini video player (optimized)
       if (activeClip && timelineVideoRefs.current[activeClip.id]) {
         const videoEl = timelineVideoRefs.current[activeClip.id]
         const expectedTime = Math.max(0, currentTimeRef.current - clipStart)
-        
+
         if (expectedTime >= 0 && expectedTime <= activeClip.duration) {
           // Only update if significantly drifted (reduce updates)
           if (Math.abs(videoEl.currentTime - expectedTime) > 0.2) {
             videoEl.currentTime = expectedTime
           }
           if (videoEl.paused) {
-            videoEl.play().catch(() => {}) // Ignore errors
+            videoEl.play().catch(() => { }) // Ignore errors
           }
         }
       }
-      
+
       // Pause inactive clips (only check occasionally)
       if (now - lastSyncTime > SYNC_INTERVAL) {
         Object.entries(timelineVideoRefs.current).forEach(([clipId, videoEl]) => {
@@ -1351,56 +1527,198 @@ const VideoTimeline: React.FC = () => {
     }
   }, [isPlaying, activeClip])
 
-  // Update canvas to show active video - debounced for performance
+  // Update canvas to show/hide video objects based on timeline currentTime
+  // Videos appear/disappear based on their clip start and duration
+  // This runs both during playback AND when scrubbing/seeking to sync visibility
   const lastActiveClipIdRef = useRef<string | null>(null)
   useEffect(() => {
-    if (!editor || !activeClip || !canvas) return
-    
-    // Skip if active clip hasn't changed
-    if (lastActiveClipIdRef.current === activeClip.id) return
-    lastActiveClipIdRef.current = activeClip.id
+    if (!canvas) return
 
-    // Debounce canvas updates to avoid lag
-    const timeoutId = setTimeout(() => {
-      // @ts-ignore
-      const objects = canvas.getObjects?.() || []
-      
-      // Batch canvas updates
-      let needsRender = false
-      objects.forEach((obj: any) => {
-        if (obj.metadata?.isVideo || obj.metadata?.videoSrc) {
-          // Only show the active clip's video object
-          const isActive = obj.metadata?.id === activeClip.id
-          const currentOpacity = obj.opacity || 0
-          const targetOpacity = isActive ? 1 : 0
-          
-          if (currentOpacity !== targetOpacity) {
-            obj.set('opacity', targetOpacity)
+    // @ts-ignore
+    const objects = canvas.getObjects?.() || []
+    let needsRender = false
+
+    objects.forEach((obj: any) => {
+      if (obj.metadata?.isVideo || obj.metadata?.videoSrc) {
+        // Find the corresponding video clip using multiple ID matching strategies
+        const objId = obj.metadata?.id || obj.id
+        const objSrc = obj.metadata?.videoSrc || obj.metadata?.src
+
+        // Try to find clip by ID first, then by source URL
+        let clip = clips.find(c => c.id === objId)
+        if (!clip && objSrc) {
+          clip = clips.find(c => c.src === objSrc)
+        }
+
+        // Store original opacity if not stored
+        if (obj._originalOpacity === undefined) {
+          obj._originalOpacity = obj.opacity ?? 1
+        }
+
+        // If no matching clip found, hide the video entirely
+        if (!clip) {
+          if (obj.opacity !== 0) {
+            obj.set('opacity', 0)
             obj.dirty = true
             needsRender = true
           }
+          return
+        }
+
+        const clipStart = clip.start || 0
+        const clipEnd = clipStart + (clip.duration || 0)
+
+        // Check if video should be visible at current time (no fade during scrubbing, instant show/hide)
+        let targetOpacity = 0
+
+        if (currentTime >= clipStart && currentTime < clipEnd) {
+          targetOpacity = obj._originalOpacity
+        } else {
+          targetOpacity = 0
+        }
+
+        const currentOpacity = obj.opacity ?? 1
+        if (Math.abs(currentOpacity - targetOpacity) > 0.01) {
+          obj.set('opacity', targetOpacity)
+          obj.dirty = true
+          needsRender = true
+        }
+
+        // Update active clip based on current time (for video playback)
+        if (currentTime >= clipStart && currentTime < clipEnd) {
+          if (lastActiveClipIdRef.current !== clip.id) {
+            lastActiveClipIdRef.current = clip.id
+            setActiveClip(clip.id)
+          }
+        }
+      }
+    })
+
+    // Only render if something changed
+    if (needsRender) {
+      canvas.renderAll()
+    }
+  }, [canvas, clips, currentTime, setActiveClip])
+
+  // ============ TIME-BASED CANVAS OBJECT VISIBILITY (CLIPCHAMP STYLE) ============
+  // Sync canvas object visibility with timeline currentTime
+  // Objects appear/disappear based on their timelineStart and timelineDuration metadata
+  // This runs both during playback AND when scrubbing for consistent visibility sync
+  const FADE_DURATION = 0.2 // 200ms fade in/out for smooth transitions
+
+  useEffect(() => {
+    if (!canvas) return
+
+    // @ts-ignore
+    const objects = canvas.getObjects?.() || []
+    let needsRender = false
+
+    objects.forEach((obj: any) => {
+      // Skip video objects (they have separate visibility logic)
+      if (obj.metadata?.isVideo || obj.metadata?.videoSrc) return
+      // Skip clip placeholder
+      if (obj.name === 'clip') return
+
+      // Check if this is a timeline-enabled object (text, image, shape)
+      const isTimelineObject =
+        obj.type === 'StaticText' ||
+        obj.type === 'DynamicText' ||
+        obj.type === 'textbox' ||
+        obj.type === 'text' ||
+        obj.type === 'i-text' ||
+        obj.type === 'StaticImage' ||
+        obj.type === 'image' ||
+        obj.type === 'rect' ||
+        obj.type === 'circle' ||
+        obj.type === 'triangle' ||
+        obj.type === 'polygon' ||
+        obj.type === 'path'
+
+      if (!isTimelineObject) return
+
+      // Store original opacity if not already stored (for restore when playback stops)
+      if (obj._originalOpacity === undefined) {
+        obj._originalOpacity = obj.opacity ?? 1
+      }
+
+      // Get timeline metadata (default to full timeline if not set)
+      const timelineStart = obj.metadata?.timelineStart ?? 0
+      const timelineDuration = obj.metadata?.timelineDuration ?? totalDuration
+      const timelineEnd = timelineStart + timelineDuration
+
+      // Calculate target opacity with fade transitions
+      let targetOpacity = 0
+
+      // Fade timing boundaries
+      const fadeInStart = timelineStart
+      const fadeInEnd = timelineStart + FADE_DURATION
+      const fadeOutStart = timelineEnd - FADE_DURATION
+      const fadeOutEnd = timelineEnd
+
+      if (currentTime < fadeInStart || currentTime >= fadeOutEnd) {
+        // Completely outside the visible range
+        targetOpacity = 0
+      } else if (currentTime >= fadeInEnd && currentTime < fadeOutStart) {
+        // Fully visible (between fade in and fade out)
+        targetOpacity = obj._originalOpacity
+      } else if (currentTime >= fadeInStart && currentTime < fadeInEnd) {
+        // Fading in
+        const fadeProgress = Math.min(1, (currentTime - fadeInStart) / FADE_DURATION)
+        targetOpacity = fadeProgress * obj._originalOpacity
+      } else if (currentTime >= fadeOutStart && currentTime < fadeOutEnd) {
+        // Fading out
+        const fadeProgress = Math.max(0, (fadeOutEnd - currentTime) / FADE_DURATION)
+        targetOpacity = fadeProgress * obj._originalOpacity
+      }
+
+      // Only update if opacity changed significantly (optimization)
+      const currentOpacity = obj.opacity ?? 1
+      if (Math.abs(currentOpacity - targetOpacity) > 0.01) {
+        obj.set('opacity', targetOpacity)
+        obj.dirty = true
+        needsRender = true
+      }
+    })
+
+    // Only render if something changed
+    if (needsRender) {
+      canvas.renderAll()
+    }
+  }, [canvas, currentTime, totalDuration])
+
+  // Restore original opacity when timeline is closed or playback stops
+  useEffect(() => {
+    if (!canvas) return
+
+    // Only restore when not playing and timeline is open (editing mode)
+    if (isPlaying) return
+
+    // Small delay to allow final fade to complete
+    const timeoutId = setTimeout(() => {
+      // @ts-ignore
+      const objects = canvas.getObjects?.() || []
+      let needsRender = false
+
+      objects.forEach((obj: any) => {
+        // Restore original opacity if stored
+        if (obj._originalOpacity !== undefined) {
+          const currentOpacity = obj.opacity ?? 1
+          if (currentOpacity !== obj._originalOpacity) {
+            obj.set('opacity', obj._originalOpacity)
+            obj.dirty = true
+            needsRender = true
+          }
+          delete obj._originalOpacity
         }
       })
 
-      // Only render if something changed
       if (needsRender) {
         canvas.renderAll()
       }
-
-      // Find and select the active video object
-      const videoObject = objects.find((obj: any) => 
-        obj.metadata?.id === activeClip.id
-      )
-
-      if (videoObject) {
-        // Update existing video object and make it visible
-        // @ts-ignore
-        canvas.setActiveObject?.(videoObject)
-      }
-    }, 50) // Debounce by 50ms to reduce lag
+    }, 100)
 
     return () => clearTimeout(timeoutId)
-  }, [activeClip, editor, canvas])
+  }, [canvas, isPlaying])
 
   // Timer to update currentTime when playing (drives audio and playhead)
   const currentTimeRef = useRef(currentTime)
@@ -1437,25 +1755,18 @@ const VideoTimeline: React.FC = () => {
     }
   }, [isPlaying, setCurrentTime, totalDuration, togglePlayback])
 
-  // Handle toggle play - Canva style: ALWAYS start from beginning or first clip
+  // Handle toggle play - ALWAYS start from the beginning of timeline (0 seconds)
+  // This allows videos to appear/disappear based on their timeline position
   const handleTogglePlay = useCallback(() => {
     if (!isPlaying) {
-      // If there are video clips, start from the first one
-      if (clips.length > 0) {
-        // Sort clips by start time to get the actual first clip
-        const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
-        const firstClip = sortedClips[0]
-        
-        // Always start from the first clip (lowest start time)
-        setActiveClip(firstClip.id)
-        setCurrentTime(firstClip.start || 0)
-      } else {
-        // No video clips, but might have text/audio - start from beginning
-        setCurrentTime(0)
-      }
+      // Always start from the beginning of the timeline
+      setCurrentTime(0)
+
+      // Clear active clip - it will be set based on currentTime during playback
+      // The video visibility effect will handle showing the right video
     }
     togglePlayback()
-  }, [togglePlayback, isPlaying, clips, setActiveClip, setCurrentTime])
+  }, [togglePlayback, isPlaying, setCurrentTime])
 
   // Handle seek
   const handleSeek = useCallback((time: number) => {
@@ -1479,7 +1790,7 @@ const VideoTimeline: React.FC = () => {
     if (contextMenu.visible) {
       setContextMenu({ visible: false, clipId: null, trackId: null, x: 0, y: 0 })
     }
-    
+
     const addToSelection = e.shiftKey || e.ctrlKey || e.metaKey
     selectClip(clipId, addToSelection)
 
@@ -1504,23 +1815,23 @@ const VideoTimeline: React.FC = () => {
   const handleClipContextMenu = (clipId: string, trackId: string, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     // Calculate position, adjusting if near screen edges
     const menuWidth = 100
     const menuHeight = 36
     let x = e.clientX
     let y = e.clientY
-    
+
     // Adjust if too close to right edge
     if (x + menuWidth > window.innerWidth) {
       x = window.innerWidth - menuWidth - 10
     }
-    
+
     // Adjust if too close to bottom edge
     if (y + menuHeight > window.innerHeight) {
       y = window.innerHeight - menuHeight - 10
     }
-    
+
     setContextMenu({
       visible: true,
       clipId,
@@ -1536,7 +1847,7 @@ const VideoTimeline: React.FC = () => {
 
     const track = tracks.find(t => t.id === contextMenu.trackId)
     const clip = track?.clips.find(c => c.id === contextMenu.clipId)
-    
+
     if (!clip) return
 
     if (clip.type === 'audio') {
@@ -1567,7 +1878,7 @@ const VideoTimeline: React.FC = () => {
         canvas.requestRenderAll?.()
       }
     }
-    
+
     clearSelection()
     setContextMenu({ visible: false, clipId: null, trackId: null, x: 0, y: 0 })
   }
@@ -1607,7 +1918,7 @@ const VideoTimeline: React.FC = () => {
   const handleDragStart = (clipId: string, trackId: string, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     const track = tracks.find(t => t.id === trackId)
     const clip = track?.clips.find(c => c.id === clipId)
     if (!clip) return
@@ -1655,7 +1966,7 @@ const VideoTimeline: React.FC = () => {
           // Update text track position in canvas metadata
           // @ts-ignore
           const objects = canvas.getObjects?.() || []
-          const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
+          const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
           if (obj && obj.metadata) {
             obj.metadata.timelineStart = newStart
             obj.dirty = true
@@ -1666,12 +1977,37 @@ const VideoTimeline: React.FC = () => {
             canvas.fire?.('object:modified', { target: obj })
           }
         } else if (track?.type === 'image' && clip.canvasObjectId && canvas) {
-          // Update image track position in canvas metadata (if it has timeline metadata)
+          // Update image track position in canvas metadata
           // @ts-ignore
           const objects = canvas.getObjects?.() || []
-          const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
-          if (obj && obj.metadata && obj.metadata.timelineStart !== undefined) {
+          const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
+          if (obj) {
+            // Initialize metadata if not exists
+            if (!obj.metadata) obj.metadata = {}
             obj.metadata.timelineStart = newStart
+            // Also ensure duration is set
+            if (obj.metadata.timelineDuration === undefined) {
+              obj.metadata.timelineDuration = clip.duration
+            }
+            obj.dirty = true
+            // @ts-ignore
+            canvas.requestRenderAll?.()
+            // @ts-ignore
+            canvas.fire?.('object:modified', { target: obj })
+          }
+        } else if (track?.type === 'shape' && clip.canvasObjectId && canvas) {
+          // Update shape track position in canvas metadata
+          // @ts-ignore
+          const objects = canvas.getObjects?.() || []
+          const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
+          if (obj) {
+            // Initialize metadata if not exists
+            if (!obj.metadata) obj.metadata = {}
+            obj.metadata.timelineStart = newStart
+            // Also ensure duration is set
+            if (obj.metadata.timelineDuration === undefined) {
+              obj.metadata.timelineDuration = clip.duration
+            }
             obj.dirty = true
             // @ts-ignore
             canvas.requestRenderAll?.()
@@ -1758,15 +2094,31 @@ const VideoTimeline: React.FC = () => {
             canvas.fire?.('object:modified', { target: obj })
           }
         } else if (track?.type === 'image' && clip.canvasObjectId && canvas) {
-          // Update image track duration in canvas metadata (if it has timeline metadata)
+          // Update image track duration in canvas metadata
           // @ts-ignore
           const objects = canvas.getObjects?.() || []
-          const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
-          if (obj && obj.metadata && obj.metadata.timelineStart !== undefined) {
+          const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
+          if (obj) {
+            // Initialize metadata if not exists
+            if (!obj.metadata) obj.metadata = {}
             obj.metadata.timelineStart = newStart
-            if (obj.metadata.timelineDuration !== undefined) {
-              obj.metadata.timelineDuration = newDuration
-            }
+            obj.metadata.timelineDuration = newDuration
+            obj.dirty = true
+            // @ts-ignore
+            canvas.requestRenderAll?.()
+            // @ts-ignore
+            canvas.fire?.('object:modified', { target: obj })
+          }
+        } else if (track?.type === 'shape' && clip.canvasObjectId && canvas) {
+          // Update shape track duration in canvas metadata
+          // @ts-ignore
+          const objects = canvas.getObjects?.() || []
+          const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
+          if (obj) {
+            // Initialize metadata if not exists
+            if (!obj.metadata) obj.metadata = {}
+            obj.metadata.timelineStart = newStart
+            obj.metadata.timelineDuration = newDuration
             obj.dirty = true
             // @ts-ignore
             canvas.requestRenderAll?.()
@@ -1834,7 +2186,7 @@ const VideoTimeline: React.FC = () => {
     if (!file || !editor) return
 
     const url = URL.createObjectURL(file)
-    
+
     if (file.type.startsWith('video/')) {
       // Handle video upload
       const video = document.createElement('video')
@@ -1905,7 +2257,7 @@ const VideoTimeline: React.FC = () => {
 
           // Calculate start time to place video sequentially after existing videos
           const startTime = getNextVideoStartTime()
-          
+
           addClip({
             id: clipId,
             name: file.name,
@@ -2003,7 +2355,7 @@ const VideoTimeline: React.FC = () => {
   }, [openMenuTrackId])
 
   // Handle menu item clicks
-  const handleMenuClick = (action: 'uploads' | 'stock-videos' | 'stock-photos' ) => {
+  const handleMenuClick = (action: 'uploads' | 'stock-videos' | 'stock-photos') => {
     if (action === 'uploads') {
       mediaInputRef.current?.click()
     } else if (action === 'stock-videos') {
@@ -2124,7 +2476,7 @@ const VideoTimeline: React.FC = () => {
 
             // Calculate start time to place video sequentially after existing videos
             const startTime = getNextVideoStartTime()
-            
+
             addClip({
               id: clipId,
               name: file.name,
@@ -2205,7 +2557,7 @@ const VideoTimeline: React.FC = () => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Only handle if timeline is open and focused
       if (!isTimelineOpen) return
-      
+
       // Delete or Backspace key
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedClipIds.length > 0) {
         // Don't delete if user is typing in an input
@@ -2215,7 +2567,7 @@ const VideoTimeline: React.FC = () => {
         }
 
         e.preventDefault()
-        
+
         // Delete all selected clips (audio, video, image, text)
         selectedClipIds.forEach(clipId => {
           // Check if it's an audio clip
@@ -2255,7 +2607,7 @@ const VideoTimeline: React.FC = () => {
             }
           }
         })
-        
+
         clearSelection()
       }
     }
@@ -2266,14 +2618,14 @@ const VideoTimeline: React.FC = () => {
 
   // Check if there's any video/animation content on canvas
   const hasVideoContent = clips.length > 0 || audioClips.length > 0
-  
+
   // Also check canvas for video objects (in case clips aren't synced)
   const hasCanvasVideoContent = useMemo(() => {
     if (!canvas) return false
     // @ts-ignore
     const objects = canvas.getObjects?.() || []
-    return objects.some((obj: any) => 
-      obj.metadata?.isVideo || 
+    return objects.some((obj: any) =>
+      obj.metadata?.isVideo ||
       obj.metadata?.videoSrc ||
       (obj.metadata?.animation && obj.metadata.animation !== 'none')
     )
@@ -2281,7 +2633,7 @@ const VideoTimeline: React.FC = () => {
 
   // Only show timeline if there's video/animation content
   const shouldShowTimeline = hasVideoContent || hasCanvasVideoContent
-  
+
   if (!shouldShowTimeline) {
     return null
   }
@@ -2429,7 +2781,7 @@ const VideoTimeline: React.FC = () => {
             style={{ width: `${timelineWidth}px`, minHeight: `${tracks.length * 52}px` }}
           >
             {tracks.map(track => (
-              <TrackRow 
+              <TrackRow
                 key={track.id}
                 $type={track.type}
                 data-track-row
@@ -2486,7 +2838,7 @@ const VideoTimeline: React.FC = () => {
                       </MenuIcon>
                       <span>Stock photos</span>
                     </MenuItem>
-                    
+
                   </MediaMenu>
                 )}
 
@@ -2495,10 +2847,10 @@ const VideoTimeline: React.FC = () => {
                   const preview = dragPreview[clip.id]
                   const displayStart = preview?.start ?? clip.start
                   const displayDuration = preview?.duration ?? clip.duration
-                  
+
                   // Check if this clip is currently playing
                   const isClipPlaying = isPlaying && clip.id === activeClipId && clip.type === 'video'
-                  
+
                   return (
                     <TrackClip
                       key={clip.id}
@@ -2514,130 +2866,165 @@ const VideoTimeline: React.FC = () => {
                       onMouseEnter={() => setHoveredClipId(clip.id)}
                       onMouseLeave={() => setHoveredClipId(null)}
                     >
-                    {/* Show video thumbnail/poster for video clips - with mini video player when playing */}
-                    {clip.type === 'video' && clip.poster ? (
-                      <ClipThumbnail style={{ 
-                        width: '100%', 
-                        height: '100%', 
-                        position: 'absolute',
-                        left: 0,
-                        top: 0,
-                        borderRadius: '6px',
-                        overflow: 'hidden',
-                        pointerEvents: 'none',
-                      }}>
-                        {/* Show actual video when playing, poster when paused */}
-                        {isClipPlaying && clip.videoSrc ? (
-                          <video
-                            ref={(el) => {
-                              if (el) {
-                                timelineVideoRefs.current[clip.id] = el
-                                // Initial sync only - ongoing sync handled by requestAnimationFrame
-                                if (isClipPlaying) {
-                                  const clipStart = clip.start || 0
-                                  const expectedTime = currentTime - clipStart
-                                  if (expectedTime >= 0 && expectedTime <= clip.duration) {
-                                    el.currentTime = expectedTime
-                                  }
-                                }
-                              } else {
-                                // Cleanup ref when element unmounts
-                                delete timelineVideoRefs.current[clip.id]
-                              }
-                            }}
-                            src={clip.videoSrc}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              pointerEvents: 'none',
-                            }}
-                            muted
-                            playsInline
-                            autoPlay
-                            loop={false}
-                          />
-                        ) : (
-                          <img 
-                            src={clip.poster} 
-                            alt={clip.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                            }}
-                          />
-                        )}
-                        {/* Overlay for text readability */}
-                        <div style={{
+                      {/* Show video thumbnail/poster for video clips - with mini video player when playing */}
+                      {clip.type === 'video' && clip.poster ? (
+                        <ClipThumbnail style={{
+                          width: '100%',
+                          height: '100%',
                           position: 'absolute',
-                          bottom: 0,
                           left: 0,
-                          right: 0,
-                          background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
-                          padding: '4px 8px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          zIndex: 1,
+                          top: 0,
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                          pointerEvents: 'none',
                         }}>
-                          <ClipThumbnail style={{ 
-                            width: '20px', 
-                            height: '20px', 
-                            background: 'rgba(255,255,255,0.2)',
-                            flexShrink: 0,
+                          {/* Show actual video when playing, poster when paused */}
+                          {isClipPlaying && clip.videoSrc ? (
+                            <video
+                              ref={(el) => {
+                                if (el) {
+                                  timelineVideoRefs.current[clip.id] = el
+                                  // Initial sync only - ongoing sync handled by requestAnimationFrame
+                                  if (isClipPlaying) {
+                                    const clipStart = clip.start || 0
+                                    const expectedTime = currentTime - clipStart
+                                    if (expectedTime >= 0 && expectedTime <= clip.duration) {
+                                      el.currentTime = expectedTime
+                                    }
+                                  }
+                                } else {
+                                  // Cleanup ref when element unmounts
+                                  delete timelineVideoRefs.current[clip.id]
+                                }
+                              }}
+                              src={clip.videoSrc}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                pointerEvents: 'none',
+                              }}
+                              muted
+                              playsInline
+                              autoPlay
+                              loop={false}
+                            />
+                          ) : (
+                            <img
+                              src={clip.poster}
+                              alt={clip.name}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                              }}
+                            />
+                          )}
+                          {/* Overlay for text readability */}
+                          <div style={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+                            padding: '4px 8px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            zIndex: 1,
                           }}>
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
-                              <polygon points="5 3 19 12 5 21 5 3" />
-                            </svg>
-                          </ClipThumbnail>
-                          <ClipName style={{ 
-                            fontSize: '11px',
-                            fontWeight: 500,
-                            color: '#ffffff',
-                            textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                          }}>{clip.name}</ClipName>
-                        </div>
-                      </ClipThumbnail>
-                    ) : (
-                      <>
-                        <ClipThumbnail>
-                          {clip.type === 'video' && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                              <polygon points="5 3 19 12 5 21 5 3" />
-                            </svg>
-                          )}
-                          {clip.type === 'text' && (
-                            <span style={{ fontSize: '12px', fontWeight: 700 }}>T</span>
-                          )}
-                          {clip.type === 'image' && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                              <rect x="3" y="3" width="18" height="18" rx="2" />
-                              <circle cx="8.5" cy="8.5" r="1.5" />
-                              <path d="M21 15l-5-5L5 21h14a2 2 0 002-2v-4z" />
-                            </svg>
-                          )}
-                          {clip.type === 'audio' && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M9 18V5l12-2v13" />
-                              <circle cx="6" cy="18" r="3" />
-                              <circle cx="18" cy="16" r="3" />
-                            </svg>
-                          )}
+                            <ClipThumbnail style={{
+                              width: '20px',
+                              height: '20px',
+                              background: 'rgba(255,255,255,0.2)',
+                              flexShrink: 0,
+                            }}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                              </svg>
+                            </ClipThumbnail>
+                            <ClipName style={{
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              color: '#ffffff',
+                              textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                            }}>{clip.name}</ClipName>
+                          </div>
                         </ClipThumbnail>
-                        <ClipName>{clip.name}</ClipName>
-                      </>
-                    )}
+                      ) : (
+                        <>
+                          <ClipThumbnail>
+                            {clip.type === 'video' && (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                              </svg>
+                            )}
+                            {clip.type === 'text' && (
+                              <span style={{ fontSize: '12px', fontWeight: 700 }}>T</span>
+                            )}
+                            {clip.type === 'image' && (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="3" y="3" width="18" height="18" rx="2" />
+                                <circle cx="8.5" cy="8.5" r="1.5" />
+                                <path d="M21 15l-5-5L5 21h14a2 2 0 002-2v-4z" />
+                              </svg>
+                            )}
+                            {clip.type === 'audio' && (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M9 18V5l12-2v13" />
+                                <circle cx="6" cy="18" r="3" />
+                                <circle cx="18" cy="16" r="3" />
+                              </svg>
+                            )}
+                            {clip.type === 'shape' && (
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                                <rect x="4" y="4" width="16" height="16" rx="2" />
+                              </svg>
+                            )}
+                          </ClipThumbnail>
+                          <ClipName>{clip.name}</ClipName>
+                        </>
+                      )}
 
-                    <ClipHandle
-                      $position="left"
-                      onMouseDown={(e) => handleResizeStart(clip.id, track.id, 'left', e)}
-                    />
-                    <ClipHandle
-                      $position="right"
-                      onMouseDown={(e) => handleResizeStart(clip.id, track.id, 'right', e)}
-                    />
-                  </TrackClip>
+                      <ClipHandle
+                        $position="left"
+                        onMouseDown={(e) => handleResizeStart(clip.id, track.id, 'left', e)}
+                      />
+                      <ClipHandle
+                        $position="right"
+                        onMouseDown={(e) => handleResizeStart(clip.id, track.id, 'right', e)}
+                      />
+
+                      {/* + Button to extend/duplicate segment */}
+                      <ClipAddButton
+                        className="clip-add-btn"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Extend duration by 5 seconds for text/image/shape
+                          if ((track.type === 'text' || track.type === 'image' || track.type === 'shape') && clip.canvasObjectId && canvas) {
+                            // @ts-ignore
+                            const objects = canvas.getObjects?.() || []
+                            const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
+                            if (obj && obj.metadata) {
+                              const currentDuration = obj.metadata.timelineDuration || 5
+                              obj.metadata.timelineDuration = currentDuration + 5
+                              obj.dirty = true
+                              // @ts-ignore
+                              canvas.requestRenderAll?.()
+                              // @ts-ignore
+                              canvas.fire?.('object:modified', { target: obj })
+                            }
+                          } else if (track.type === 'audio') {
+                            // For audio, extend by duration (loop)
+                            const currentDuration = clip.duration || 5
+                            updateAudioClip(clip.id, { duration: currentDuration + 5 })
+                          }
+                        }}
+                        title="Extend by 5 seconds"
+                      >
+                        +
+                      </ClipAddButton>
+                    </TrackClip>
                   )
                 })}
 
