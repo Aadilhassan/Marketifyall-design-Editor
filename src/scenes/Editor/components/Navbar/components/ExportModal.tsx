@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useCallback } from 'react'
 import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
@@ -243,6 +243,23 @@ interface ExportModalProps {
 
 type ExportFormat = 'png' | 'jpg' | 'webp' | 'svg' | 'pdf' | 'json' | 'mp4' | 'webm' | 'gif'
 type ExportSize = '1x' | '2x' | '3x' | '4x'
+type VideoResolution = '4k' | '1080p' | '720p' | '480p' | 'custom'
+type QualityPreset = 'low' | 'medium' | 'high' | 'maximum'
+
+const RESOLUTION_PRESETS: { id: VideoResolution; name: string; width: number; height: number; desc: string }[] = [
+  { id: '4k', name: '4K UHD', width: 3840, height: 2160, desc: 'Ultra HD' },
+  { id: '1080p', name: '1080p', width: 1920, height: 1080, desc: 'Full HD' },
+  { id: '720p', name: '720p', width: 1280, height: 720, desc: 'HD' },
+  { id: '480p', name: '480p', width: 854, height: 480, desc: 'SD' },
+  { id: 'custom', name: 'Original', width: 0, height: 0, desc: 'Canvas Size' },
+]
+
+const QUALITY_PRESETS: { id: QualityPreset; name: string; bitrate: number; desc: string }[] = [
+  { id: 'maximum', name: 'Maximum', bitrate: 50, desc: 'Largest file' },
+  { id: 'high', name: 'High', bitrate: 25, desc: 'Recommended' },
+  { id: 'medium', name: 'Medium', bitrate: 10, desc: 'Balanced' },
+  { id: 'low', name: 'Low', bitrate: 5, desc: 'Smaller file' },
+]
 
 const IMAGE_FORMATS: { id: ExportFormat; name: string; desc: string; color: string }[] = [
   { id: 'png', name: 'PNG', desc: 'Transparent', color: '#10b981' },
@@ -261,8 +278,8 @@ const VIDEO_FORMATS: { id: ExportFormat; name: string; desc: string; color: stri
 
 function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
   const editor = useEditor()
-  const { canvas } = useEditorContext()
-  const { clips } = useVideoContext()
+  const { canvas, frameSize } = useEditorContext() as any
+  const { clips, play, pause, seek, isPlaying } = useVideoContext()
   const [format, setFormat] = useState<ExportFormat>('png')
   const [quality, setQuality] = useState(90)
   const [size, setSize] = useState<ExportSize>('1x')
@@ -270,6 +287,8 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
   const [exportProgress, setExportProgress] = useState(0)
   const [videoDuration, setVideoDuration] = useState(10)
   const [videoFPS, setVideoFPS] = useState(30)
+  const [videoResolution, setVideoResolution] = useState<VideoResolution>('1080p')
+  const [qualityPreset, setQualityPreset] = useState<QualityPreset>('high')
 
   const hasVideo = clips.length > 0
   const FORMATS = hasVideo ? [...VIDEO_FORMATS, ...IMAGE_FORMATS] : IMAGE_FORMATS
@@ -298,52 +317,251 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           return
         }
 
+        // Calculate export resolution
+        const resolutionPreset = RESOLUTION_PRESETS.find(r => r.id === videoResolution) || RESOLUTION_PRESETS[1]
+        const exportWidth = resolutionPreset.width || canvasElement.width
+        const exportHeight = resolutionPreset.height || canvasElement.height
+
+        // Calculate quality/bitrate from preset
+        const qualityConfig = QUALITY_PRESETS.find(q => q.id === qualityPreset) || QUALITY_PRESETS[1]
+        const exportBitrate = qualityConfig.bitrate * 1000000 // Convert to bps
+
         const exportOptions: VideoExportOptions = {
           format: format as 'mp4' | 'webm' | 'gif',
           fps: format === 'gif' ? 10 : videoFPS,
-          quality: quality / 100,
+          quality: qualityConfig.bitrate / 50, // Normalize to 0-1 range
           duration: videoDuration,
-          width: canvasElement.width,
-          height: canvasElement.height,
+          width: exportWidth,
+          height: exportHeight,
+          bitrate: exportBitrate,
           onProgress: (progress) => setExportProgress(progress),
         }
 
-        let blob: Blob
+        // BACKEND VIDEO EXPORT - Send timeline data to video-processor server
+        try {
+          setExportProgress(5)
 
-        if (format === 'gif') {
-          blob = await exportAsGif(canvasElement, videoElement, exportOptions)
-          downloadBlob(blob, `${designName}.gif`)
-        } else {
-          // WebM/MP4 using MediaRecorder
-          blob = await exportVideoWithRecorder(canvasElement, videoElement, exportOptions)
-          
-          if (format === 'mp4') {
-            // MediaRecorder outputs WebM, so we inform user
-            // eslint-disable-next-line no-restricted-globals
-            const confirmConvert = confirm(
-              'Browser exports as WebM format.\n\nClick OK to download as WebM, or Cancel to abort.'
-            )
-            if (confirmConvert) {
-              downloadBlob(blob, `${designName}.webm`)
-            } else {
-              setIsExporting(false)
-              setExportProgress(0)
-              return
-            }
+          // Calculate export resolution - use actual canvas frame size for 'custom' or as base
+          const canvasFrameWidth = frameSize?.width || 1080
+          const canvasFrameHeight = frameSize?.height || 1920
+          const resolutionPreset = RESOLUTION_PRESETS.find(r => r.id === videoResolution) || RESOLUTION_PRESETS[1]
+
+          // For custom resolution, use actual canvas frame size
+          // Otherwise scale based on preset maintaining canvas aspect ratio
+          let exportWidth: number
+          let exportHeight: number
+
+          if (videoResolution === 'custom' || resolutionPreset.width === 0) {
+            exportWidth = canvasFrameWidth
+            exportHeight = canvasFrameHeight
           } else {
-            downloadBlob(blob, `${designName}.${format}`)
+            // Scale to fit preset while maintaining canvas aspect ratio
+            const canvasAspect = canvasFrameWidth / canvasFrameHeight
+            if (canvasAspect > 1) {
+              // Landscape
+              exportWidth = resolutionPreset.width
+              exportHeight = Math.round(resolutionPreset.width / canvasAspect)
+            } else {
+              // Portrait (Reels)
+              exportHeight = resolutionPreset.height
+              exportWidth = Math.round(resolutionPreset.height * canvasAspect)
+            }
           }
-        }
 
-        setTimeout(() => {
-          onClose()
-          setExportProgress(0)
-        }, 500)
-        
-        setIsExporting(false)
+          // Get canvas frame bounds to calculate relative positions
+          const canvasContainer = document.querySelector('.canvas-container')
+          const canvasRect = canvasContainer?.getBoundingClientRect()
+          const frameWidth = canvasRect?.width || exportWidth
+          const frameHeight = canvasRect?.height || exportHeight
+
+          // Extract video positions from DOM overlay elements
+          const videoClipsWithPositions = clips.map((clip, index) => {
+            // Try to find the video's overlay container in DOM
+            const overlayElements = document.querySelectorAll('[style*="position: absolute"]')
+            let position = { x: 0, y: 0 }
+            let size = { width: 100, height: 100 }
+
+            // Find the overlay for this clip by checking video src
+            overlayElements.forEach((el) => {
+              const video = el.querySelector('video')
+              if (video && (video.src === clip.src || video.src.includes(clip.id))) {
+                const style = window.getComputedStyle(el)
+                const left = parseFloat(style.left) || 0
+                const top = parseFloat(style.top) || 0
+                const width = parseFloat(style.width) || 200
+                const height = parseFloat(style.height) || 200
+
+                // Convert to percentage of canvas
+                position = {
+                  x: (left / frameWidth) * 100,
+                  y: (top / frameHeight) * 100,
+                }
+                size = {
+                  width: (width / frameWidth) * 100,
+                  height: (height / frameHeight) * 100,
+                }
+              }
+            })
+
+            return {
+              id: clip.id,
+              type: 'video' as const,
+              src: clip.src,
+              start: clip.start || 0,
+              duration: clip.duration || videoDuration,
+              position,
+              size,
+            }
+          })
+
+          // Also extract fabric.js canvas objects (images, text, shapes)
+          const canvasObjects: any[] = []
+
+          // @ts-ignore - canvas.getObjects is from fabric.js
+          const fabricObjects = canvas?.getObjects?.() || []
+
+          fabricObjects.forEach((obj: any) => {
+            // Skip clip/background objects
+            if (obj.name === 'clip' || obj.id === 'clip') return
+
+            // Skip video poster images (objects with isVideo or videoSrc in metadata)
+            const metadata = obj.metadata || {}
+            if (metadata.isVideo || metadata.videoSrc) return
+
+            const objType = obj.type?.toLowerCase() || ''
+            const left = obj.left || 0
+            const top = obj.top || 0
+            const width = (obj.width || 100) * (obj.scaleX || 1)
+            const height = (obj.height || 100) * (obj.scaleY || 1)
+
+            // Convert to percentage of frame
+            const position = {
+              x: (left / frameWidth) * 100,
+              y: (top / frameHeight) * 100,
+            }
+            const size = {
+              width: (width / frameWidth) * 100,
+              height: (height / frameHeight) * 100,
+            }
+
+            // Get timeline properties if available
+            const timelineStart = obj.timelineStart || 0
+            const timelineDuration = obj.timelineDuration || videoDuration
+
+            if (objType === 'image' || objType === 'staticimage') {
+              // Get image source
+              const src = obj.src || obj._element?.src || obj.getSrc?.() || ''
+              if (src) {
+                canvasObjects.push({
+                  id: obj.id || `img_${Math.random().toString(36).substr(2, 9)}`,
+                  type: 'image' as const,
+                  src,
+                  start: timelineStart,
+                  duration: timelineDuration,
+                  position,
+                  size,
+                })
+              }
+            } else if (objType === 'textbox' || objType === 'i-text' || objType === 'text' || objType === 'statictext') {
+              canvasObjects.push({
+                id: obj.id || `text_${Math.random().toString(36).substr(2, 9)}`,
+                type: 'text' as const,
+                content: obj.text || '',
+                start: timelineStart,
+                duration: timelineDuration,
+                position,
+                style: {
+                  fontSize: Math.round((obj.fontSize || 24) * (obj.scaleX || 1)),
+                  fontFamily: obj.fontFamily || 'Arial',
+                  color: obj.fill || '#000000',
+                },
+              })
+            }
+          })
+
+          console.log('Canvas objects found:', canvasObjects.length)
+          console.log('Video clips found:', videoClipsWithPositions.length)
+
+          // Build timeline data for backend - combine videos and canvas objects
+          const timelineData = {
+            timeline: {
+              duration: videoDuration,
+              fps: videoFPS,
+              width: exportWidth,
+              height: exportHeight,
+              backgroundColor: 'white',
+            },
+            clips: [...videoClipsWithPositions, ...canvasObjects],
+          }
+
+          setExportProgress(10)
+
+          // Call backend API
+          const VIDEO_PROCESSOR_URL = 'http://localhost:3001'
+
+          // Start render job
+          const startResponse = await fetch(`${VIDEO_PROCESSOR_URL}/api/render`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(timelineData),
+          })
+
+          if (!startResponse.ok) {
+            throw new Error('Failed to start render job')
+          }
+
+          const { id: jobId } = await startResponse.json()
+          console.log('Render job started:', jobId)
+
+          setExportProgress(15)
+
+          // Poll for status
+          let status = 'processing'
+          while (status === 'processing' || status === 'queued') {
+            await new Promise(resolve => setTimeout(resolve, 1000))
+
+            const statusResponse = await fetch(`${VIDEO_PROCESSOR_URL}/api/render/${jobId}/status`)
+            const statusData = await statusResponse.json()
+
+            status = statusData.status
+            setExportProgress(Math.max(15, Math.min(statusData.progress || 15, 95)))
+
+            if (statusData.error) {
+              throw new Error(statusData.error)
+            }
+          }
+
+          if (status !== 'done') {
+            throw new Error('Render failed')
+          }
+
+          setExportProgress(95)
+
+          // Download the video
+          const downloadUrl = `${VIDEO_PROCESSOR_URL}/api/render/${jobId}/download`
+          const link = document.createElement('a')
+          link.href = downloadUrl
+          link.download = `${designName}.mp4`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+
+          setExportProgress(100)
+
+          setTimeout(() => {
+            onClose()
+            setExportProgress(0)
+          }, 500)
+
+          setIsExporting(false)
+        } catch (error) {
+          console.error('Export error:', error)
+          alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}. Make sure the video-processor server is running on port 3001.`)
+          setIsExporting(false)
+        }
         return
       }
-      
+
       if (format === 'json') {
         // Export as JSON
         const exportedTemplate = editor.exportToJSON()
@@ -370,7 +588,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
         // The SDK primarily supports PNG export
         // @ts-ignore
         const image = await editor.toPNG({})
-        
+
         if (format === 'png') {
           downloadFile(image, `${designName}.png`)
         } else {
@@ -381,16 +599,16 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             canvas.width = img.width
             canvas.height = img.height
             const ctx = canvas.getContext('2d')
-            
+
             if (ctx) {
               // For JPG, fill with white background first
               if (format === 'jpg') {
                 ctx.fillStyle = '#ffffff'
                 ctx.fillRect(0, 0, canvas.width, canvas.height)
               }
-              
+
               ctx.drawImage(img, 0, 0)
-              
+
               const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`
               const dataURL = canvas.toDataURL(mimeType, quality / 100)
               downloadFile(dataURL, `${designName}.${format}`)
@@ -495,6 +713,66 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Resolution Selection */}
+              <div style={{ marginTop: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '8px' }}>
+                  Resolution
+                </label>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {RESOLUTION_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => setVideoResolution(preset.id)}
+                      style={{
+                        padding: '8px 14px',
+                        borderRadius: '8px',
+                        border: videoResolution === preset.id ? '2px solid #667eea' : '1px solid #e5e7eb',
+                        background: videoResolution === preset.id ? '#f0f0ff' : '#ffffff',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: videoResolution === preset.id ? '#667eea' : '#374151',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <div>{preset.name}</div>
+                      <div style={{ fontSize: '10px', fontWeight: 400, color: '#9ca3af' }}>{preset.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quality Preset Selection */}
+              <div style={{ marginTop: '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '8px' }}>
+                  Quality
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {QUALITY_PRESETS.map((preset) => (
+                    <button
+                      key={preset.id}
+                      onClick={() => setQualityPreset(preset.id)}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        borderRadius: '8px',
+                        border: qualityPreset === preset.id ? '2px solid #667eea' : '1px solid #e5e7eb',
+                        background: qualityPreset === preset.id ? '#f0f0ff' : '#ffffff',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: qualityPreset === preset.id ? '#667eea' : '#374151',
+                        textAlign: 'center',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <div>{preset.name}</div>
+                      <div style={{ fontSize: '10px', fontWeight: 400, color: '#9ca3af' }}>{preset.desc}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             </>
           )}
