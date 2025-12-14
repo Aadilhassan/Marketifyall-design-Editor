@@ -56,6 +56,7 @@ export interface RenderRequest {
         width: number
         height: number
         backgroundColor?: string
+        backgroundImage?: string  // Base64 PNG of canvas (without videos)
     }
     clips: TimelineClip[]
 }
