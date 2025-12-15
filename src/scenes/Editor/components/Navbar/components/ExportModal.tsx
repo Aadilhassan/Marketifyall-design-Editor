@@ -347,8 +347,35 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           setExportProgress(5)
 
           // Calculate export resolution - use actual canvas frame size for 'custom' or as base
-          const canvasFrameWidth = frameSize?.width || 1080
-          const canvasFrameHeight = frameSize?.height || 1920
+          // Calculate export resolution - use actual canvas frame size for 'custom' or as base
+          let canvasFrameWidth = 1920
+          let canvasFrameHeight = 1080
+
+          // Try to find the 'clip' object which defines the actual design area
+          // @ts-ignore - canvas.getObjects is from fabric.js
+          const allObjects = canvas?.getObjects?.() || []
+          // @ts-ignore
+          const clipObj = allObjects.find((obj: any) => obj.name === 'clip' || obj.id === 'clip')
+
+          if (clipObj) {
+            canvasFrameWidth = clipObj.width * (clipObj.scaleX || 1)
+            canvasFrameHeight = clipObj.height * (clipObj.scaleY || 1)
+          } else if (frameSize) {
+            canvasFrameWidth = frameSize.width
+            canvasFrameHeight = frameSize.height
+          } else if (canvas) {
+            // Fallback to canvas dimensions but be careful of viewport vs design
+            // If canvas is responsive, this might be viewport size.
+            // Assume landscape 1920x1080 if width > height, else 1080x1920
+            if (canvas.width > canvas.height) {
+              canvasFrameWidth = 1920
+              canvasFrameHeight = 1080
+            } else {
+              canvasFrameWidth = 1080
+              canvasFrameHeight = 1920
+            }
+          }
+
           const resolutionPreset = RESOLUTION_PRESETS.find(r => r.id === videoResolution) || RESOLUTION_PRESETS[1]
 
           // For custom resolution, use actual canvas frame size
@@ -368,8 +395,9 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
               exportHeight = Math.round(resolutionPreset.width / canvasAspect)
             } else {
               // Portrait (Reels)
-              exportHeight = resolutionPreset.height
-              exportWidth = Math.round(resolutionPreset.height * canvasAspect)
+              // Use the preset width as the target height for portrait to maintain high quality (e.g. 1080p becomes 1080x1920)
+              exportHeight = resolutionPreset.width
+              exportWidth = Math.round(resolutionPreset.width * canvasAspect)
             }
           }
 
@@ -379,6 +407,61 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           const frameWidth = canvasRect?.width || exportWidth
           const frameHeight = canvasRect?.height || exportHeight
 
+          // Get clip object for robust positioning
+          // Variables allObjects and clipObj are already declared above
+          // Reuse them here if needed, but they are consts so we don't need to re-fetch
+
+
+          // Calculate Design Frame properties (Screen & Logical)
+          let designLogicalRect = { left: 0, top: 0, width: canvasFrameWidth, height: canvasFrameHeight }
+          // Initialize screen rect with container bounds (fallback)
+          let designScreenRect = { left: 0, top: 0, width: frameWidth, height: frameHeight }
+
+          if (canvas) {
+            // 1. Determine LOGICAL position (Internal Fabric Coords)
+            if (clipObj) {
+              designLogicalRect.left = clipObj.left || 0
+              designLogicalRect.top = clipObj.top || 0
+              // Width/Height already set in canvasFrameWidth/Height based on clipObj
+            }
+
+            // 2. Calculate SCREEN position (DOM Coords) using Viewport Transform
+            // This corresponds to x' = x * zoom + pan
+            const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0] // [scaleX, skewY, skewX, scaleY, transX, transY]
+
+            // Transform Top-Left of Design Frame
+            const p1 = {
+              x: designLogicalRect.left * vpt[0] + vpt[4],
+              y: designLogicalRect.top * vpt[3] + vpt[5]
+            }
+
+            // Transform Bottom-Right of Design Frame
+            // Note: canvasFrameWidth is already scaled by object scale (if any), but we want logical coordinate range
+            // So we add logical dimension to logical origin
+            const p2 = {
+              x: (designLogicalRect.left + canvasFrameWidth) * vpt[0] + vpt[4],
+              y: (designLogicalRect.top + canvasFrameHeight) * vpt[3] + vpt[5]
+            }
+
+            // Get Canvas Element DOM position to convert to absolute Page/Client coordinates
+            // Try multiple properties to find the canvas element
+            const canvasEl = canvas.upperCanvasEl || canvas.lowerCanvasEl || canvas.currCanvasEl || document.querySelector('.canvas-container canvas')
+
+            if (canvasEl) {
+              const canvasRect = canvasEl.getBoundingClientRect()
+
+              designScreenRect = {
+                left: canvasRect.left + p1.x,
+                top: canvasRect.top + p1.y,
+                width: p2.x - p1.x,
+                height: p2.y - p1.y
+              }
+
+              console.log('Export Debug - Screen Rect:', designScreenRect)
+              console.log('Export Debug - Canvas Logical:', designLogicalRect)
+            }
+          }
+
           // Extract video positions from DOM overlay elements
           const videoClipsWithPositions = clips.map((clip, index) => {
             // Try to find the video's overlay container in DOM
@@ -387,24 +470,27 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             let size = { width: 100, height: 100 }
 
             // Find the overlay for this clip by checking video src
+            let foundOverlay = false
             overlayElements.forEach((el) => {
               const video = el.querySelector('video')
-              if (video && (video.src === clip.src || video.src.includes(clip.id))) {
-                const style = window.getComputedStyle(el)
-                const left = parseFloat(style.left) || 0
-                const top = parseFloat(style.top) || 0
-                const width = parseFloat(style.width) || 200
-                const height = parseFloat(style.height) || 200
+              if (!foundOverlay && video && (video.src === clip.src || video.src.includes(clip.id))) {
+                const vidRect = el.getBoundingClientRect()
 
-                // Convert to percentage of canvas
+                // Calculate position relative to the DESIGN FRAME (White Page)
+                // Use screen coordinates for robust comparison
+                const relativeLeft = vidRect.left - designScreenRect.left
+                const relativeTop = vidRect.top - designScreenRect.top
+
+                // Convert to percentage of the DESIGN FRAME
                 position = {
-                  x: (left / frameWidth) * 100,
-                  y: (top / frameHeight) * 100,
+                  x: (relativeLeft / designScreenRect.width) * 100,
+                  y: (relativeTop / designScreenRect.height) * 100,
                 }
                 size = {
-                  width: (width / frameWidth) * 100,
-                  height: (height / frameHeight) * 100,
+                  width: (vidRect.width / designScreenRect.width) * 100,
+                  height: (vidRect.height / designScreenRect.height) * 100,
                 }
+                foundOverlay = true
               }
             })
 
@@ -434,19 +520,21 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             if (metadata.isVideo || metadata.videoSrc) return
 
             const objType = obj.type?.toLowerCase() || ''
-            const left = obj.left || 0
-            const top = obj.top || 0
-            const width = (obj.width || 100) * (obj.scaleX || 1)
-            const height = (obj.height || 100) * (obj.scaleY || 1)
 
-            // Convert to percentage of frame
+            // For Fabric objects, use LOGICAL coordinates relative to the clip
+            const relativeLeft = (obj.left || 0) - designLogicalRect.left
+            const relativeTop = (obj.top || 0) - designLogicalRect.top
+            const objWidth = (obj.width || 100) * (obj.scaleX || 1)
+            const objHeight = (obj.height || 100) * (obj.scaleY || 1)
+
+            // Convert to percentage of design frame
             const position = {
-              x: (left / frameWidth) * 100,
-              y: (top / frameHeight) * 100,
+              x: (relativeLeft / designLogicalRect.width) * 100,
+              y: (relativeTop / designLogicalRect.height) * 100,
             }
             const size = {
-              width: (width / frameWidth) * 100,
-              height: (height / frameHeight) * 100,
+              width: (objWidth / designLogicalRect.width) * 100,
+              height: (objHeight / designLogicalRect.height) * 100,
             }
 
             // Get timeline properties if available

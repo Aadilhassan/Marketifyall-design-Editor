@@ -105,48 +105,33 @@ export async function renderVideo(
             // Build filter for compositing multiple videos
             const filters: string[] = []
 
-            // First, scale each video to its target size
+            // 1. Generate background using filter source (avoids -f lavfi input issue)
+            filters.push(`color=c=${timeline.backgroundColor || 'white'}:s=${timeline.width}x${timeline.height}[base]`)
+
+            // 2. Scale each video to its target size
             videoClips.forEach((asset, index) => {
                 const clip = asset.clip as VideoClip | ImageClip
-                const w = Math.round((clip.size.width / 100) * timeline.width)
-                const h = Math.round((clip.size.height / 100) * timeline.height)
+                // Ensure min size 1x1 to avoid scale errors
+                const w = Math.max(1, Math.round((clip.size.width / 100) * timeline.width))
+                const h = Math.max(1, Math.round((clip.size.height / 100) * timeline.height))
 
+                // Map input [index] to [v_index] (Inputs correspond directly to video array now)
                 filters.push(`[${index}:v]scale=${w}:${h},setpts=PTS-STARTPTS[v${index}]`)
             })
 
-            // Create base canvas by scaling first video to full size with padding
-            const firstClip = videoClips[0].clip as VideoClip | ImageClip
-            const firstW = Math.round((firstClip.size.width / 100) * timeline.width)
-            const firstH = Math.round((firstClip.size.height / 100) * timeline.height)
-            const firstX = Math.round((firstClip.position.x / 100) * timeline.width)
-            const firstY = Math.round((firstClip.position.y / 100) * timeline.height)
-
-            // Create white background using pad filter
-            filters.push(
-                `[v0]scale=${timeline.width}:${timeline.height}:force_original_aspect_ratio=decrease,` +
-                `pad=${timeline.width}:${timeline.height}:(ow-iw)/2:(oh-ih)/2:white[base]`
-            )
-
-            // Overlay additional videos
             let currentBase = 'base'
-            for (let i = 1; i < videoClips.length; i++) {
-                const clip = videoClips[i].clip as VideoClip | ImageClip
+
+            // 3. Overlay all scaled videos onto the base
+            videoClips.forEach((asset, index) => {
+                const clip = asset.clip as VideoClip | ImageClip
                 const x = Math.round((clip.position.x / 100) * timeline.width)
                 const y = Math.round((clip.position.y / 100) * timeline.height)
 
-                const outputName = i === videoClips.length - 1 ? 'outv' : `tmp${i}`
-                filters.push(`[${currentBase}][v${i}]overlay=${x}:${y}[${outputName}]`)
-                currentBase = outputName
-            }
+                const outputName = index === videoClips.length - 1 ? 'outv' : `tmp${index}`
 
-            // If only one video, rename to outv
-            if (videoClips.length === 1) {
-                filters.pop() // Remove the base creation
-                filters.push(
-                    `[v0]scale=${timeline.width}:${timeline.height}:force_original_aspect_ratio=decrease,` +
-                    `pad=${timeline.width}:${timeline.height}:(ow-iw)/2:(oh-ih)/2:white[outv]`
-                )
-            }
+                filters.push(`[${currentBase}][v${index}]overlay=${x}:${y}:eof_action=pass[${outputName}]`)
+                currentBase = outputName
+            })
 
             // Add text overlays
             const textClips = downloadedAssets.filter(a => a.clip.type === 'text')
