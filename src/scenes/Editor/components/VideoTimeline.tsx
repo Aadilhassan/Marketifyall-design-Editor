@@ -419,15 +419,15 @@ const TrackRow = styled('div', ({ $type }: { $type?: string }) => ({
   flexGrow: 0,
 }))
 
-const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $poster }: {
-  $left: number; $width: number; $color: string; $active?: boolean; $selected?: boolean; $poster?: string
+const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $poster, $isDragging }: {
+  $left: number; $width: number; $color: string; $active?: boolean; $selected?: boolean; $poster?: string; $isDragging?: boolean
 }) => ({
   position: 'absolute',
   left: `${$left}px`,
-  top: '6px', // Reduced top margin for better thumbnail visibility
-  bottom: '6px', // Reduced bottom margin for better thumbnail visibility
+  top: '6px',
+  bottom: '6px',
   width: `${$width}px`,
-  minWidth: '30px',
+  minWidth: '40px',
   background: $poster 
     ? `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${$poster})` 
     : $color,
@@ -435,24 +435,29 @@ const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $p
   backgroundPosition: $poster ? 'center' : 'auto',
   backgroundRepeat: $poster ? 'no-repeat' : 'repeat',
   borderRadius: '6px',
-  padding: $poster ? '0' : '0 8px', // No padding when showing thumbnail
+  padding: $poster ? '0' : '0 16px', // More padding for text clips to not overlap handles
   color: '#ffffff',
   fontSize: '11px',
   fontWeight: 500,
-  cursor: 'grab',
+  cursor: $isDragging ? 'grabbing' : 'grab',
   display: 'flex',
-  alignItems: $poster ? 'flex-end' : 'center', // Align text to bottom when showing thumbnail
+  alignItems: $poster ? 'flex-end' : 'center',
   gap: '6px',
-  overflow: 'hidden', // Changed to hidden to clip video thumbnail
-  border: $selected ? '2px solid #ffffff' : ($active ? '2px solid rgba(255,255,255,0.7)' : 'none'),
-  boxShadow: $selected ? '0 0 0 2px rgba(139, 92, 246, 0.3)' : 'none',
-  transition: 'box-shadow 0.15s ease, border 0.1s ease',
+  overflow: 'visible', // Allow resize handles to be visible
+  border: $selected ? '2px solid #ffffff' : ($active ? '2px solid rgba(255,255,255,0.7)' : '1px solid rgba(255,255,255,0.3)'),
+  boxShadow: $isDragging
+    ? '0 0 0 3px rgba(139, 92, 246, 0.6), 0 8px 24px rgba(0,0,0,0.3)'
+    : $selected 
+      ? '0 0 0 2px rgba(139, 92, 246, 0.5), 0 2px 8px rgba(0,0,0,0.2)' 
+      : '0 1px 3px rgba(0,0,0,0.1)',
+  zIndex: $isDragging ? 100 : ($selected ? 10 : 1),
+  transition: $isDragging ? 'none' : 'box-shadow 0.15s ease, border 0.1s ease',
   userSelect: 'none',
   ':hover': {
     filter: 'brightness(1.05)',
-    '.audio-delete-btn': {
-      opacity: '1 !important',
-    },
+    boxShadow: $selected 
+      ? '0 0 0 2px rgba(139, 92, 246, 0.5), 0 4px 12px rgba(0,0,0,0.25)' 
+      : '0 2px 8px rgba(0,0,0,0.2)',
   },
   ':active': {
     cursor: 'grabbing',
@@ -478,24 +483,40 @@ const ClipName = styled('span', {
   flex: 1,
 })
 
-const ClipHandle = styled('div', ({ $position }: { $position: 'left' | 'right' }) => ({
+const ClipHandle = styled('div', ({ $position, $visible }: { $position: 'left' | 'right'; $visible?: boolean }) => ({
   position: 'absolute',
-  top: 0,
-  bottom: 0,
-  width: '8px',
-  background: 'rgba(255,255,255,0.5)',
+  top: '-2px',
+  bottom: '-2px',
+  width: '14px', // Wider for easier grabbing
+  background: $visible ? 'rgba(139, 92, 246, 0.9)' : 'rgba(255,255,255,0.5)',
   cursor: 'ew-resize',
-  opacity: 0,
-  transition: 'opacity 0.15s ease',
-  left: $position === 'left' ? 0 : 'auto',
-  right: $position === 'right' ? 0 : 'auto',
-  borderRadius: $position === 'left' ? '6px 0 0 6px' : '0 6px 6px 0',
+  opacity: $visible ? 1 : 0,
+  transition: 'opacity 0.15s ease, background 0.15s ease, transform 0.1s ease',
+  left: $position === 'left' ? '-2px' : 'auto',
+  right: $position === 'right' ? '-2px' : 'auto',
+  borderRadius: $position === 'left' ? '4px 0 0 4px' : '0 4px 4px 0',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  zIndex: 15,
+  // Visual grip indicator - 3 lines
+  '::before': {
+    content: '""',
+    width: '4px',
+    height: '20px',
+    background: `repeating-linear-gradient(
+      to bottom,
+      rgba(255,255,255,0.9) 0px,
+      rgba(255,255,255,0.9) 2px,
+      transparent 2px,
+      transparent 5px
+    )`,
+    borderRadius: '1px',
+  },
   ':hover': {
     opacity: 1,
-    background: 'rgba(255,255,255,0.8)',
+    background: 'rgba(139, 92, 246, 1)',
+    transform: 'scaleX(1.2)',
   },
 }))
 
@@ -683,7 +704,7 @@ const VideoTimeline: React.FC = () => {
   const trackLabelsScrollRef = useRef<HTMLDivElement>(null)
   const tracksScrollRef = useRef<HTMLDivElement>(null)
   // Local state for drag/resize preview (doesn't affect main tracks calculation)
-  const [dragPreview, setDragPreview] = useState<Record<string, { start?: number; duration?: number }>>({})
+  const [dragPreview, setDragPreview] = useState<Record<string, { start?: number; duration?: number; _targetIndex?: number }>>({})
   // Refs for timeline video elements (mini players in clips)
   const timelineVideoRefs = useRef<Record<string, HTMLVideoElement>>({})
   const [openMenuTrackId, setOpenMenuTrackId] = useState<string | null>(null)
@@ -772,22 +793,7 @@ const VideoTimeline: React.FC = () => {
   const totalDuration = calculateTotalDuration
   const timelineWidth = totalDuration * pixelsPerSecond
 
-  // Helper function to calculate next available start time (end of last video clip)
-  // This ensures videos are placed sequentially without overlapping
-  const getNextVideoStartTime = useCallback(() => {
-    if (clips.length === 0) {
-      return 0 // Start at beginning if no clips exist
-    }
-    
-    // Sort clips by start time to find the last one
-    const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
-    const lastClip = sortedClips[sortedClips.length - 1]
-    
-    // Calculate end time of the last clip
-    const lastClipEnd = (lastClip.start || 0) + (lastClip.duration || 0)
-    
-    return lastClipEnd
-  }, [clips])
+  // Canva-style: Videos are always sequential, no need to calculate start times
 
   // Build tracks from canvas objects - memoized to prevent unnecessary recalculations
   const tracks = useMemo(() => {
@@ -825,8 +831,19 @@ const VideoTimeline: React.FC = () => {
     objects.forEach((obj: any, idx: number) => {
       if (!obj || obj.name === 'clip') return
 
-      const clipId = obj.id || `obj-${idx}`
+      // Assign a stable ID to objects that don't have one (only once)
+      if (!obj.id) {
+        // Use a combination of index and a property that's unique to the object
+        obj.id = `canvas-obj-${obj.type || 'unknown'}-${idx}`
+      }
+      const clipId = obj.id
       const clipName = obj.name || obj.text?.substring(0, 15) || obj.type || 'Element'
+      
+      // Store the canvas array index in metadata for reliable lookup
+      if (!obj.metadata) {
+        obj.metadata = {}
+      }
+      obj.metadata._canvasIndex = idx
 
       if (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
         obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text') {
@@ -860,21 +877,23 @@ const VideoTimeline: React.FC = () => {
       }
     })
 
-    // Text tracks - each text element gets its own track for better visibility (Canva-style)
-    // Different colors for visual distinction
+    // Single Text track with all text clips (Canva-style)
+    // Different colors for visual distinction between clips
     const textColors = ['#10b981', '#059669', '#047857', '#065f46', '#064e3b']
     
-    if (textClips.length > 0) {
-      textClips.forEach((clip, idx) => {
-        const color = textColors[idx % textColors.length]
-        newTracks.push({
-          id: `track-text-${clip.id}`,
-          name: idx === 0 ? 'Text' : `Text ${idx + 1}`,
-          type: 'text',
-          clips: [clip],
-        })
-      })
-    }
+    // Always show text track (even if empty) for consistent layout
+    // Assign different colors to each text clip for visual distinction
+    const coloredTextClips = textClips.map((clip, idx) => ({
+      ...clip,
+      color: textColors[idx % textColors.length],
+    }))
+    
+    newTracks.push({
+      id: 'track-text',
+      name: 'Text',
+      type: 'text',
+      clips: coloredTextClips,
+    })
 
     if (imageClips.length > 0) {
       newTracks.push({
@@ -885,36 +904,26 @@ const VideoTimeline: React.FC = () => {
       })
     }
 
-    // Audio tracks - each audio clip gets its own track for better visibility
-    // Different colors for visual distinction
+    // Single Audio track with all audio clips (Canva-style)
+    // Different colors for visual distinction between clips
     const audioColors = ['#3b82f6', '#06b6d4', '#8b5cf6', '#ec4899', '#14b8a6']
 
-    if (audioClips.length > 0) {
-      audioClips.forEach((clip, idx) => {
-        const color = audioColors[idx % audioColors.length]
-        newTracks.push({
-          id: `track-audio-${clip.id}`,
-          name: idx === 0 ? 'Audio' : `Audio ${idx + 1}`,
-          type: 'audio',
-          clips: [{
-            id: clip.id,
-            name: clip.name,
-            start: clip.start,
-            duration: clip.duration,
-            color: color,
-            type: 'audio' as TrackType,
-          }],
-        })
-      })
-    } else {
-      // Show empty audio track placeholder to maintain consistent layout
-      newTracks.push({
-        id: 'track-audio',
-        name: 'Audio',
-        type: 'audio',
-        clips: [],
-      })
-    }
+    const coloredAudioClips = audioClips.map((clip, idx) => ({
+      id: clip.id,
+      name: clip.name,
+      start: clip.start,
+      duration: clip.duration,
+      color: audioColors[idx % audioColors.length],
+      type: 'audio' as TrackType,
+    }))
+
+    // Always show audio track (even if empty) for consistent layout
+    newTracks.push({
+      id: 'track-audio',
+      name: 'Audio',
+      type: 'audio',
+      clips: coloredAudioClips,
+    })
 
     return newTracks
   }, [canvas, clips, audioClips, totalDuration, canvasObjectVersion])
@@ -1462,6 +1471,58 @@ const VideoTimeline: React.FC = () => {
     seek(Math.max(0, Math.min(time, totalDuration)))
   }, [seek, totalDuration])
 
+  // Update text/image element visibility based on currentTime
+  // Elements are only visible when playhead is within their timeline range
+  // BUT: Keep selected elements visible for editing
+  useEffect(() => {
+    if (!canvas) return
+    
+    // @ts-ignore
+    const objects = canvas.getObjects?.() || []
+    // @ts-ignore
+    const activeObject = canvas.getActiveObject?.()
+    let needsRender = false
+    
+    objects.forEach((obj: any) => {
+      // Skip video objects (handled separately)
+      if (obj.metadata?.isVideo || obj.name === 'clip') return
+      
+      // Check if this is a text object
+      const isText = obj.type === 'StaticText' || obj.type === 'DynamicText' ||
+        obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text'
+      
+      if (isText) {
+        // Check if this object is currently selected - keep visible for editing
+        const isSelected = activeObject === obj || selectedClipIds.includes(obj.id)
+        
+        // Get timeline range - default to always visible (0 to totalDuration) if not set
+        const timelineStart = obj.metadata?.timelineStart ?? 0
+        const timelineDuration = obj.metadata?.timelineDuration ?? totalDuration
+        const timelineEnd = timelineStart + timelineDuration
+        
+        // Check if current time is within this element's timeline range
+        const isInTimeRange = currentTime >= timelineStart && currentTime < timelineEnd
+        
+        // Element is visible if it's selected OR within its time range
+        const shouldBeVisible = isSelected || isInTimeRange
+        const currentOpacity = obj.opacity ?? 1
+        const targetOpacity = shouldBeVisible ? 1 : 0
+        
+        // Only update if different (to avoid unnecessary re-renders)
+        if (Math.abs(currentOpacity - targetOpacity) > 0.01) {
+          obj.set('opacity', targetOpacity)
+          obj.dirty = true
+          needsRender = true
+        }
+      }
+    })
+    
+    if (needsRender) {
+      // @ts-ignore
+      canvas.requestRenderAll?.()
+    }
+  }, [canvas, currentTime, totalDuration, selectedClipIds])
+
   // Handle timeline click for seeking
   const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (dragging || resizing) return
@@ -1492,6 +1553,24 @@ const VideoTimeline: React.FC = () => {
       const objects = canvas.getObjects?.() || []
       const obj = objects.find((o: any) => o.id === clip.canvasObjectId)
       if (obj) {
+        // Make sure the object is visible AND interactive (draggable)
+        obj.set({
+          opacity: 1,
+          visible: true,
+          selectable: true,
+          evented: true,
+          lockMovementX: false,
+          lockMovementY: false,
+        })
+        obj.dirty = true
+        obj.setCoords?.() // Update bounding box for proper drag detection
+        
+        // IMPORTANT: Bring text/image to front so it's above video
+        // This ensures you can drag the text without moving the video underneath
+        // @ts-ignore
+        canvas.bringToFront?.(obj)
+        
+        // Select the object on canvas for editing
         // @ts-ignore
         canvas.setActiveObject?.(obj)
         // @ts-ignore
@@ -1603,7 +1682,7 @@ const VideoTimeline: React.FC = () => {
   const dragStartPositionRef = useRef<{ x: number; y: number } | null>(null)
   const hasDraggedRef = useRef(false)
 
-  // Drag handlers
+  // Drag handlers - Canva-style: dragging videos = reordering
   const handleDragStart = (clipId: string, trackId: string, e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -1616,67 +1695,145 @@ const VideoTimeline: React.FC = () => {
     dragStartPositionRef.current = { x: e.clientX, y: e.clientY }
     hasDraggedRef.current = false
 
+    // For video clips: store original index for reordering
+    // For other clips: store original start for time-based dragging
+    const videoTrack = tracks.find(t => t.id === 'track-video')
+    const videoClips = videoTrack?.clips || []
+    const originalIndex = videoClips.findIndex(c => c.id === clipId)
+
     setDragging({
       clipId,
       trackId,
       startX: e.clientX,
-      originalStart: clip.start,
+      originalStart: track?.type === 'video' ? originalIndex : clip.start,
     })
   }
 
   const handleDragMove = useCallback((e: MouseEvent) => {
     if (!dragging) return
 
-    const deltaX = e.clientX - dragging.startX
-    const deltaTime = deltaX / pixelsPerSecond
-    const newStart = Math.max(0, dragging.originalStart + deltaTime)
+    const track = tracks.find(t => t.id === dragging.trackId)
+    const isVideoTrack = track?.type === 'video'
 
-    // Store drag preview for visual feedback
-    setDragPreview({ [dragging.clipId]: { start: newStart } })
-  }, [dragging, pixelsPerSecond])
+    if (isVideoTrack) {
+      // Canva-style: Calculate target index based on mouse X position
+      const videoTrack = tracks.find(t => t.id === 'track-video')
+      const videoClips = videoTrack?.clips || []
+      const currentIndex = videoClips.findIndex(c => c.id === dragging.clipId)
+      
+      if (currentIndex === -1) return
+      
+      // Get mouse X position relative to timeline
+      const timelineRect = timelineRef.current?.getBoundingClientRect()
+      if (!timelineRect) return
+      
+      const mouseX = e.clientX - timelineRect.left
+      const targetTime = mouseX / pixelsPerSecond
+      
+      // Find target index: which position should this clip be at?
+      let targetIndex = currentIndex
+      for (let i = 0; i < videoClips.length; i++) {
+        if (i === currentIndex) continue
+        const clip = videoClips[i]
+        const clipCenter = clip.start + clip.duration / 2
+        if (targetTime < clipCenter && i < currentIndex) {
+          targetIndex = i
+          break
+        } else if (targetTime >= clipCenter && i > currentIndex) {
+          targetIndex = i + 1
+        }
+      }
+      targetIndex = Math.max(0, Math.min(targetIndex, videoClips.length - 1))
+      
+      // Preview: calculate what start time would be at target index
+      // Remove current clip from calculation, then insert at target
+      let previewStart = 0
+      for (let i = 0; i < targetIndex; i++) {
+        if (i === currentIndex) continue
+        previewStart += videoClips[i].duration
+      }
+      
+      setDragPreview({ [dragging.clipId]: { start: previewStart, _targetIndex: targetIndex } })
+    } else {
+      // Non-video tracks: allow freeform time-based dragging
+      const deltaX = e.clientX - dragging.startX
+      const deltaTime = deltaX / pixelsPerSecond
+      const newStart = Math.max(0, dragging.originalStart + deltaTime)
+      setDragPreview({ [dragging.clipId]: { start: newStart } })
+    }
+  }, [dragging, tracks, pixelsPerSecond])
 
   const handleDragEnd = useCallback(() => {
     if (dragging) {
-      // Get the preview position
-      const preview = dragPreview[dragging.clipId]
-      const newStart = preview?.start ?? dragging.originalStart
-
-      // Sync clip position change back to context
       const track = tracks.find(t => t.id === dragging.trackId)
-      const clip = track?.clips.find(c => c.id === dragging.clipId)
+      const isVideoTrack = track?.type === 'video'
 
-      if (clip) {
-        if (track?.type === 'audio') {
-          updateAudioClip(clip.id, { start: newStart })
-        } else if (track?.type === 'video') {
-          // Update video clip position in context
-          updateClip(clip.id, { start: newStart, end: newStart + clip.duration })
-        } else if (track?.type === 'text' && clip.canvasObjectId && canvas) {
-          // Update text track position in canvas metadata
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
-          const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
-          if (obj && obj.metadata) {
-            obj.metadata.timelineStart = newStart
-            obj.dirty = true
-            // @ts-ignore
-            canvas.requestRenderAll?.()
-            // Trigger object:modified event to force tracks recalculation
-            // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+      if (isVideoTrack) {
+        // Canva-style: Reorder video clips
+        const preview = dragPreview[dragging.clipId]
+        const targetIndex = preview?._targetIndex
+        
+        if (targetIndex !== undefined) {
+          const videoTrack = tracks.find(t => t.id === 'track-video')
+          const videoClips = videoTrack?.clips || []
+          const sourceIndex = videoClips.findIndex(c => c.id === dragging.clipId)
+          
+          if (sourceIndex !== -1 && targetIndex !== sourceIndex) {
+            // Reorder clips (start times will be recomputed automatically)
+            reorderClips(sourceIndex, targetIndex)
           }
-        } else if (track?.type === 'image' && clip.canvasObjectId && canvas) {
-          // Update image track position in canvas metadata (if it has timeline metadata)
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
-          const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
-          if (obj && obj.metadata && obj.metadata.timelineStart !== undefined) {
-            obj.metadata.timelineStart = newStart
-            obj.dirty = true
+        }
+      } else {
+        // Non-video tracks: update start time
+        const preview = dragPreview[dragging.clipId]
+        const newStart = preview?.start ?? dragging.originalStart
+
+        const clip = track?.clips.find(c => c.id === dragging.clipId)
+        if (clip) {
+          if (track?.type === 'audio') {
+            updateAudioClip(clip.id, { start: newStart })
+          } else if (track?.type === 'text' && clip.canvasObjectId && canvas) {
+            // Update text track position in canvas metadata
             // @ts-ignore
-            canvas.requestRenderAll?.()
+            const objects = canvas.getObjects?.() || []
+            const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
+            
+            if (obj) {
+              // Initialize metadata if it doesn't exist
+              if (!obj.metadata) {
+                obj.metadata = {}
+              }
+              obj.metadata.timelineStart = newStart
+              // Preserve duration if it exists
+              if (obj.metadata.timelineDuration === undefined) {
+                obj.metadata.timelineDuration = clip.duration
+              }
+              obj.dirty = true
+              obj.setCoords?.()
+              // @ts-ignore
+              canvas.requestRenderAll?.()
+              // Force timeline to update by incrementing canvas object version
+              setCanvasObjectVersion(prev => prev + 1)
+            }
+          } else if (track?.type === 'image' && clip.canvasObjectId && canvas) {
+            // Update image track position in canvas metadata
             // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+            const objects = canvas.getObjects?.() || []
+            const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
+            
+            if (obj) {
+              // Initialize metadata if it doesn't exist
+              if (!obj.metadata) {
+                obj.metadata = {}
+              }
+              obj.metadata.timelineStart = newStart
+              obj.dirty = true
+              obj.setCoords?.()
+              // @ts-ignore
+              canvas.requestRenderAll?.()
+              // Force timeline to update
+              setCanvasObjectVersion(prev => prev + 1)
+            }
           }
         }
       }
@@ -1687,9 +1844,9 @@ const VideoTimeline: React.FC = () => {
       dragStartPositionRef.current = null
     }
     hasDraggedRef.current = false
-  }, [dragging, tracks, dragPreview, updateAudioClip, updateClip, canvas])
+  }, [dragging, tracks, dragPreview, updateAudioClip, reorderClips, canvas, setCanvasObjectVersion])
 
-  // Resize handlers
+  // Resize handlers - Canva-style: resize = ripple edit (only right handle for videos)
   const handleResizeStart = (clipId: string, trackId: string, handle: 'left' | 'right', e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
@@ -1697,6 +1854,12 @@ const VideoTimeline: React.FC = () => {
     const track = tracks.find(t => t.id === trackId)
     const clip = track?.clips.find(c => c.id === clipId)
     if (!clip) return
+
+    // For video tracks: only allow right handle (Canva-style)
+    // Left handle would change start time, which is computed from order
+    if (track?.type === 'video' && handle === 'left') {
+      return // Disable left resize for videos
+    }
 
     setResizing({
       clipId,
@@ -1711,74 +1874,93 @@ const VideoTimeline: React.FC = () => {
   const handleResizeMove = useCallback((e: MouseEvent) => {
     if (!resizing) return
 
+    const track = tracks.find(t => t.id === resizing.trackId)
+    const isVideoTrack = track?.type === 'video'
+
     const deltaX = e.clientX - resizing.startX
     const deltaTime = deltaX / pixelsPerSecond
 
-    // Store resize preview for visual feedback
-    if (resizing.handle === 'left') {
-      const newStart = Math.max(0, resizing.originalStart + deltaTime)
-      const newDuration = Math.max(1, resizing.originalDuration - deltaTime)
-      setDragPreview({ [resizing.clipId]: { start: newStart, duration: newDuration } })
-    } else {
-      const newDuration = Math.max(1, resizing.originalDuration + deltaTime)
+    if (isVideoTrack) {
+      // Canva-style: Only right handle, only change duration (ripple edit happens automatically)
+      const newDuration = Math.max(0.1, resizing.originalDuration + deltaTime)
       setDragPreview({ [resizing.clipId]: { duration: newDuration } })
+    } else {
+      // Non-video tracks: allow both handles
+      if (resizing.handle === 'left') {
+        const newStart = Math.max(0, resizing.originalStart + deltaTime)
+        const newDuration = Math.max(1, resizing.originalDuration - deltaTime)
+        setDragPreview({ [resizing.clipId]: { start: newStart, duration: newDuration } })
+      } else {
+        const newDuration = Math.max(1, resizing.originalDuration + deltaTime)
+        setDragPreview({ [resizing.clipId]: { duration: newDuration } })
+      }
     }
-  }, [resizing, pixelsPerSecond])
+  }, [resizing, pixelsPerSecond, tracks])
 
   const handleResizeEnd = useCallback(() => {
     if (resizing) {
-      // Get the preview values
+      const track = tracks.find(t => t.id === resizing.trackId)
+      const isVideoTrack = track?.type === 'video'
       const preview = dragPreview[resizing.clipId]
-      const newStart = preview?.start ?? resizing.originalStart
       const newDuration = preview?.duration ?? resizing.originalDuration
 
-      // Sync clip changes back to context
-      const track = tracks.find(t => t.id === resizing.trackId)
       const clip = track?.clips.find(c => c.id === resizing.clipId)
 
       if (clip) {
         if (track?.type === 'audio') {
+          const newStart = preview?.start ?? resizing.originalStart
           updateAudioClip(clip.id, { start: newStart, duration: newDuration })
-        } else if (track?.type === 'video') {
-          // Update video clip duration in context
-          updateClip(clip.id, { start: newStart, duration: newDuration, end: newStart + newDuration })
+        } else if (isVideoTrack) {
+          // Canva-style: Only update duration (start times recomputed automatically = ripple edit)
+          updateClip(clip.id, { duration: newDuration })
         } else if (track?.type === 'text' && clip.canvasObjectId && canvas) {
           // Update text track duration in canvas metadata
+          const newStart = preview?.start ?? resizing.originalStart
           // @ts-ignore
           const objects = canvas.getObjects?.() || []
           const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
-          if (obj && obj.metadata) {
+          
+          if (obj) {
+            // Initialize metadata if it doesn't exist
+            if (!obj.metadata) {
+              obj.metadata = {}
+            }
             obj.metadata.timelineStart = newStart
             obj.metadata.timelineDuration = newDuration
             obj.dirty = true
+            obj.setCoords?.()
             // @ts-ignore
             canvas.requestRenderAll?.()
-            // Trigger object:modified event to force tracks recalculation
-            // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+            // Force timeline to update
+            setCanvasObjectVersion(prev => prev + 1)
           }
         } else if (track?.type === 'image' && clip.canvasObjectId && canvas) {
-          // Update image track duration in canvas metadata (if it has timeline metadata)
+          // Update image track duration in canvas metadata
+          const newStart = preview?.start ?? resizing.originalStart
           // @ts-ignore
           const objects = canvas.getObjects?.() || []
           const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
-          if (obj && obj.metadata && obj.metadata.timelineStart !== undefined) {
-            obj.metadata.timelineStart = newStart
-            if (obj.metadata.timelineDuration !== undefined) {
-              obj.metadata.timelineDuration = newDuration
+          
+          if (obj) {
+            // Initialize metadata if it doesn't exist
+            if (!obj.metadata) {
+              obj.metadata = {}
             }
+            obj.metadata.timelineStart = newStart
+            obj.metadata.timelineDuration = newDuration
             obj.dirty = true
+            obj.setCoords?.()
             // @ts-ignore
             canvas.requestRenderAll?.()
-            // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+            // Force timeline to update
+            setCanvasObjectVersion(prev => prev + 1)
           }
         }
       }
     }
     setResizing(null)
     setDragPreview({}) // Clear preview
-  }, [resizing, tracks, dragPreview, updateAudioClip, updateClip, canvas])
+  }, [resizing, tracks, dragPreview, updateAudioClip, updateClip, canvas, setCanvasObjectVersion])
 
   // Mouse move/up listeners for drag and resize
   useEffect(() => {
@@ -1903,16 +2085,14 @@ const VideoTimeline: React.FC = () => {
             opacity: 1,
           })
 
-          // Calculate start time to place video sequentially after existing videos
-          const startTime = getNextVideoStartTime()
-          
+          // Canva-style: Add video to end (start time computed automatically)
           addClip({
             id: clipId,
             name: file.name,
             src: url,
             duration: clipDuration,
-            start: startTime,
-            end: startTime + clipDuration,
+            start: 0, // Will be computed from order
+            end: clipDuration, // Will be computed
             poster: posterUrl,
           })
 
@@ -2122,16 +2302,14 @@ const VideoTimeline: React.FC = () => {
               opacity: 1,
             })
 
-            // Calculate start time to place video sequentially after existing videos
-            const startTime = getNextVideoStartTime()
-            
+            // Canva-style: Add video to end (start time computed automatically)
             addClip({
               id: clipId,
               name: file.name,
               src: url,
               duration: clipDuration,
-              start: startTime,
-              end: startTime + clipDuration,
+              start: 0, // Will be computed from order
+              end: clipDuration, // Will be computed
               poster: posterUrl,
             })
 
@@ -2441,8 +2619,8 @@ const VideoTimeline: React.FC = () => {
                   borderColor: dragOverTrackId === track.id ? '#3b82f6' : undefined,
                 }}
               >
-                {/* Plus icon button - completely removed from audio tracks */}
-                {track.type !== 'audio' && (
+                {/* Plus icon button - only show on video track (text/audio added from panels) */}
+                {track.type === 'video' && (
                   <AddMediaButton
                     data-plus-button
                     onClick={(e) => handlePlusClick(track.id, e)}
@@ -2499,6 +2677,9 @@ const VideoTimeline: React.FC = () => {
                   // Check if this clip is currently playing
                   const isClipPlaying = isPlaying && clip.id === activeClipId && clip.type === 'video'
                   
+                  // Check if this clip is being dragged or resized
+                  const isBeingDragged = dragging?.clipId === clip.id || resizing?.clipId === clip.id
+                  
                   return (
                     <TrackClip
                       key={clip.id}
@@ -2508,6 +2689,7 @@ const VideoTimeline: React.FC = () => {
                       $active={clip.id === activeClipId}
                       $selected={selectedClipIds.includes(clip.id)}
                       $poster={clip.type === 'video' ? (clip.poster || undefined) : undefined}
+                      $isDragging={isBeingDragged}
                       onClick={(e) => handleClipClick(clip.id, track.id, e)}
                       onContextMenu={(e) => handleClipContextMenu(clip.id, track.id, e)}
                       onMouseDown={(e) => handleDragStart(clip.id, track.id, e)}
@@ -2629,12 +2811,18 @@ const VideoTimeline: React.FC = () => {
                       </>
                     )}
 
-                    <ClipHandle
-                      $position="left"
-                      onMouseDown={(e) => handleResizeStart(clip.id, track.id, 'left', e)}
-                    />
+                    {/* Resize handles - show on hover */}
+                    {/* Canva-style: Only show right resize handle for videos (left would change start, which is computed) */}
+                    {track.type !== 'video' && (
+                      <ClipHandle
+                        $position="left"
+                        $visible={hoveredClipId === clip.id || selectedClipIds.includes(clip.id)}
+                        onMouseDown={(e) => handleResizeStart(clip.id, track.id, 'left', e)}
+                      />
+                    )}
                     <ClipHandle
                       $position="right"
+                      $visible={hoveredClipId === clip.id || selectedClipIds.includes(clip.id)}
                       onMouseDown={(e) => handleResizeStart(clip.id, track.id, 'right', e)}
                     />
                   </TrackClip>

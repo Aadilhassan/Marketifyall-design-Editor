@@ -15,9 +15,11 @@ export type VideoClip = {
   name: string
   src: string
   duration: number
-  start: number
-  end: number
+  start: number // Computed from order - DO NOT set manually for videos
+  end: number // Computed from start + duration
   poster?: string
+  // Internal: order index (for Canva-style segment model)
+  _order?: number
 }
 
 export type AudioClip = {
@@ -41,7 +43,9 @@ type VideoContextValue = {
   removeClip: (id: string) => void
   setActiveClip: (id: string | null) => void
   updateClip: (id: string, patch: Partial<VideoClip>) => void
-  reorderClips: (newOrder: VideoClip[]) => void
+  reorderClips: (sourceIndex: number, targetIndex: number) => void
+  // Computed segments with start times (Canva-style)
+  computedClips: VideoClip[]
   addAudioClip: (clip: AudioClip) => void
   removeAudioClip: (id: string) => void
   updateAudioClip: (id: string, patch: Partial<AudioClip>) => void
@@ -77,6 +81,7 @@ export const VideoContext = createContext<VideoContextValue>({
   setActiveClip: () => { },
   updateClip: () => { },
   reorderClips: () => { },
+  computedClips: [],
   addAudioClip: () => { },
   removeAudioClip: () => { },
   updateAudioClip: () => { },
@@ -98,7 +103,26 @@ export const VideoContext = createContext<VideoContextValue>({
   getVideoRef: () => null,
 })
 
+// ============ CANVA-STYLE SEGMENT COMPUTATION ============
+// Compute start times from ordered segments (Canva model)
+function computeSegments(segments: VideoClip[]): VideoClip[] {
+  let t = 0
+  return segments.map((s, index) => {
+    const start = t
+    const end = t + s.duration
+    t += s.duration
+    return {
+      ...s,
+      start,
+      end,
+      _order: index,
+    }
+  })
+}
+
 export const VideoProvider: React.FC = ({ children }) => {
+  // Store clips as ordered segments (Canva-style)
+  // start/end are computed, not stored
   const [clips, setClips] = useState<VideoClip[]>([])
   const [audioClips, setAudioClips] = useState<AudioClip[]>([])
   const [layers, setLayers] = useState<TimelineLayer[]>([])
@@ -113,8 +137,14 @@ export const VideoProvider: React.FC = ({ children }) => {
   const audioRefsMap = useRef<Record<string, HTMLAudioElement | null>>({})
   const playPromiseRef = useRef<Promise<void> | null>(null)
 
+  // Compute clips with start times (Canva-style: timeline is derived)
+  const computedClips = useMemo(() => computeSegments(clips), [clips])
+
   const addClip = useCallback((clip: VideoClip) => {
-    setClips(prev => [...prev, clip])
+    // Canva-style: Add to end of timeline (start will be computed)
+    // Store clip without start/end - they'll be computed on read
+    const { start, end, ...clipWithoutTime } = clip
+    setClips(prev => [...prev, clipWithoutTime as VideoClip])
     setActiveClipId(clip.id)
     setSelectedClipIds([clip.id])
     // Automatically open timeline when a video clip is added
@@ -128,21 +158,29 @@ export const VideoProvider: React.FC = ({ children }) => {
   }, [])
 
   const updateClip = useCallback((id: string, patch: Partial<VideoClip>) => {
-    setClips(prev => prev.map(c => {
-      if (c.id === id) {
-        const updated = { ...c, ...patch }
-        // Auto-calculate end time if start or duration changed
-        if (patch.start !== undefined || patch.duration !== undefined) {
-          updated.end = updated.start + updated.duration
+    setClips(prev => {
+      // Canva-style: Only allow duration updates for videos (start is computed)
+      // If duration changes, ripple edit happens automatically (start times recomputed)
+      return prev.map(c => {
+        if (c.id === id) {
+          // Remove start/end from patch - they're computed
+          const { start, end, ...cleanPatch } = patch
+          return { ...c, ...cleanPatch }
         }
-        return updated
-      }
-      return c
-    }))
+        return c
+      })
+    })
   }, [])
 
-  const reorderClips = useCallback((newOrder: VideoClip[]) => {
-    setClips(newOrder)
+  // Canva-style: Reorder clips by index (dragging = reordering)
+  const reorderClips = useCallback((sourceIndex: number, targetIndex: number) => {
+    setClips(prev => {
+      const newClips = [...prev]
+      const [removed] = newClips.splice(sourceIndex, 1)
+      newClips.splice(targetIndex, 0, removed)
+      // Start times will be recomputed automatically via computedClips
+      return newClips
+    })
   }, [])
 
   // Audio clip functions
@@ -261,7 +299,7 @@ export const VideoProvider: React.FC = ({ children }) => {
 
   const value = useMemo(
     () => ({
-      clips,
+      clips: computedClips, // Expose computed clips (with start/end)
       audioClips,
       layers,
       activeClipId,
@@ -292,8 +330,10 @@ export const VideoProvider: React.FC = ({ children }) => {
       setIsPlaying,
       registerVideoRef,
       getVideoRef,
+      // Canva-style computed segments
+      computedClips,
     }),
-    [clips, audioClips, layers, activeClipId, selectedClipIds, isTimelineOpen, addClip, removeClip, updateClip, reorderClips, addAudioClip, removeAudioClip, updateAudioClip, addLayer, removeLayer, updateLayer, selectClip, clearSelection, isPlaying, currentTime, play, pause, togglePlayback, seek, setIsPlaying, registerVideoRef, getVideoRef]
+    [computedClips, audioClips, layers, activeClipId, selectedClipIds, isTimelineOpen, addClip, removeClip, updateClip, reorderClips, addAudioClip, removeAudioClip, updateAudioClip, addLayer, removeLayer, updateLayer, selectClip, clearSelection, isPlaying, currentTime, play, pause, togglePlayback, seek, setIsPlaying, registerVideoRef, getVideoRef]
   )
 
   return <VideoContext.Provider value={value}>{children}</VideoContext.Provider>
