@@ -23,6 +23,11 @@ const Modal = styled('div', {
   width: '480px',
   maxWidth: '90vw',
   maxHeight: '90vh',
+<<<<<<< HEAD
+=======
+  display: 'flex',
+  flexDirection: 'column',
+>>>>>>> 283c56e27cb9718083940ce5b2760dee67c0fee4
   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
   overflow: 'hidden',
   display: 'flex',
@@ -64,8 +69,13 @@ const CloseButton = styled('button', {
 
 const ModalBody = styled('div', {
   padding: '24px',
+<<<<<<< HEAD
   overflowY: 'auto',
   flex: 1,
+=======
+  flex: 1,
+  overflowY: 'auto',
+>>>>>>> 283c56e27cb9718083940ce5b2760dee67c0fee4
 })
 
 const SectionTitle = styled('h3', {
@@ -346,6 +356,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
         try {
           setExportProgress(5)
 
+<<<<<<< HEAD
           // Calculate export resolution - use actual canvas frame size for 'custom' or as base
           // Calculate export resolution - use actual canvas frame size for 'custom' or as base
           let canvasFrameWidth = 1920
@@ -377,12 +388,18 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           }
 
           const resolutionPreset = RESOLUTION_PRESETS.find(r => r.id === videoResolution) || RESOLUTION_PRESETS[1]
+=======
+          // Calculate export resolution - ALWAYS use actual canvas frame size for video
+          const canvasFrameWidth = frameSize?.width || 1080
+          const canvasFrameHeight = frameSize?.height || 1920
+>>>>>>> 283c56e27cb9718083940ce5b2760dee67c0fee4
 
-          // For custom resolution, use actual canvas frame size
-          // Otherwise scale based on preset maintaining canvas aspect ratio
-          let exportWidth: number
-          let exportHeight: number
+          // Always use actual canvas dimensions for video (like Canva does)
+          // This ensures the output matches exactly what's on screen
+          const exportWidth = canvasFrameWidth
+          const exportHeight = canvasFrameHeight
 
+<<<<<<< HEAD
           if (videoResolution === 'custom' || resolutionPreset.width === 0) {
             exportWidth = canvasFrameWidth
             exportHeight = canvasFrameHeight
@@ -400,6 +417,10 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
               exportWidth = Math.round(resolutionPreset.width * canvasAspect)
             }
           }
+=======
+          console.log('Canvas frame size:', canvasFrameWidth, 'x', canvasFrameHeight)
+          console.log('Export size:', exportWidth, 'x', exportHeight)
+>>>>>>> 283c56e27cb9718083940ce5b2760dee67c0fee4
 
           // Get canvas frame bounds to calculate relative positions
           const canvasContainer = document.querySelector('.canvas-container')
@@ -407,6 +428,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           const frameWidth = canvasRect?.width || exportWidth
           const frameHeight = canvasRect?.height || exportHeight
 
+<<<<<<< HEAD
           // Get clip object for robust positioning
           // Variables allObjects and clipObj are already declared above
           // Reuse them here if needed, but they are consts so we don't need to re-fetch
@@ -491,8 +513,45 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
                   height: (vidRect.height / designScreenRect.height) * 100,
                 }
                 foundOverlay = true
-              }
+=======
+          // Extract video positions from fabric.js canvas objects (more reliable than DOM)
+          // @ts-ignore - canvas.getObjects is from fabric.js
+          const fabricObjects = canvas?.getObjects?.() || []
+
+          const videoClipsWithPositions = clips.map((clip) => {
+            // Find the canvas object for this video clip by matching ID
+            const canvasObj = fabricObjects.find((obj: any) => {
+              const metadata = obj.metadata || {}
+              return (
+                metadata.isVideo &&
+                (metadata.id === clip.id || obj.id === clip.id)
+              )
             })
+
+            let position = { x: 0, y: 0 }
+            let size = { width: 100, height: 100 }
+
+            if (canvasObj) {
+              const left = canvasObj.left || 0
+              const top = canvasObj.top || 0
+              const width = (canvasObj.width || 100) * (canvasObj.scaleX || 1)
+              const height = (canvasObj.height || 100) * (canvasObj.scaleY || 1)
+
+              // Convert to percentage of frame
+              position = {
+                x: (left / canvasFrameWidth) * 100,
+                y: (top / canvasFrameHeight) * 100,
+>>>>>>> 283c56e27cb9718083940ce5b2760dee67c0fee4
+              }
+              size = {
+                width: (width / canvasFrameWidth) * 100,
+                height: (height / canvasFrameHeight) * 100,
+              }
+
+              console.log(`Video ${clip.id}: pos=(${position.x.toFixed(1)}%, ${position.y.toFixed(1)}%), size=(${size.width.toFixed(1)}%x${size.height.toFixed(1)}%)`)
+            } else {
+              console.warn(`Canvas object not found for video clip: ${clip.id}`)
+            }
 
             return {
               id: clip.id,
@@ -508,9 +567,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           // Also extract fabric.js canvas objects (images, text, shapes)
           const canvasObjects: any[] = []
 
-          // @ts-ignore - canvas.getObjects is from fabric.js
-          const fabricObjects = canvas?.getObjects?.() || []
-
+          // Reuse fabricObjects from above for canvas object extraction
           fabricObjects.forEach((obj: any) => {
             // Skip clip/background objects
             if (obj.name === 'clip' || obj.id === 'clip') return
@@ -575,7 +632,57 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           console.log('Canvas objects found:', canvasObjects.length)
           console.log('Video clips found:', videoClipsWithPositions.length)
 
-          // Build timeline data for backend - combine videos and canvas objects
+          // PHASE 1: Export canvas as background image
+          let backgroundImage: string | undefined
+
+          try {
+            // Get fabric.js canvas and hide video objects temporarily
+            // @ts-ignore - canvas.getObjects is from fabric.js
+            const allObjects = canvas?.getObjects?.() || []
+
+            // Find video objects and store their visibility
+            const videoObjects: any[] = []
+            allObjects.forEach((obj: any) => {
+              const metadata = obj.metadata || {}
+              if (metadata.isVideo || metadata.videoSrc) {
+                videoObjects.push({ obj, visible: obj.visible, opacity: obj.opacity })
+                obj.set('visible', false)
+              }
+            })
+
+            // Re-render canvas without video objects
+            canvas?.renderAll?.()
+
+            // Export canvas as PNG using fabric.js method
+            // @ts-ignore
+            const fabricCanvas = canvas?.lowerCanvasEl || canvas?.getElement?.()
+            if (fabricCanvas && fabricCanvas.toDataURL) {
+              backgroundImage = fabricCanvas.toDataURL('image/png')
+              console.log('Canvas background exported via fabric element, length:', backgroundImage.length)
+            } else {
+              // Fallback: try editor.toPNG
+              // @ts-ignore
+              const pngData = await editor?.toPNG?.({ multiplier: 1 })
+              if (pngData && typeof pngData === 'string') {
+                backgroundImage = pngData
+                console.log('Canvas background exported via editor.toPNG, length:', pngData.length)
+              }
+            }
+
+            // Restore video objects visibility
+            videoObjects.forEach(({ obj, visible, opacity }) => {
+              obj.set('visible', visible !== false)
+              obj.set('opacity', opacity ?? 1)
+            })
+            canvas?.renderAll?.()
+
+          } catch (err) {
+            console.error('Failed to export canvas background:', err)
+          }
+
+          console.log('Background image ready:', !!backgroundImage, 'Export size:', exportWidth, 'x', exportHeight)
+
+          // Build timeline data for backend
           const timelineData = {
             timeline: {
               duration: videoDuration,
@@ -583,6 +690,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
               width: exportWidth,
               height: exportHeight,
               backgroundColor: 'white',
+              backgroundImage, // Include canvas background
             },
             clips: [...videoClipsWithPositions, ...canvasObjects],
           }

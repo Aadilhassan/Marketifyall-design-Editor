@@ -1,6 +1,6 @@
 /**
  * FFmpeg Video Composition Service
- * Builds FFmpeg commands to compose multiple videos with overlays
+ * Builds FFmpeg commands to compose videos with canvas background
  */
 
 import ffmpeg from 'fluent-ffmpeg'
@@ -15,29 +15,24 @@ interface DownloadedAsset {
 }
 
 /**
- * Create a solid color image for background
+ * Save base64 image to file
  */
-async function createBackgroundImage(jobId: string, width: number, height: number, color: string): Promise<string> {
+async function saveBase64Image(base64Data: string, jobId: string, filename: string): Promise<string> {
     const tempDir = path.join(__dirname, '../../temp', jobId)
-    const bgPath = path.join(tempDir, 'background.png')
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true })
+    }
 
-    // Create a simple 1x1 pixel PNG and let FFmpeg scale it
-    // This avoids needing lavfi
-    return new Promise((resolve, reject) => {
-        // Use FFmpeg to create a solid color image
-        ffmpeg()
-            .input(`color=c=${color}:s=${width}x${height}:d=1`)
-            .inputOptions(['-f', 'lavfi'])
-            .outputOptions(['-frames:v', '1', '-y'])
-            .output(bgPath)
-            .on('end', () => resolve(bgPath))
-            .on('error', (err) => {
-                // If lavfi fails, create manually
-                console.log('Creating background without lavfi...')
-                resolve('')
-            })
-            .run()
-    })
+    const filePath = path.join(tempDir, filename)
+
+    // Remove data URL prefix if present
+    const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, '')
+    const buffer = Buffer.from(base64Clean, 'base64')
+
+    fs.writeFileSync(filePath, buffer)
+    console.log(`Saved background image: ${filePath}`)
+
+    return filePath
 }
 
 /**
@@ -53,58 +48,74 @@ export async function renderVideo(
 
     console.log(`Starting render job ${jobId}`)
     console.log(`Output: ${timeline.width}x${timeline.height} @ ${timeline.fps}fps, ${timeline.duration}s`)
-    console.log(`Clips:`, clips.map(c => ({ id: c.id, type: c.type, pos: c.position })))
+    console.log(`Has background image: ${!!timeline.backgroundImage}`)
+    console.log(`Clips:`, clips.filter(c => c.type === 'video').length, 'videos')
 
-    // Phase 1: Download all assets (0-30%)
     onProgress(5)
+
+    // Save background image if provided
+    let backgroundPath: string | null = null
+    if (timeline.backgroundImage) {
+        try {
+            backgroundPath = await saveBase64Image(timeline.backgroundImage, jobId, 'background.png')
+        } catch (err) {
+            console.error('Failed to save background image:', err)
+        }
+    }
+
+    // Download video assets
     const downloadedAssets: DownloadedAsset[] = []
+    const videoClips = clips.filter(c => c.type === 'video')
 
-    for (let i = 0; i < clips.length; i++) {
-        const clip = clips[i]
-
-        if (clip.type === 'video' || clip.type === 'image') {
+    for (let i = 0; i < videoClips.length; i++) {
+        const clip = videoClips[i]
+        if (clip.type === 'video') {
             try {
                 const localPath = await downloadAsset(clip.src, jobId)
                 downloadedAssets.push({ clip, localPath })
-                console.log(`Downloaded asset ${i + 1}/${clips.length}: ${clip.type}`)
+                console.log(`Downloaded video ${i + 1}/${videoClips.length}`)
             } catch (error) {
-                console.error(`Failed to download asset: ${clip.src}`, error)
-                throw new Error(`Failed to download asset: ${clip.src}`)
+                console.error(`Failed to download: ${clip.src}`, error)
+                throw new Error(`Failed to download video`)
             }
-        } else if (clip.type === 'text') {
-            downloadedAssets.push({ clip, localPath: '' })
         }
-
-        const downloadProgress = 5 + ((i + 1) / clips.length) * 25
-        onProgress(downloadProgress)
+        onProgress(5 + ((i + 1) / videoClips.length) * 25)
     }
 
     onProgress(30)
 
-    const videoClips = downloadedAssets.filter(
-        a => a.clip.type === 'video' || a.clip.type === 'image'
-    )
-
-    if (videoClips.length === 0) {
-        throw new Error('No video clips to render')
-    }
-
-    // Phase 2: Build FFmpeg command (30-40%)
+    // Build FFmpeg command
     return new Promise((resolve, reject) => {
         try {
             let command = ffmpeg()
+            let inputCount = 0
 
-            // Add all video inputs
-            videoClips.forEach((asset, index) => {
+            // Input 0: Background image (loop for duration)
+            if (backgroundPath && fs.existsSync(backgroundPath)) {
+                const stats = fs.statSync(backgroundPath)
+                console.log(`Using canvas background as base layer (${stats.size} bytes)`)
+                command = command
+                    .input(backgroundPath)
+                    .inputOptions(['-loop', '1', '-t', String(timeline.duration)])
+                inputCount++
+            } else {
+                console.log('No background image available, using first video as base')
+            }
+
+            // Add video inputs
+            downloadedAssets.forEach((asset) => {
                 command = command.input(asset.localPath)
                 if (asset.clip.type === 'video') {
                     command = command.inputOptions(['-stream_loop', '-1'])
                 }
+                inputCount++
             })
 
-            // Build filter for compositing multiple videos
+            // Build filter graph
             const filters: string[] = []
+            let currentBase = ''
 
+<<<<<<< HEAD
             // 1. Generate background using filter source (avoids -f lavfi input issue)
             filters.push(`color=c=${timeline.backgroundColor || 'white'}:s=${timeline.width}x${timeline.height}[base]`)
 
@@ -158,29 +169,75 @@ export async function renderVideo(
             const finalOutput = textClips.length > 0 ? 'final' : 'outv'
 
             // Apply complex filter
+=======
+            if (backgroundPath && fs.existsSync(backgroundPath)) {
+                // Scale background to output size
+                filters.push(`[0:v]scale=${timeline.width}:${timeline.height}[base]`)
+                currentBase = 'base'
+
+                // Overlay each video at its position
+                downloadedAssets.forEach((asset, index) => {
+                    const clip = asset.clip as VideoClip
+                    const inputIdx = index + 1 // +1 because background is input 0
+
+                    // Calculate pixel positions from percentages
+                    const x = Math.round((clip.position.x / 100) * timeline.width)
+                    const y = Math.round((clip.position.y / 100) * timeline.height)
+                    const w = Math.round((clip.size.width / 100) * timeline.width)
+                    const h = Math.round((clip.size.height / 100) * timeline.height)
+
+                    const scaledName = `scaled${index}`
+                    const outputName = index === downloadedAssets.length - 1 ? 'outv' : `tmp${index}`
+
+                    // Scale video to target size
+                    filters.push(`[${inputIdx}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black@0[${scaledName}]`)
+
+                    // Overlay on base
+                    filters.push(`[${currentBase}][${scaledName}]overlay=${x}:${y}:shortest=1[${outputName}]`)
+                    currentBase = outputName
+                })
+            } else {
+                // No background - use first video as base
+                if (downloadedAssets.length > 0) {
+                    filters.push(
+                        `[0:v]scale=${timeline.width}:${timeline.height}:force_original_aspect_ratio=decrease,` +
+                        `pad=${timeline.width}:${timeline.height}:(ow-iw)/2:(oh-ih)/2:white[outv]`
+                    )
+                }
+                currentBase = 'outv'
+            }
+
+            // Apply filter graph
+            const finalOutput = currentBase || 'outv'
+>>>>>>> 283c56e27cb9718083940ce5b2760dee67c0fee4
             console.log('Filter graph:', filters.join('; '))
-            command = command.complexFilter(filters, finalOutput)
+
+            if (filters.length > 0) {
+                command = command.complexFilter(filters, finalOutput)
+            }
 
             onProgress(40)
 
-            // Output settings
+            // Output settings - professional quality
+            const outputOptions = [
+                '-c:v', 'libx264',
+                '-preset', 'medium',     // Balance speed/quality
+                '-crf', '20',            // Good quality
+                '-pix_fmt', 'yuv420p',
+                '-movflags', '+faststart',
+                '-r', String(timeline.fps),
+                '-t', String(timeline.duration),
+                '-an',                   // No audio for now (simpler)
+                '-y',
+            ]
+
             command = command
-                .outputOptions([
-                    '-c:v', 'libx264',
-                    '-preset', 'fast',
-                    '-crf', '23',
-                    '-pix_fmt', 'yuv420p',
-                    '-movflags', '+faststart',
-                    '-r', String(timeline.fps),
-                    '-t', String(timeline.duration),
-                    '-y',
-                ])
+                .outputOptions(outputOptions)
                 .output(outputPath)
 
             command.on('progress', (progress) => {
                 const ffmpegProgress = progress.percent || 0
-                const totalProgress = 40 + (ffmpegProgress * 0.55)
-                onProgress(Math.min(totalProgress, 95))
+                onProgress(40 + (ffmpegProgress * 0.55))
             })
 
             command.on('end', () => {
