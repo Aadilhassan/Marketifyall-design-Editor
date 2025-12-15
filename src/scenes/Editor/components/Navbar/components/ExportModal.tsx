@@ -22,8 +22,11 @@ const Modal = styled('div', {
   borderRadius: '16px',
   width: '480px',
   maxWidth: '90vw',
+  maxHeight: '90vh',
   boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
   overflow: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
 })
 
 const ModalHeader = styled('div', {
@@ -61,6 +64,8 @@ const CloseButton = styled('button', {
 
 const ModalBody = styled('div', {
   padding: '24px',
+  overflowY: 'auto',
+  flex: 1,
 })
 
 const SectionTitle = styled('h3', {
