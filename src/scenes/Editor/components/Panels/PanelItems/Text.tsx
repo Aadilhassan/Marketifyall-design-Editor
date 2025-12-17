@@ -1,9 +1,10 @@
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { Input } from 'baseui/input'
 import Icons from '@components/icons'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import useVideoContext from '@/hooks/useVideoContext'
+import { addObjectToCanvas } from '@/utils/editorHelpers'
 
 type TextPresetType = 'StaticText' | 'DynamicText'
 
@@ -227,6 +228,7 @@ function Panel() {
   const [fontLoading, setFontLoading] = useState<Record<string, boolean>>({})
 
   const editor = useEditor()
+  const { canvas } = useEditorContext() as any
   const { currentTime, clips } = useVideoContext()
 
   const defaultStaticPreset = TEXT_PRESETS.find(preset => preset.id === 'static-default')
@@ -287,69 +289,125 @@ function Panel() {
   }, [searchedFonts, ensureFontAvailable])
 
   const handleAddText = (preset: TextPreset) => {
-    if (!editor) return
-
-    // If there's video content, add timeline metadata so text appears in timeline
-    const hasVideoContent = clips.length > 0
-    const timelineStart = hasVideoContent ? currentTime : 0
-    const timelineDuration = hasVideoContent ? 5 : undefined // Default 5 seconds if video exists
-
-    const options = {
-      type: preset.type,
-      width: 320,
-      metadata: {
-        text: preset.preview,
-        fontSize: preset.fontSize,
-        fontWeight: preset.fontWeight,
-        fontFamily: preset.fontFamily,
-        textAlign: 'center',
-        ...(preset.fontURL ? { fontURL: preset.fontURL } : {}),
-        // Add timeline metadata if video content exists
-        ...(hasVideoContent ? {
-          timelineStart,
-          timelineDuration,
-        } : {}),
-      },
+    if (!editor) {
+      console.error('Editor not available')
+      return
     }
 
-    editor.add(options)
+    if (!canvas) {
+      console.error('Canvas not available')
+      return
+    }
+
+    // @ts-ignore
+    const fabric = window.fabric
+
+    if (!fabric || !fabric.Textbox) {
+      console.error('FabricJS not available')
+      // Fallback
+      addObjectToCanvas(editor, {
+        type: preset.type,
+        width: 320,
+        metadata: {
+          text: preset.preview || 'Sample Text',
+          fontSize: preset.fontSize,
+          fontWeight: preset.fontWeight,
+          fontFamily: preset.fontFamily,
+          textAlign: 'center',
+          fill: '#000000',
+        },
+      }, 320, canvas)
+      return
+    }
+
+    try {
+      // Get frame dimensions for positioning
+      const clipPath = canvas.clipPath
+      const frameWidth = clipPath?.width || 900
+      const frameHeight = clipPath?.height || 1200
+      const frameLeft = clipPath?.left || 175.5
+      const frameTop = clipPath?.top || -286.5
+
+      const textWidth = 320
+      const left = frameLeft + (frameWidth - textWidth) / 2
+      const top = frameTop + frameHeight / 2 - 50
+
+      // Create fabric.Textbox directly
+      const textbox = new fabric.Textbox(preset.preview || 'Sample Text', {
+        left,
+        top,
+        width: textWidth,
+        fontSize: preset.fontSize || 32,
+        fontFamily: preset.fontFamily || 'Arial',
+        fontWeight: preset.fontWeight || 400,
+        fill: '#000000',
+        textAlign: 'center',
+        selectable: true,
+        hasControls: true,
+        editable: true,
+      })
+
+      canvas.add(textbox)
+      canvas.setActiveObject(textbox)
+      canvas.requestRenderAll()
+
+      console.log('✅ Text added successfully via FabricJS!')
+    } catch (error) {
+      console.error('Error adding text:', error)
+    }
   }
 
   const handleAddGoogleFont = useCallback(
     async (font: GoogleFontOption) => {
-      if (!editor) return
+      if (!editor || !canvas) return
 
       const fontUrl = await ensureFontAvailable(font)
 
-      // If there's video content, add timeline metadata so text appears in timeline
-      const hasVideoContent = clips.length > 0
-      const timelineStart = hasVideoContent ? currentTime : 0
-      const timelineDuration = hasVideoContent ? 5 : undefined // Default 5 seconds if video exists
+      // @ts-ignore
+      const fabric = window.fabric
 
-      const metadata: Record<string, any> = {
-        text: font.preview,
-        fontSize: font.fontSize,
-        fontWeight: font.fontWeight,
-        fontFamily: font.fontFamily,
-        textAlign: 'center',
-        // Add timeline metadata if video content exists
-        ...(hasVideoContent ? {
-          timelineStart,
-          timelineDuration,
-        } : {}),
+      if (!fabric || !fabric.Textbox) {
+        console.error('FabricJS not available')
+        return
       }
 
-      if (fontUrl) {
-        metadata.fontURL = fontUrl
-      }
+      try {
+        // Get frame dimensions for positioning
+        const clipPath = canvas.clipPath
+        const frameWidth = clipPath?.width || 900
+        const frameHeight = clipPath?.height || 1200
+        const frameLeft = clipPath?.left || 175.5
+        const frameTop = clipPath?.top || -286.5
 
-      editor.add({
-        type: 'StaticText',
-        width: 320,
-        metadata,
-      })
+        const textWidth = 320
+        const left = frameLeft + (frameWidth - textWidth) / 2
+        const top = frameTop + frameHeight / 2 - 50
+
+        // Create fabric.Textbox with Google Font
+        const textbox = new fabric.Textbox(font.preview, {
+          left,
+          top,
+          width: textWidth,
+          fontSize: font.fontSize || 32,
+          fontFamily: font.fontFamily || 'Arial',
+          fontWeight: font.fontWeight || 400,
+          fill: '#000000',
+          textAlign: 'center',
+          selectable: true,
+          hasControls: true,
+          editable: true,
+        })
+
+        canvas.add(textbox)
+        canvas.setActiveObject(textbox)
+        canvas.requestRenderAll()
+
+        console.log('✅ Google Font text added successfully via FabricJS!')
+      } catch (error) {
+        console.error('Error adding Google Font text:', error)
+      }
     },
-    [editor, ensureFontAvailable, clips, currentTime],
+    [editor, canvas, ensureFontAvailable],
   )
 
   return (
@@ -502,8 +560,8 @@ function Panel() {
                           {preset.category === 'body'
                             ? 'Add a little bit of body text'
                             : preset.id === 'subheading-roboto'
-                            ? 'Add a subheading'
-                            : 'Add a heading'}
+                              ? 'Add a subheading'
+                              : 'Add a heading'}
                         </div>
                         <div
                           style={{

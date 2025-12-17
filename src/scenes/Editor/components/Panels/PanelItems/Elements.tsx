@@ -2,7 +2,7 @@ import { Input } from 'baseui/input'
 import Icons from '@components/icons'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { useSelector } from 'react-redux'
 import { selectElements } from '@/store/slices/elements/selectors'
 import { styled } from 'baseui'
@@ -14,6 +14,7 @@ import {
 } from '@/utils/lucideIconsManager'
 import type { LucideIcon } from '@/utils/lucideIconsManager'
 import { useDebounce } from 'use-debounce'
+import { addObjectToCanvas } from '@/utils/editorHelpers'
 
 type TabType = 'icons' | 'shapes' | 'lines' | 'frames' | 'decor'
 
@@ -113,22 +114,23 @@ const IconItem = styled('div', ({ $loading }: { $loading?: boolean }) => ({
   },
 }))
 
-const ShapeItem = styled('div', {
+const ShapeItem = styled('div', ({ $loading }: { $loading?: boolean }) => ({
   aspectRatio: '1',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   borderRadius: '8px',
   border: '1px solid #e8e8e8',
-  cursor: 'pointer',
+  cursor: $loading ? 'wait' : 'pointer',
   transition: 'all 0.15s ease',
   backgroundColor: '#fff',
+  opacity: $loading ? 0.6 : 1,
   ':hover': {
     borderColor: '#5A3FFF',
     backgroundColor: '#f8f7ff',
     transform: 'scale(1.05)',
   },
-})
+}))
 
 const LoadingSpinner = styled('div', {
   display: 'flex',
@@ -249,9 +251,11 @@ function Panel() {
   const [categories, setCategories] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [addingIcon, setAddingIcon] = useState<string | null>(null)
+  const [addingShape, setAddingShape] = useState<string | null>(null)
 
   const elements = useSelector(selectElements)
   const editor = useEditor()
+  const { canvas } = useEditorContext() as any
   const scrollRef = useRef<Scrollbars>(null)
 
   // Load categories on mount
@@ -323,43 +327,286 @@ function Panel() {
   // Handle adding icon to canvas
   const handleAddIcon = useCallback(async (icon: LucideIcon) => {
     if (addingIcon) return
+    if (!canvas) {
+      console.error('Canvas not available')
+      return
+    }
     setAddingIcon(icon.id)
 
     try {
-      const imageUrl = svgToBase64(icon.svg)
-      editor.add({
-        type: 'StaticVector',
-        width: 100,
-        metadata: {
-          src: imageUrl,
-          name: icon.name,
-        },
-      })
+      // Ensure SVG has xmlns for proper parsing
+      let svgContent = icon.svg
+      if (!svgContent.includes('xmlns="http://www.w3.org/2000/svg"')) {
+        svgContent = svgContent.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')
+      }
+
+      // @ts-ignore
+      const fabric = window.fabric
+
+      if (fabric && fabric.loadSVGFromString) {
+        // Get frame dimensions for positioning
+        const clipPath = canvas.clipPath
+        const frameWidth = clipPath?.width || 900
+        const frameHeight = clipPath?.height || 1200
+        const frameLeft = clipPath?.left || 175.5
+        const frameTop = clipPath?.top || -286.5
+
+        // Icons should be displayed at 100x100
+        const iconSize = 100
+        const left = frameLeft + (frameWidth - iconSize) / 2
+        const top = frameTop + (frameHeight - iconSize) / 2
+
+        // Use loadSVGFromString for proper SVG rendering
+        fabric.loadSVGFromString(svgContent, (objects: any[], options: any) => {
+          if (objects && objects.length > 0) {
+            const svgGroup = fabric.util.groupSVGElements(objects, options)
+
+            // Calculate scale to fit 100x100
+            const svgWidth = svgGroup.width || 24
+            const svgHeight = svgGroup.height || 24
+            const scaleX = iconSize / svgWidth
+            const scaleY = iconSize / svgHeight
+
+            svgGroup.set({
+              left,
+              top,
+              scaleX,
+              scaleY,
+              selectable: true,
+              hasControls: true,
+              hasBorders: true,
+            })
+
+            canvas.add(svgGroup)
+            canvas.setActiveObject(svgGroup)
+            canvas.requestRenderAll()
+
+            console.log('✅ Icon added successfully via loadSVGFromString!')
+          }
+          setAddingIcon(null)
+        })
+      } else {
+        console.error('FabricJS loadSVGFromString not available')
+        setAddingIcon(null)
+      }
     } catch (error) {
       console.error('Error adding icon:', error)
-    } finally {
       setAddingIcon(null)
     }
-  }, [editor, addingIcon])
+  }, [canvas, addingIcon])
 
   // Handle adding shape to canvas
   const handleAddShape = useCallback((shape: { id: string; name: string; svg: string }) => {
-    // Ensure SVG has proper namespace for data URI
+    if (addingShape) return
+    if (!editor) {
+      console.error('Editor is not available')
+      return
+    }
+
+    setAddingShape(shape.id)
+
+    // Ensure SVG has proper namespace and dimensions for data URI
     let svgContent = shape.svg
     if (!svgContent.includes('xmlns="http://www.w3.org/2000/svg"')) {
       svgContent = svgContent.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')
     }
 
+    // Extract viewBox to determine appropriate canvas dimensions
+    const viewBoxMatch = svgContent.match(/viewBox="([^"]+)"/)
+    let defaultWidth = 200
+    let defaultHeight = 200
+    let aspectRatio = 1
+
+    if (viewBoxMatch) {
+      const [, viewBox] = viewBoxMatch
+      const [, , viewBoxWidth, viewBoxHeight] = viewBox.split(/\s+/).map(Number)
+      aspectRatio = viewBoxWidth / viewBoxHeight
+
+      // Determine appropriate canvas dimensions based on element type and aspect ratio
+      if (shape.id.startsWith('divider')) {
+        // Dividers: wide horizontal elements (aspect ratio ~4:1, viewBox typically 48x12)
+        defaultWidth = 400
+        defaultHeight = Math.round(400 / aspectRatio) || 100
+      } else if (shape.id.startsWith('line') || shape.id.startsWith('arrow') || shape.id === 'dashed-line' || shape.id === 'dotted-line' || shape.id === 'curved-line' || shape.id === 'zigzag' || shape.id === 'wave') {
+        // Lines and Arrows: should be wider than tall (viewBox typically 24x24 but rendered wider)
+        defaultWidth = 300
+        defaultHeight = Math.round(300 / aspectRatio) || 50
+      } else if (shape.id.startsWith('frame')) {
+        // Frames: typically square but can be rectangular
+        defaultWidth = 250
+        defaultHeight = aspectRatio > 1.2 ? Math.round(250 / aspectRatio) : (aspectRatio < 0.8 ? Math.round(250 * aspectRatio) : 250)
+      } else if (shape.id.startsWith('badge') || shape.id === 'sparkle' || shape.id === 'burst' || shape.id === 'blob-1' || shape.id === 'scribble' || shape.id === 'confetti' || shape.id === 'dots-pattern') {
+        // Badges and Decorations: typically square-ish
+        defaultWidth = 200
+        defaultHeight = aspectRatio > 1.5 ? Math.round(200 / aspectRatio) : (aspectRatio < 0.67 ? Math.round(200 * aspectRatio) : 200)
+      } else {
+        // Default: maintain aspect ratio but reasonable size
+        if (aspectRatio > 1.5) {
+          // Wide elements
+          defaultWidth = 300
+          defaultHeight = Math.round(300 / aspectRatio) || 200
+        } else if (aspectRatio < 0.67) {
+          // Tall elements
+          defaultHeight = 300
+          defaultWidth = Math.round(300 * aspectRatio) || 200
+        } else {
+          // Square-ish elements
+          defaultWidth = 200
+          defaultHeight = 200
+        }
+      }
+
+      // Ensure SVG has width and height attributes for proper rendering
+      if (!svgContent.includes('width=') && !svgContent.includes('height=')) {
+        svgContent = svgContent.replace(
+          '<svg',
+          `<svg width="${viewBoxWidth}" height="${viewBoxHeight}"`
+        )
+      }
+    } else {
+      // Default to 24x24 if no viewBox
+      if (!svgContent.includes('width=') && !svgContent.includes('height=')) {
+        svgContent = svgContent.replace('<svg', '<svg width="24" height="24"')
+      }
+    }
+
     const imageUrl = svgToBase64(svgContent)
-    editor.add({
-      type: 'StaticVector',
-      width: 200,
-      metadata: {
-        src: imageUrl,
-        name: shape.name,
-      },
-    })
-  }, [editor])
+    console.log('🔵 [DEBUG] Adding shape to canvas:', shape.name, 'Default dimensions:', defaultWidth, 'x', defaultHeight)
+
+    // Preload the image to ensure it's valid before adding to canvas
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+
+    img.onload = () => {
+      try {
+        // Use natural dimensions if available, otherwise use calculated defaults
+        let canvasWidth = img.naturalWidth || defaultWidth
+        let canvasHeight = img.naturalHeight || defaultHeight
+
+        // If natural dimensions are very small (like 24x24 for viewBox), use our calculated defaults
+        if (canvasWidth < 50 || canvasHeight < 50) {
+          canvasWidth = defaultWidth
+          canvasHeight = defaultHeight
+        } else {
+          // Scale up small natural dimensions proportionally
+          const scale = Math.max(defaultWidth / canvasWidth, defaultHeight / canvasHeight)
+          if (scale > 1.5) {
+            canvasWidth = Math.round(canvasWidth * scale)
+            canvasHeight = Math.round(canvasHeight * scale)
+          }
+        }
+
+        console.log('🔵 [DEBUG] Adding shape with dimensions:', canvasWidth, 'x', canvasHeight)
+
+        // Use FabricJS directly
+        // @ts-ignore
+        const fabric = window.fabric
+
+        if (fabric && canvas) {
+          // Get frame dimensions for positioning
+          const clipPath = canvas.clipPath
+          const frameWidth = clipPath?.width || 900
+          const frameHeight = clipPath?.height || 1200
+          const frameLeft = clipPath?.left || 175.5
+          const frameTop = clipPath?.top || -286.5
+
+          const left = frameLeft + (frameWidth - canvasWidth) / 2
+          const top = frameTop + (frameHeight - canvasHeight) / 2
+
+          // Use loadSVGFromString for proper SVG rendering (handles strokes, paths, etc.)
+          fabric.loadSVGFromString(svgContent, (objects: any[], options: any) => {
+            if (objects && objects.length > 0) {
+              // Group SVG elements together
+              const svgGroup = fabric.util.groupSVGElements(objects, options)
+
+              // Calculate scale to fit desired size
+              const svgWidth = svgGroup.width || 24
+              const svgHeight = svgGroup.height || 24
+              const scaleX = canvasWidth / svgWidth
+              const scaleY = canvasHeight / svgHeight
+
+              svgGroup.set({
+                left,
+                top,
+                scaleX,
+                scaleY,
+                selectable: true,
+                hasControls: true,
+                hasBorders: true,
+              })
+
+              canvas.add(svgGroup)
+              canvas.setActiveObject(svgGroup)
+              canvas.requestRenderAll()
+
+              console.log('✅ Shape added successfully via loadSVGFromString!')
+            } else {
+              // Fallback to Image if SVG parsing fails
+              console.log('SVG parsing returned no objects, trying Image fallback...')
+              const fabricImage = new fabric.Image(img, {
+                left,
+                top,
+                scaleX: canvasWidth / (img.naturalWidth || 24),
+                scaleY: canvasHeight / (img.naturalHeight || 24),
+                opacity: 1,
+                selectable: true,
+                hasControls: true,
+                hasBorders: true,
+              })
+              canvas.add(fabricImage)
+              canvas.setActiveObject(fabricImage)
+              canvas.requestRenderAll()
+            }
+            setAddingShape(null)
+          })
+          return // Exit early since loadSVGFromString is async
+        } else {
+          // Fallback to addObjectToCanvas
+          console.log('FabricJS not available, using fallback...')
+          addObjectToCanvas(editor, {
+            type: 'StaticImage',
+            width: canvasWidth,
+            height: canvasHeight,
+            metadata: {
+              src: imageUrl,
+              name: shape.name,
+            },
+          }, canvasWidth, canvas)
+        }
+      } catch (error) {
+        console.error('🔴 Error adding shape to canvas:', error)
+      } finally {
+        setAddingShape(null)
+      }
+    }
+
+    img.onerror = (error) => {
+      console.error('🔴 Failed to load shape image:', shape.name, error)
+      // Fallback: try adding directly with calculated default dimensions
+      try {
+        console.log('🔵 [DEBUG] Trying fallback with default dimensions:', defaultWidth, 'x', defaultHeight)
+        const objectType = shape.id.startsWith('line') || shape.id.startsWith('arrow') || shape.id.startsWith('divider')
+          ? 'StaticVector'
+          : 'StaticImage'
+        addObjectToCanvas(editor, {
+          type: objectType,
+          width: defaultWidth,
+          height: defaultHeight,
+          metadata: {
+            src: imageUrl,
+            name: shape.name,
+          },
+        }, defaultWidth, canvas)
+        console.log('✅ Shape added with fallback method', { type: objectType })
+      } catch (err) {
+        console.error('🔴 Error adding shape (fallback):', err)
+      } finally {
+        setAddingShape(null)
+      }
+    }
+
+    img.src = imageUrl
+  }, [editor, canvas, addingShape])
 
   // Handle category change
   const handleCategoryChange = useCallback((category: string) => {
@@ -473,12 +720,17 @@ function Panel() {
                 {BASIC_SHAPES.map(shape => (
                   <ShapeItem
                     key={shape.id}
-                    onClick={() => handleAddShape(shape)}
+                    $loading={addingShape === shape.id}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleAddShape(shape)
+                    }}
                     title={shape.name}
                   >
                     <div
                       dangerouslySetInnerHTML={{ __html: shape.svg }}
-                      style={{ width: '28px', height: '28px' }}
+                      style={{ width: '28px', height: '28px', pointerEvents: 'none' }}
                     />
                   </ShapeItem>
                 ))}
@@ -493,12 +745,17 @@ function Panel() {
                 {BASIC_LINES.map(line => (
                   <ShapeItem
                     key={line.id}
-                    onClick={() => handleAddShape(line)}
+                    $loading={addingShape === line.id}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleAddShape(line)
+                    }}
                     title={line.name}
                   >
                     <div
                       dangerouslySetInnerHTML={{ __html: line.svg }}
-                      style={{ width: '28px', height: '28px' }}
+                      style={{ width: '28px', height: '28px', pointerEvents: 'none' }}
                     />
                   </ShapeItem>
                 ))}
@@ -509,12 +766,17 @@ function Panel() {
                 {ARROWS.map(arrow => (
                   <ShapeItem
                     key={arrow.id}
-                    onClick={() => handleAddShape(arrow)}
+                    $loading={addingShape === arrow.id}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleAddShape(arrow)
+                    }}
                     title={arrow.name}
                   >
                     <div
                       dangerouslySetInnerHTML={{ __html: arrow.svg }}
-                      style={{ width: '28px', height: '28px' }}
+                      style={{ width: '28px', height: '28px', pointerEvents: 'none' }}
                     />
                   </ShapeItem>
                 ))}
@@ -525,12 +787,17 @@ function Panel() {
                 {DIVIDERS.map(divider => (
                   <ShapeItem
                     key={divider.id}
-                    onClick={() => handleAddShape(divider)}
+                    $loading={addingShape === divider.id}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleAddShape(divider)
+                    }}
                     title={divider.name}
                   >
                     <div
                       dangerouslySetInnerHTML={{ __html: divider.svg }}
-                      style={{ width: '40px', height: '20px' }}
+                      style={{ width: '40px', height: '20px', pointerEvents: 'none' }}
                     />
                   </ShapeItem>
                 ))}
@@ -545,12 +812,17 @@ function Panel() {
                 {FRAMES.map(frame => (
                   <ShapeItem
                     key={frame.id}
-                    onClick={() => handleAddShape(frame)}
+                    $loading={addingShape === frame.id}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleAddShape(frame)
+                    }}
                     title={frame.name}
                   >
                     <div
                       dangerouslySetInnerHTML={{ __html: frame.svg }}
-                      style={{ width: '32px', height: '32px' }}
+                      style={{ width: '32px', height: '32px', pointerEvents: 'none' }}
                     />
                   </ShapeItem>
                 ))}
@@ -565,12 +837,17 @@ function Panel() {
                 {BADGES.map(badge => (
                   <ShapeItem
                     key={badge.id}
-                    onClick={() => handleAddShape(badge)}
+                    $loading={addingShape === badge.id}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleAddShape(badge)
+                    }}
                     title={badge.name}
                   >
                     <div
                       dangerouslySetInnerHTML={{ __html: badge.svg }}
-                      style={{ width: '32px', height: '32px' }}
+                      style={{ width: '32px', height: '32px', pointerEvents: 'none' }}
                     />
                   </ShapeItem>
                 ))}
@@ -581,12 +858,17 @@ function Panel() {
                 {DECORATIONS.map(decor => (
                   <ShapeItem
                     key={decor.id}
-                    onClick={() => handleAddShape(decor)}
+                    $loading={addingShape === decor.id}
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      handleAddShape(decor)
+                    }}
                     title={decor.name}
                   >
                     <div
                       dangerouslySetInnerHTML={{ __html: decor.svg }}
-                      style={{ width: '32px', height: '32px' }}
+                      style={{ width: '32px', height: '32px', pointerEvents: 'none' }}
                     />
                   </ShapeItem>
                 ))}

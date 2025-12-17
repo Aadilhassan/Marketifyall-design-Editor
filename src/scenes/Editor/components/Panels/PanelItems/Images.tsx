@@ -4,6 +4,7 @@ import { Input } from 'baseui/input'
 import Icons from '@components/icons'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import api from '@/services/api'
+import { addObjectToCanvas } from '@/utils/editorHelpers'
 
 interface Image {
   id: string
@@ -17,13 +18,30 @@ function Images() {
   const [loading, setLoading] = useState(false)
   const [queryImageUrl, setQueryImageUrl] = useState<string | null>(null)
   const [hasAutoAddedQueryImage, setHasAutoAddedQueryImage] = useState(false)
+  const [displayedImages, setDisplayedImages] = useState<Image[]>([])
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const [addingImageId, setAddingImageId] = useState<string | null>(null)
+  const IMAGES_PER_PAGE = 20 // Limit initial load to prevent resource exhaustion
 
   const editor = useEditor()
-  const { frameSize } = useEditorContext() as any
+  const { frameSize, canvas } = useEditorContext() as any
 
   useEffect(() => {
     loadImages()
   }, [])
+
+  // Paginate images to prevent loading too many at once
+  useEffect(() => {
+    const filtered = images.filter((image: any) =>
+      search ? image.alt?.toLowerCase().includes(search.toLowerCase()) ||
+        image.tags?.toLowerCase().includes(search.toLowerCase()) : true
+    )
+
+    const endIndex = page * IMAGES_PER_PAGE
+    setDisplayedImages(filtered.slice(0, endIndex))
+    setHasMore(endIndex < filtered.length)
+  }, [images, search, page])
 
   useEffect(() => {
     try {
@@ -40,77 +58,130 @@ function Images() {
   }, [])
 
   const addImageToCanvasWithSizing = useCallback((imageUrl: string) => {
-    if (!editor) return
+    if (!editor) {
+      console.error('Editor is not available')
+      alert('Editor is not available. Please wait for the editor to load.')
+      return
+    }
 
-    // Load image to get dimensions first
+    if (!canvas) {
+      console.error('Canvas is not available')
+      alert('Canvas is not available. Please wait for the editor to load.')
+      return
+    }
+
+    if (!imageUrl || imageUrl.trim() === '') {
+      console.error('Invalid image URL:', imageUrl)
+      alert('Invalid image URL')
+      return
+    }
+
+    console.log('=== ADDING IMAGE TO CANVAS ===')
+    console.log('Image URL:', imageUrl)
+    console.log('Canvas available:', !!canvas)
+
+    // Preload the image
     const img = new Image()
     img.crossOrigin = 'anonymous'
+
     img.onload = () => {
-      const naturalWidth = img.naturalWidth
-      const naturalHeight = img.naturalHeight
-      
-      // Get canvas dimensions
-      const frameWidth = frameSize?.width || 900
-      const frameHeight = frameSize?.height || 1200
-      
-      // Use natural dimensions - no zooming, only scale down if absolutely needed to fit canvas
-      let targetWidth = naturalWidth
-      let targetHeight = naturalHeight
-      const aspectRatio = naturalWidth / naturalHeight
-      
-      // Scale down ONLY if image exceeds canvas bounds (with some padding)
-      // This is the ONLY scaling we do - no intermediate constraints
-      const maxWidth = frameWidth * 0.9
-      const maxHeight = frameHeight * 0.9
-      
-      let scaleX = 1
-      let scaleY = 1
-      
-      // Only scale down if image is too large for canvas
-      if (targetWidth > maxWidth || targetHeight > maxHeight) {
-        const widthRatio = maxWidth / targetWidth
-        const heightRatio = maxHeight / targetHeight
-        const scaleRatio = Math.min(widthRatio, heightRatio)
-        
-        scaleX = scaleRatio
-        scaleY = scaleRatio
-        targetWidth = naturalWidth * scaleX
-        targetHeight = naturalHeight * scaleY
+      try {
+        const imgWidth = img.naturalWidth || img.width || 400
+        const imgHeight = img.naturalHeight || img.height || 300
+
+        console.log('Image loaded with dimensions:', imgWidth, 'x', imgHeight)
+
+        // Get canvas frame dimensions from clipPath
+        // @ts-ignore
+        const clipPath = canvas.clipPath
+        const frameWidth = clipPath?.width || 900
+        const frameHeight = clipPath?.height || 1200
+        const frameLeft = clipPath?.left || 175.5
+        const frameTop = clipPath?.top || -286.5
+
+        console.log('Frame dimensions:', { frameWidth, frameHeight, frameLeft, frameTop })
+
+        // Calculate scale to fit within canvas
+        const maxWidth = frameWidth * 0.6
+        const maxHeight = frameHeight * 0.5
+
+        let scaleX = 1
+        let scaleY = 1
+
+        if (imgWidth > maxWidth || imgHeight > maxHeight) {
+          const widthRatio = maxWidth / imgWidth
+          const heightRatio = maxHeight / imgHeight
+          scaleX = scaleY = Math.min(widthRatio, heightRatio)
+        }
+
+        // Calculate centered position within the frame
+        const scaledWidth = imgWidth * scaleX
+        const scaledHeight = imgHeight * scaleY
+        const left = frameLeft + (frameWidth - scaledWidth) / 2
+        const top = frameTop + (frameHeight - scaledHeight) / 2
+
+        console.log('Calculated position:', { left, top, scaleX, scaleY })
+
+        // Try to access fabric directly from window
+        // @ts-ignore
+        const fabric = window.fabric
+
+        if (fabric && fabric.Image) {
+          console.log('Using FabricJS to add image...')
+          // Create fabric.Image directly from the loaded HTMLImageElement
+          const fabricImage = new fabric.Image(img, {
+            left,
+            top,
+            scaleX,
+            scaleY,
+            opacity: 1,
+            selectable: true,
+            hasControls: true,
+            hasBorders: true,
+            crossOrigin: 'anonymous',
+          })
+
+          // Add directly to canvas using canvas.add (the actual FabricJS method)
+          // @ts-ignore
+          canvas.add(fabricImage)
+          // @ts-ignore
+          canvas.setActiveObject(fabricImage)
+          // @ts-ignore
+          canvas.requestRenderAll()
+
+          console.log('✅ Image added successfully via FabricJS!')
+        } else {
+          // Fallback: try Scenify SDK method
+          console.log('FabricJS not available on window, trying Scenify SDK...')
+          editor.add({
+            type: 'StaticImage',
+            metadata: { src: imageUrl },
+            width: imgWidth,
+            height: imgHeight,
+            left: (frameWidth - scaledWidth) / 2,
+            top: (frameHeight - scaledHeight) / 2,
+            scaleX,
+            scaleY,
+          })
+
+          setTimeout(() => {
+            // @ts-ignore
+            canvas.requestRenderAll?.()
+          }, 100)
+        }
+      } catch (error) {
+        console.error('Error adding image:', error)
+        alert('Failed to add image to canvas: ' + (error as Error).message)
       }
-      
-      // Center the image on canvas
-      const left = (frameWidth - targetWidth) / 2
-      const top = (frameHeight - targetHeight) / 2
-      
-      // Add image with natural dimensions and calculated scale
-      // This ensures no zooming - images use their natural size with scale only if needed to fit
-      const options: any = {
-        type: 'StaticImage',
-        metadata: { src: imageUrl },
-        width: naturalWidth,
-        height: naturalHeight,
-        left,
-        top,
-      }
-      
-      // Only add scale if we actually scaled the image
-      if (Math.abs(scaleX - 1) > 0.001 || Math.abs(scaleY - 1) > 0.001) {
-        options.scaleX = scaleX
-        options.scaleY = scaleY
-      }
-      
-      editor.add(options)
     }
-    img.onerror = () => {
-      // Fallback to default behavior if image fails to load
-      const options = {
-        type: 'StaticImage',
-        metadata: { src: imageUrl },
-      }
-      editor.add(options)
+
+    img.onerror = (error) => {
+      console.error('Failed to load image:', error)
+      alert('Failed to load image. Check if the URL is accessible.')
     }
+
     img.src = imageUrl
-  }, [editor, frameSize])
+  }, [editor, canvas])
 
   useEffect(() => {
     if (!editor) return
@@ -124,12 +195,28 @@ function Images() {
   const loadImages = async () => {
     setLoading(true)
     try {
+      console.log('Loading images from API...')
       const data = await api.getImages()
-      setImages(data)
+      console.log('Images loaded:', data?.length || 0, 'images')
+
+      // Limit total images to prevent resource exhaustion
+      const limitedData = (data || []).slice(0, 100) // Max 100 images total
+      setImages(limitedData)
+
+      if (limitedData.length < (data?.length || 0)) {
+        console.warn(`Limited images to ${limitedData.length} to prevent resource exhaustion`)
+      }
     } catch (error) {
       console.error('Failed to load images:', error)
+      setImages([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadMoreImages = () => {
+    if (hasMore && !loading) {
+      setPage(prev => prev + 1)
     }
   }
 
@@ -149,14 +236,38 @@ function Images() {
     }
   }, [editor])
 
-  const addImageToCanvas = (imageUrl: string) => {
-    addImageToCanvasWithSizing(imageUrl)
-  }
+  const addImageToCanvas = useCallback((imageUrl: string, imageId?: string) => {
+    if (!editor) {
+      console.error('Editor is not available')
+      return
+    }
 
-  const filteredImages = images.filter((image: any) =>
-    search ? image.alt?.toLowerCase().includes(search.toLowerCase()) || 
-             image.tags?.toLowerCase().includes(search.toLowerCase()) : true
-  )
+    if (!imageUrl) {
+      console.error('No image URL provided')
+      return
+    }
+
+    if (imageId) {
+      setAddingImageId(imageId)
+    }
+
+    console.log('addImageToCanvas called with URL:', imageUrl)
+
+    // Use the sizing function
+    addImageToCanvasWithSizing(imageUrl)
+
+    // Clear loading state after a delay
+    if (imageId) {
+      setTimeout(() => {
+        setAddingImageId(null)
+      }, 2000)
+    }
+  }, [editor, addImageToCanvasWithSizing])
+
+  // Reset page when search changes
+  useEffect(() => {
+    setPage(1)
+  }, [search])
 
   return (
     <div style={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
@@ -207,37 +318,124 @@ function Images() {
                 Loading images...
               </div>
             )}
-            
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
-              gap: '0.5rem',
-              marginTop: '1rem' 
-            }}>
-              {filteredImages.map((image: any) => (
-                <div
-                  key={image.id}
-                  style={{
-                    cursor: 'pointer',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    border: '1px solid #e1e1e1',
-                  }}
-                  onClick={() => addImageToCanvas(image.url || image.src)}
-                >
-                  <img
-                    src={image.preview || image.url || image.src}
-                    alt={image.alt || 'Image'}
-                    style={{
-                      width: '100%',
-                      height: '120px',
-                      objectFit: 'cover',
-                      display: 'block',
-                    }}
-                  />
+
+            {!loading && displayedImages.length === 0 && (
+              <div style={{ padding: '2rem', textAlign: 'center', color: '#666' }}>
+                No images found. {images.length === 0 ? 'Failed to load images from server.' : 'Try a different search term.'}
+              </div>
+            )}
+
+            {!loading && displayedImages.length > 0 && (
+              <>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                  gap: '0.5rem',
+                  marginTop: '1rem'
+                }}>
+                  {displayedImages.map((image: any) => {
+                    const imageUrl = image.url || image.src
+                    return (
+                      <div
+                        key={image.id}
+                        style={{
+                          cursor: addingImageId === image.id ? 'wait' : 'pointer',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          border: addingImageId === image.id ? '2px solid #5A3FFF' : '1px solid #e1e1e1',
+                          transition: 'all 0.2s ease',
+                          opacity: addingImageId === image.id ? 0.7 : 1,
+                          position: 'relative',
+                        }}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          if (addingImageId === image.id) {
+                            console.log('Image is already being added, skipping...')
+                            return
+                          }
+                          if (imageUrl) {
+                            console.log('Image clicked:', imageUrl)
+                            console.log('Full image object:', image)
+                            addImageToCanvas(imageUrl, image.id)
+                          } else {
+                            console.error('No image URL found for image:', image)
+                            alert('Image URL is missing. Check console for details.')
+                          }
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#5A3FFF'
+                          e.currentTarget.style.transform = 'scale(1.02)'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = '#e1e1e1'
+                          e.currentTarget.style.transform = 'scale(1)'
+                        }}
+                      >
+                        <img
+                          src={image.preview || image.url || image.src}
+                          alt={image.alt || 'Image'}
+                          loading="lazy"
+                          decoding="async"
+                          style={{
+                            width: '100%',
+                            height: '120px',
+                            objectFit: 'cover',
+                            display: 'block',
+                            pointerEvents: 'none',
+                          }}
+                          onError={(e) => {
+                            // Fallback to a placeholder if image fails to load
+                            const target = e.target as HTMLImageElement
+                            target.style.display = 'none'
+                            console.warn('Failed to load image thumbnail:', image.preview || image.url)
+                          }}
+                        />
+                        {addingImageId === image.id && (
+                          <div style={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            background: 'rgba(90, 63, 255, 0.9)',
+                            color: 'white',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            zIndex: 10,
+                          }}>
+                            Adding...
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
-              ))}
-            </div>
+
+                {hasMore && (
+                  <div style={{ padding: '1rem', textAlign: 'center' }}>
+                    <button
+                      onClick={loadMoreImages}
+                      disabled={loading}
+                      style={{
+                        padding: '8px 16px',
+                        borderRadius: '6px',
+                        border: '1px solid #5A3FFF',
+                        background: '#fff',
+                        color: '#5A3FFF',
+                        cursor: loading ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        opacity: loading ? 0.6 : 1,
+                      }}
+                    >
+                      {loading ? 'Loading...' : 'Load More Images'}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </Scrollbars>
       </div>

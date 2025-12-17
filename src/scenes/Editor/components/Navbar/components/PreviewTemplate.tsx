@@ -19,29 +19,41 @@ function PreviewTemplate() {
   useEffect(() => {
     if (isOpen && editor) {
       // Use editor.exportToJSON() instead of canvas.toJSON()
-      const template = editor.exportToJSON();
+      try {
+        const template = editor.exportToJSON();
 
-      // Store a copy of the template state for restoration
-      if (template && template.objects) {
-        try {
-          localStorage.setItem('canva_clone_temp_state', JSON.stringify(template));
-        } catch (err) {
-          console.error('Failed to save template state:', err);
+        // Store a copy of the template state for restoration
+        if (template && template.objects) {
+          // Filter out any null or invalid objects to prevent errors on re-import
+          const validObjects = template.objects.filter((obj: any) =>
+            obj !== null && obj !== undefined && obj.type
+          );
+          template.objects = validObjects;
+
+          try {
+            localStorage.setItem('canva_clone_temp_state', JSON.stringify(template));
+          } catch (err) {
+            console.error('Failed to save template state:', err);
+          }
         }
-      }
 
-      const keys = template.objects.map(object => {
-        return object.metadata && object.metadata.keys ? object.metadata.keys : []
-      })
+        const keys = (template.objects || []).map((object: any) => {
+          return object && object.metadata && object.metadata.keys ? object.metadata.keys : []
+        })
 
-      const params: Record<string, string> = {}
-      const uniqElements = uniq(flatten(keys))
-      uniqElements.forEach(key => {
-        params[key] = ''
-      })
+        const params: Record<string, string> = {}
+        const uniqElements = uniq(flatten(keys))
+        uniqElements.forEach(key => {
+          params[key] = ''
+        })
 
-      setOptions(params)
-      if (uniqElements.length === 0) {
+        setOptions(params)
+        if (uniqElements.length === 0) {
+          handleBuildImage()
+        }
+      } catch (err) {
+        console.error('Error exporting template:', err)
+        // Still try to build the image preview
         handleBuildImage()
       }
     }
@@ -51,23 +63,10 @@ function PreviewTemplate() {
   // Separate useEffect for state restoration to avoid race conditions
   useEffect(() => {
     if (!isOpen && editor) {
-      // Only attempt restoration when closing the modal
-      try {
-        const savedState = localStorage.getItem('canva_clone_temp_state');
-        if (savedState) {
-          const template = JSON.parse(savedState);
-          // Use requestAnimationFrame for better timing
-          requestAnimationFrame(() => {
-            try {
-              editor.importFromJSON(template);
-            } catch (err) {
-              console.error('Error importing template:', err);
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Failed to restore canvas state:', err);
-      }
+      // Skip restoration - the canvas state is already intact
+      // The objects we added directly via FabricJS are already on the canvas
+      // and don't need to be re-imported
+      console.log('Preview closed - canvas state preserved')
     }
   }, [isOpen, editor]);
 
@@ -137,6 +136,14 @@ function PreviewTemplate() {
 
       if (savedState) {
         const template = JSON.parse(savedState);
+
+        // Filter out any null or invalid objects to prevent crashes
+        if (template && template.objects) {
+          template.objects = template.objects.filter((obj: any) =>
+            obj !== null && obj !== undefined && obj.type
+          );
+        }
+
         editor.importFromJSON(template);
         alert('Canvas state has been recovered!');
       } else {
@@ -144,7 +151,7 @@ function PreviewTemplate() {
       }
     } catch (err) {
       console.error('Recovery failed:', err);
-      alert('Failed to recover canvas state.');
+      alert('Failed to recover canvas state. The saved state may be corrupted.');
     } finally {
       setIsProcessing(false);
     }
