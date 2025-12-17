@@ -363,62 +363,146 @@ class ApiService {
     try {
       // Load fonts from a local JSON file
       const response = await fetch('/data/fonts.json')
-      const { data } = await response.json()
+      
+      // Check if response is OK
+      if (!response.ok) {
+        console.warn(`Fonts file not found (${response.status}), using fallback fonts`)
+        return this.getDefaultFonts()
+      }
+      
+      // Check content type to ensure we got JSON
+      const contentType = response.headers.get('content-type')
+      if (!contentType || !contentType.includes('application/json')) {
+        console.warn('Fonts response is not JSON, using fallback fonts')
+        return this.getDefaultFonts()
+      }
+      
+      const json = await response.json()
+      const { data } = json
+      
+      // Validate that data exists and is an array
+      if (!data || !Array.isArray(data)) {
+        console.warn('Fonts data is invalid, using fallback fonts')
+        return this.getDefaultFonts()
+      }
+      
       return data
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading fonts:', err)
-      // Return some default fonts as fallback
-      return [
-        {
-          id: 'arial',
-          family: 'Arial',
-          variants: ['300', 'regular', '700'],
-          files: [],
-          subsets: ['latin'],
-          version: '1',
-          lastModified: '2023-01-01',
-          category: 'sans-serif',
-          kind: 'webfonts#webfont'
-        },
-        {
-          id: 'times-new-roman',
-          family: 'Times New Roman',
-          variants: ['regular', '500', '700'],
-          files: [],
-          subsets: ['latin'],
-          version: '1',
-          lastModified: '2023-01-01',
-          category: 'serif',
-          kind: 'webfonts#webfont'
-        }
-      ]
+      // Return default fonts as fallback
+      return this.getDefaultFonts()
     }
   }
 
-  // IMAGES - Load from local JSON file
+  // Default fonts fallback
+  private getDefaultFonts(): IFontFamily[] {
+    return [
+      {
+        id: 'arial',
+        family: 'Arial',
+        variants: ['300', 'regular', '700'],
+        files: [],
+        subsets: ['latin'],
+        version: '1',
+        lastModified: '2023-01-01',
+        category: 'sans-serif',
+        kind: 'webfonts#webfont'
+      },
+      {
+        id: 'times-new-roman',
+        family: 'Times New Roman',
+        variants: ['regular', '500', '700'],
+        files: [],
+        subsets: ['latin'],
+        version: '1',
+        lastModified: '2023-01-01',
+        category: 'serif',
+        kind: 'webfonts#webfont'
+      }
+    ]
+  }
+
+  // IMAGES - Load from local JSON file with resource limits
   getImages(): Promise<any[]> {
-    return new Promise(async (resolve, reject) => {
+    return new Promise(async (resolve) => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        controller.abort()
+      }, 10000) // 10 second timeout
+      
       try {
         // Load images from local JSON file
-        const response = await fetch('/data/images.json')
-        const { data } = await response.json()
+        const response = await fetch('/data/images.json', {
+          signal: controller.signal
+        })
+        
+        clearTimeout(timeoutId)
+        
+        // Check if response is OK
+        if (!response.ok) {
+          console.warn(`Images file not found (${response.status}), returning empty array`)
+          resolve([])
+          return
+        }
+        
+        // Check content type to ensure we got JSON
+        const contentType = response.headers.get('content-type')
+        if (!contentType || !contentType.includes('application/json')) {
+          console.warn('Images response is not JSON, returning empty array')
+          resolve([])
+          return
+        }
+        
+        // Try to parse JSON
+        let json
+        try {
+          json = await response.json()
+        } catch (parseError) {
+          console.error('Failed to parse images JSON:', parseError)
+          resolve([])
+          return
+        }
+        
+        const { data } = json || {}
+        
+        // Validate that data exists and is an array
+        if (!data || !Array.isArray(data)) {
+          console.warn('Images data is invalid or empty, returning empty array')
+          resolve([])
+          return
+        }
+        
+        // Limit total images to prevent resource exhaustion
+        const MAX_IMAGES = 100
+        const limitedData = data.slice(0, MAX_IMAGES)
         
         // Transform the data to match the expected structure
-        const transformedImages = data.map(image => ({
-          id: image.id,
-          url: image.urls.regular,
-          src: image.urls.regular,
-          preview: image.urls.small,
-          alt: image.alt_description,
-          description: image.description,
-          user: image.user.name,
-          width: image.width,
-          height: image.height
+        const transformedImages = limitedData.map((image: any) => ({
+          id: image.id || `img-${Math.random().toString(36).substr(2, 9)}`,
+          url: image.urls?.regular || image.url || image.src || '',
+          src: image.urls?.regular || image.url || image.src || '',
+          preview: image.urls?.small || image.urls?.thumb || image.preview || image.url || image.src || '',
+          alt: image.alt_description || image.alt || '',
+          description: image.description || '',
+          user: image.user?.name || '',
+          width: image.width || 800,
+          height: image.height || 600
         }))
         
         resolve(transformedImages)
-      } catch (err) {
-        reject(err)
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId)
+        
+        if (fetchError.name === 'AbortError') {
+          console.warn('Image loading aborted due to timeout')
+        } else if (fetchError.name === 'TypeError' && fetchError.message.includes('Failed to fetch')) {
+          console.warn('Failed to fetch images file (file may not exist)')
+        } else {
+          console.error('Error loading images:', fetchError)
+        }
+        
+        // Always resolve with empty array to prevent UI freeze
+        resolve([])
       }
     })
   }

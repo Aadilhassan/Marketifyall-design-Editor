@@ -5,6 +5,7 @@ import About from '@scenes/About'
 import Contact from '@scenes/Contact'
 import Features from '@scenes/Features'
 import EmbedDocs from '@scenes/Embed'
+import ExportTest from '@scenes/ExportTest'
 
 const Routes = () => {
   return (
@@ -14,6 +15,7 @@ const Routes = () => {
         <Route path="/developers" exact component={EmbedDocs} />
         <Route path="/design/edit" component={Editor} />
         <Route path="/design" component={Editor} />
+        <Route path="/export-test" exact component={ExportTest} />
         <Route path="/features" exact component={Features} />
         <Route path="/about" exact component={About} />
         <Route path="/contact" exact component={Contact} />

@@ -21,7 +21,7 @@ function App() {
   const dispath = useAppDispatch()
   const [hasInitialized, setHasInitialized] = useState(false)
   const { clips, audioClips, isTimelineOpen } = useVideoContext()
-  
+
   // Check if timeline should be visible (has video/animation content)
   const hasTimelineContent = clips.length > 0 || audioClips.length > 0
   const shouldShowTimeline = hasTimelineContent && isTimelineOpen
@@ -42,22 +42,39 @@ function App() {
   useEffect(() => {
     if (editor && !hasInitialized) {
       setHasInitialized(true)
+      console.log('Editor initialized')
 
-      // Load template from prebuilt_json_url if provided
-      if (prebuiltJsonUrl) {
-        fetch(prebuiltJsonUrl)
-          .then(res => res.json())
-          .then(template => {
-            setCurrentTemplate(template)
-            handleLoadTemplate(template)
-          })
-          .catch(err => console.error('Error loading template from URL:', err))
-      }
-      // If img_url is provided, preload image on canvas
-      else if (imgUrl) {
-        handleLoadImageTemplate(imgUrl)
-      }
-      // Don't load blank canvas by default - let the editor handle it
+      // Wait a bit for editor to be fully ready
+      setTimeout(() => {
+        try {
+          // @ts-ignore
+          const canvas = editor.canvas?.canvas || editor.canvas
+          if (canvas) {
+            console.log('Canvas is available')
+            // @ts-ignore
+            const objects = canvas.getObjects?.() || []
+            console.log('Initial canvas objects:', objects.length)
+          }
+        } catch (e) {
+          console.warn('Could not check canvas on init:', e)
+        }
+
+        // Load template from prebuilt_json_url if provided
+        if (prebuiltJsonUrl) {
+          fetch(prebuiltJsonUrl)
+            .then(res => res.json())
+            .then(template => {
+              setCurrentTemplate(template)
+              handleLoadTemplate(template)
+            })
+            .catch(err => console.error('Error loading template from URL:', err))
+        }
+        // If img_url is provided, preload image on canvas
+        else if (imgUrl) {
+          handleLoadImageTemplate(imgUrl)
+        }
+        // Editor should handle blank canvas initialization automatically
+      }, 300)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])

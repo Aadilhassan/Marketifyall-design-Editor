@@ -25,27 +25,59 @@ export async function downloadAsset(url: string, jobId: string): Promise<string>
         fs.mkdirSync(jobDir, { recursive: true })
     }
 
-    // Get file extension from URL
-    const urlObj = new URL(url)
-    const ext = path.extname(urlObj.pathname) || '.mp4'
-    const filename = `${uuidv4()}${ext}`
-    const filepath = path.join(jobDir, filename)
+    // Handle Data Data URIs (Base64)
+    if (url.startsWith('data:')) {
+        // Extract media type and base64 data
+        const matches = url.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/)
+        if (!matches || matches.length !== 3) {
+            throw new Error('Invalid input string')
+        }
 
-    console.log(`Downloading: ${url} -> ${filepath}`)
+        const type = matches[1]
+        const data = matches[2]
 
-    const response = await axios({
-        method: 'get',
-        url: url,
-        responseType: 'stream',
-    })
+        // Determine extension
+        let ext = '.png' // Default
+        if (type.includes('jpeg') || type.includes('jpg')) ext = '.jpg'
+        if (type.includes('webp')) ext = '.webp'
+        if (type.includes('mp4')) ext = '.mp4'
+        if (type.includes('gif')) ext = '.gif'
 
-    const writer = fs.createWriteStream(filepath)
-    response.data.pipe(writer)
+        const filename = `${uuidv4()}${ext}`
+        const filepath = path.join(jobDir, filename)
 
-    return new Promise((resolve, reject) => {
-        writer.on('finish', () => resolve(filepath))
-        writer.on('error', reject)
-    })
+        console.log(`Saving Data URI: ${type} -> ${filepath}`)
+        fs.writeFileSync(filepath, Buffer.from(data, 'base64'))
+
+        return filepath
+    }
+
+    // Handle HTTP URLs
+    try {
+        const urlObj = new URL(url)
+        const ext = path.extname(urlObj.pathname) || '.mp4'
+        const filename = `${uuidv4()}${ext}`
+        const filepath = path.join(jobDir, filename)
+
+        console.log(`Downloading: ${url} -> ${filepath}`)
+
+        const response = await axios({
+            method: 'get',
+            url: url,
+            responseType: 'stream',
+        })
+
+        const writer = fs.createWriteStream(filepath)
+        response.data.pipe(writer)
+
+        return new Promise((resolve, reject) => {
+            writer.on('finish', () => resolve(filepath))
+            writer.on('error', reject)
+        })
+    } catch (e) {
+        console.error('Download specific error:', e)
+        throw e
+    }
 }
 
 /**

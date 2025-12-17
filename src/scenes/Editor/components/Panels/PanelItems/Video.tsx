@@ -671,7 +671,7 @@ function Video() {
             const top = (frameHeight - targetHeight) / 2
 
             // Add to Canvas as a native object
-            editor.add({
+            const videoObject = {
               type: 'StaticImage',
               metadata: {
                 src: posterUrl || url,
@@ -689,7 +689,27 @@ function Video() {
               scaleY,
               opacity: 1,
               visible: true,
-            })
+              selectable: false, // Disable selection to hide blue handles
+              hasControls: false, // Hide resize controls
+              hasBorders: false, // Hide borders
+              hasCorners: false, // Hide corner handles
+            }
+                        editor.add(videoObject)
+            
+            // Disable selection handles after adding (in case they weren't applied)
+            setTimeout(() => {
+              // @ts-ignore
+              const objects = editor.canvas?.getObjects?.() || []
+              const videoObj = objects.find((obj: any) => obj.metadata?.id === clipId || (obj.metadata?.isVideo && obj.metadata?.videoSrc === url))
+              if (videoObj) {
+                videoObj.set('selectable', false)
+                videoObj.set('hasControls', false)
+                videoObj.set('hasBorders', false)
+                videoObj.set('hasCorners', false)
+                // @ts-ignore
+                editor.canvas?.requestRenderAll?.()
+              }
+            }, 100)
 
             // Calculate start time to place video sequentially after existing videos
             const startTime = getNextVideoStartTime()
@@ -829,7 +849,7 @@ function Video() {
       // Add to Canvas with scaled dimensions directly
       // Explicitly set scaleX: 1 and scaleY: 1 to ensure no additional scaling
       // This ensures the poster image matches the video playback size exactly
-      editor.add({
+      const templateVideoObject = {
         type: 'StaticImage',
         metadata: {
           src: posterUrl,
@@ -847,7 +867,27 @@ function Video() {
         scaleY: 1, // Explicitly set to 1 to ensure no scaling
         opacity: 1,
         visible: true,
-      })
+        selectable: false, // Disable selection to hide blue handles
+        hasControls: false, // Hide resize controls
+        hasBorders: false, // Hide borders
+        hasCorners: false, // Hide corner handles
+      }
+            editor.add(templateVideoObject)
+      
+      // Disable selection handles after adding (in case they weren't applied)
+      setTimeout(() => {
+        // @ts-ignore
+        const objects = editor.canvas?.getObjects?.() || []
+        const videoObj = objects.find((obj: any) => obj.metadata?.id === clipId || (obj.metadata?.isVideo && obj.metadata?.videoSrc === template.src))
+        if (videoObj) {
+          videoObj.set('selectable', false)
+          videoObj.set('hasControls', false)
+          videoObj.set('hasBorders', false)
+          videoObj.set('hasCorners', false)
+          // @ts-ignore
+          editor.canvas?.requestRenderAll?.()
+        }
+      }, 100)
 
       // Calculate start time to place video sequentially after existing videos
       const startTime = getNextVideoStartTime()
@@ -954,6 +994,10 @@ function Video() {
           scaleY: 1, // Explicitly set to 1 to ensure no scaling
           opacity: 1,
           visible: true,
+          selectable: false, // Disable selection to hide blue handles
+          hasControls: false, // Hide resize controls
+          hasBorders: false, // Hide borders
+          hasCorners: false, // Hide corner handles
         }
 
         editor.add(options)

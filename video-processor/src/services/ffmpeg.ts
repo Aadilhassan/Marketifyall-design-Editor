@@ -35,9 +35,6 @@ async function saveBase64Image(base64Data: string, jobId: string, filename: stri
     return filePath
 }
 
-/**
- * Render a video from timeline data
- */
 export async function renderVideo(
     jobId: string,
     request: RenderRequest,
@@ -46,7 +43,7 @@ export async function renderVideo(
     const { timeline, clips } = request
     const outputPath = getOutputPath(jobId)
 
-    console.log(`Starting render job ${jobId}`)
+    console.log(`Starting render job ${jobId} (v2 - precise timeline)`)
     console.log(`Output: ${timeline.width}x${timeline.height} @ ${timeline.fps}fps, ${timeline.duration}s`)
     console.log(`Has background image: ${!!timeline.backgroundImage}`)
     console.log(`Clips:`, clips.filter(c => c.type === 'video').length, 'videos')
@@ -63,24 +60,28 @@ export async function renderVideo(
         }
     }
 
-    // Download video assets
+    // Download video and image assets
     const downloadedAssets: DownloadedAsset[] = []
-    const videoClips = clips.filter(c => c.type === 'video')
+    const mediaClips = clips.filter(c => c.type === 'video' || c.type === 'image')
 
-    for (let i = 0; i < videoClips.length; i++) {
-        const clip = videoClips[i]
-        if (clip.type === 'video') {
-            try {
+    for (let i = 0; i < mediaClips.length; i++) {
+        const clip = mediaClips[i]
+        try {
+            if (clip.src && (clip.src.startsWith('http') || clip.src.startsWith('data:'))) {
                 const localPath = await downloadAsset(clip.src, jobId)
                 downloadedAssets.push({ clip, localPath })
-                console.log(`Downloaded video ${i + 1}/${videoClips.length}`)
-            } catch (error) {
-                console.error(`Failed to download: ${clip.src}`, error)
-                throw new Error(`Failed to download video`)
+                console.log(`Downloaded asset (${clip.type}) ${i + 1}/${mediaClips.length}`)
+            } else {
+                console.warn(`Skipping invalid asset src: ${clip.src}`)
             }
+        } catch (error) {
+            console.error(`Failed to download: ${clip.src}`, error)
+            throw new Error(`Failed to download asset: ${clip.src}`)
         }
-        onProgress(5 + ((i + 1) / videoClips.length) * 25)
+        onProgress(10 + ((i + 1) / mediaClips.length) * 20)
     }
+
+    onProgress(30)
 
     onProgress(30)
 
@@ -88,130 +89,117 @@ export async function renderVideo(
     return new Promise((resolve, reject) => {
         try {
             let command = ffmpeg()
-            let inputCount = 0
+            const filters: string[] = []
 
-            // Input 0: Background image (loop for duration)
+            // --- STEP 1: Make color the real base input (Input 0) ---
+            // This ensures a consistent timeline base
+            // --- STEP 1: Generate Base Color Canvas (Internal Source) ---
+            // Used directly in filter graph to avoid 'lavfi' input format error
+            // (Note: 'T' in overlay will still refer to this base stream's timestamp)
+            filters.push(`color=c=${timeline.backgroundColor || 'white'}:s=${timeline.width}x${timeline.height}:r=${timeline.fps}:d=${timeline.duration}[base_v]`)
+
+            let currentBase = 'base_v'
+            let inputIndex = 0
+
+            // --- STEP 2: Handle Background Image (Input 1 if present) ---
             if (backgroundPath && fs.existsSync(backgroundPath)) {
-                const stats = fs.statSync(backgroundPath)
-                console.log(`Using canvas background as base layer (${stats.size} bytes)`)
-                command = command
-                    .input(backgroundPath)
-                    .inputOptions(['-loop', '1', '-t', String(timeline.duration)])
-                inputCount++
-            } else {
-                console.log('No background image available, using first video as base')
+                command = command.input(backgroundPath)
+                command = command.inputOptions(['-loop', '1', '-t', String(timeline.duration)])
+
+                // Scale and overlay background
+                filters.push(`[${inputIndex}:v]scale=${timeline.width}:${timeline.height}[bg_scaled]`)
+                filters.push(`[${currentBase}][bg_scaled]overlay=0:0[tmp_bg]`)
+
+                currentBase = 'tmp_bg'
+                inputIndex++
             }
 
-            // Add video inputs
+            // --- STEP 3: Add Video/Image Clip Inputs (NO LOOPING) ---
             downloadedAssets.forEach((asset) => {
                 command = command.input(asset.localPath)
-                if (asset.clip.type === 'video') {
-                    command = command.inputOptions(['-stream_loop', '-1'])
-                }
-                inputCount++
+                // We do NOT loop here. We trim to duration in the filter graph.
             })
 
-            // Build filter graph
-            const filters: string[] = []
-            let currentBase = ''
-
-<<<<<<< HEAD
-            // 1. Generate background using filter source (avoids -f lavfi input issue)
-            filters.push(`color=c=${timeline.backgroundColor || 'white'}:s=${timeline.width}x${timeline.height}[base]`)
-
-            // 2. Scale each video to its target size
-            videoClips.forEach((asset, index) => {
+            // --- STEP 4: Create Overlay Graph for Clips ---
+            downloadedAssets.forEach((asset, i) => {
                 const clip = asset.clip as VideoClip | ImageClip
-                // Ensure min size 1x1 to avoid scale errors
-                const w = Math.max(1, Math.round((clip.size.width / 100) * timeline.width))
-                const h = Math.max(1, Math.round((clip.size.height / 100) * timeline.height))
+                // The ffmpeg input index for this clip
+                const idx = inputIndex + i
 
-                // Map input [index] to [v_index] (Inputs correspond directly to video array now)
-                filters.push(`[${index}:v]scale=${w}:${h},setpts=PTS-STARTPTS[v${index}]`)
-            })
+                // Scale clip to target size
+                const w = Math.round((clip.size?.width ?? 100) / 100 * timeline.width)
+                const h = Math.round((clip.size?.height ?? 100) / 100 * timeline.height)
 
-            let currentBase = 'base'
+                // Overlay Position
+                const x = Math.round((clip.position?.x ?? 0) / 100 * timeline.width)
+                const y = Math.round((clip.position?.y ?? 0) / 100 * timeline.height)
 
-            // 3. Overlay all scaled videos onto the base
-            videoClips.forEach((asset, index) => {
-                const clip = asset.clip as VideoClip | ImageClip
-                const x = Math.round((clip.position.x / 100) * timeline.width)
-                const y = Math.round((clip.position.y / 100) * timeline.height)
+                // Timing Logic (The Fix)
+                const start = clip.start ?? 0
+                const duration = clip.duration ?? timeline.duration
 
-                const outputName = index === videoClips.length - 1 ? 'outv' : `tmp${index}`
+                // 1. Scale
+                // 2. Trim so it doesn't play forever (important for images too)
+                // 3. Shift PTS (presentation timestamp) to start time
+                filters.push(
+                    `[${idx}:v]` +
+                    `scale=${w}:${h},` +
+                    `trim=start=0:duration=${duration},` +
+                    `setpts=PTS-STARTPTS+${start}/TB` +
+                    `[clip_${i}]`
+                )
 
-                filters.push(`[${currentBase}][v${index}]overlay=${x}:${y}:eof_action=pass[${outputName}]`)
+                const outputName = `tmp_media_${i}`
+                const end = start + duration
+
+                // Overlay with enable to gate visibility safely
+                // Reverting to 't' (global main input time) to fix 'Invalid argument' with 'T'
+                filters.push(
+                    `[${currentBase}][clip_${i}]overlay=${x}:${y}:enable='between(t,${start},${end})':eval=frame[${outputName}]`
+                )
+
                 currentBase = outputName
             })
 
-            // Add text overlays
-            const textClips = downloadedAssets.filter(a => a.clip.type === 'text')
-            let textBase = 'outv'
+            // --- STEP 5: Text Overlays ---
+            // Helper to escape text for drawtext filter
+            const escapeDrawtext = (text: string) => {
+                return text
+                    .replace(/\\/g, '\\\\')
+                    .replace(/:/g, '\\:')
+                    .replace(/'/g, "\\'")
+                    .replace(/\n/g, '\\n')
+            }
 
-            textClips.forEach((asset, index) => {
-                const clip = asset.clip as TextClip
+            const textClips = clips.filter(c => c.type === 'text') as TextClip[]
+            textClips.forEach((clip, i) => {
                 const x = Math.round((clip.position.x / 100) * timeline.width)
                 const y = Math.round((clip.position.y / 100) * timeline.height)
 
-                const escapedText = clip.content
-                    .replace(/'/g, "'\\''")
-                    .replace(/:/g, '\\:')
+                const start = clip.start ?? 0
+                const end = start + (clip.duration ?? timeline.duration)
 
-                const enableExpr = `between(t,${clip.start},${clip.start + clip.duration})`
-                const outputName = index === textClips.length - 1 ? 'final' : `txt${index}`
+                const fontSize = Math.round((clip.style?.fontSize || 24))
+                const fontColor = clip.style?.color || 'black'
 
+                const outputName = `tmp_txt_${i}`
+                // Use Global Time 't' for visibility gating
                 filters.push(
-                    `[${textBase}]drawtext=text='${escapedText}':x=${x}:y=${y}:fontsize=${clip.style.fontSize}:fontcolor=${clip.style.color}:enable='${enableExpr}'[${outputName}]`
+                    `[${currentBase}]drawtext=` +
+                    `text='${escapeDrawtext(clip.content)}':` +
+                    `x=${x}:y=${y}:fontsize=${fontSize}:fontcolor=${fontColor}:` +
+                    `enable='between(t,${start},${end})'` +
+                    `[${outputName}]`
                 )
-                textBase = outputName
+
+                currentBase = outputName
             })
 
-            const finalOutput = textClips.length > 0 ? 'final' : 'outv'
+            const finalOutput = currentBase
 
-            // Apply complex filter
-=======
-            if (backgroundPath && fs.existsSync(backgroundPath)) {
-                // Scale background to output size
-                filters.push(`[0:v]scale=${timeline.width}:${timeline.height}[base]`)
-                currentBase = 'base'
+            console.log('Filter Graph:', filters.join(';'))
 
-                // Overlay each video at its position
-                downloadedAssets.forEach((asset, index) => {
-                    const clip = asset.clip as VideoClip
-                    const inputIdx = index + 1 // +1 because background is input 0
-
-                    // Calculate pixel positions from percentages
-                    const x = Math.round((clip.position.x / 100) * timeline.width)
-                    const y = Math.round((clip.position.y / 100) * timeline.height)
-                    const w = Math.round((clip.size.width / 100) * timeline.width)
-                    const h = Math.round((clip.size.height / 100) * timeline.height)
-
-                    const scaledName = `scaled${index}`
-                    const outputName = index === downloadedAssets.length - 1 ? 'outv' : `tmp${index}`
-
-                    // Scale video to target size
-                    filters.push(`[${inputIdx}:v]scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black@0[${scaledName}]`)
-
-                    // Overlay on base
-                    filters.push(`[${currentBase}][${scaledName}]overlay=${x}:${y}:shortest=1[${outputName}]`)
-                    currentBase = outputName
-                })
-            } else {
-                // No background - use first video as base
-                if (downloadedAssets.length > 0) {
-                    filters.push(
-                        `[0:v]scale=${timeline.width}:${timeline.height}:force_original_aspect_ratio=decrease,` +
-                        `pad=${timeline.width}:${timeline.height}:(ow-iw)/2:(oh-ih)/2:white[outv]`
-                    )
-                }
-                currentBase = 'outv'
-            }
-
-            // Apply filter graph
-            const finalOutput = currentBase || 'outv'
->>>>>>> 283c56e27cb9718083940ce5b2760dee67c0fee4
-            console.log('Filter graph:', filters.join('; '))
-
+            // --- STEP 6: Apply Filter Graph ---
             if (filters.length > 0) {
                 command = command.complexFilter(filters, finalOutput)
             }
@@ -226,6 +214,7 @@ export async function renderVideo(
                 '-pix_fmt', 'yuv420p',
                 '-movflags', '+faststart',
                 '-r', String(timeline.fps),
+                '-shortest',             // Stop encoding when shortest input (base canvas) ends
                 '-t', String(timeline.duration),
                 '-an',                   // No audio for now (simpler)
                 '-y',

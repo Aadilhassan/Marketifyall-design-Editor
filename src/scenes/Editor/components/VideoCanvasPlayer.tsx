@@ -31,7 +31,7 @@ const VideoElement = styled('video', {
     left: 0,
     width: '100%',
     height: '100%',
-    objectFit: 'cover', // Crop to fill standard size without distortion (Canva-like)
+    objectFit: 'contain', // Preserve aspect ratio without stretching
     display: 'block',
 })
 
@@ -215,14 +215,18 @@ const VideoCanvasPlayer: React.FC = () => {
 
     // Find video objects and calculate positions
     const updateVideoPositions = useCallback(() => {
-        if (!canvas) return
+        if (!canvas) {
+                        return
+        }
 
         try {
             // @ts-ignore
             const objects = canvas.getObjects?.() || []
             // @ts-ignore
             const canvasEl = canvas.lowerCanvasEl as HTMLCanvasElement
-            if (!canvasEl || !overlayRef.current) return
+            if (!canvasEl || !overlayRef.current) {
+                                return
+            }
 
             const canvasRect = canvasEl.getBoundingClientRect()
             const overlayRect = overlayRef.current.getBoundingClientRect()
@@ -235,14 +239,19 @@ const VideoCanvasPlayer: React.FC = () => {
             // Update canvas frame bounds
             const frameBounds = getCanvasFrameBounds()
             setCanvasBounds(frameBounds)
-
+            
             const newVideoInfos: VideoInfo[] = []
+            const videoObjectsFound: any[] = []
 
             objects.forEach((obj: any) => {
-                if (!obj.metadata?.isVideo && !obj.metadata?.videoSrc) return
+                const hasIsVideo = !!obj.metadata?.isVideo
+                const hasVideoSrc = !!obj.metadata?.videoSrc
+                                if (!hasIsVideo && !hasVideoSrc) return
 
                 const videoSrc = obj.metadata?.videoSrc || obj.metadata?.src
-                if (!videoSrc) return
+                if (!videoSrc) {
+                                        return
+                }
 
                 const clipId = obj.metadata?.id || obj.id || `video-obj-${newVideoInfos.length}`
                 const videoSrcForMatch = obj.metadata?.videoSrc || obj.metadata?.src
@@ -252,7 +261,7 @@ const VideoCanvasPlayer: React.FC = () => {
                 if (!clip && videoSrcForMatch) {
                     clip = clips.find(c => c.src === videoSrcForMatch)
                 }
-
+                
                 const objLeft = obj.left || 0
                 const objTop = obj.top || 0
                 const objWidth = (obj.width || 100) * (obj.scaleX || 1)
@@ -264,6 +273,7 @@ const VideoCanvasPlayer: React.FC = () => {
                 const left = screenX + (canvasRect.left - overlayRect.left)
                 const top = screenY + (canvasRect.top - overlayRect.top)
 
+                videoObjectsFound.push({ clipId, videoSrc, left, top, width: objWidth * zoom, height: objHeight * zoom })
                 newVideoInfos.push({
                     id: clip?.id || clipId,
                     left,
@@ -275,10 +285,10 @@ const VideoCanvasPlayer: React.FC = () => {
                 })
             })
 
-            setVideoInfos(newVideoInfos)
+                        setVideoInfos(newVideoInfos)
         } catch (err) {
             console.error('VideoCanvasPlayer error:', err)
-        }
+                    }
     }, [canvas, clips, getCanvasFrameBounds])
 
     // Update positions continuously
@@ -404,6 +414,50 @@ const VideoCanvasPlayer: React.FC = () => {
             registerVideoRef(id, ref)
         })
     }, [videoInfos, registerVideoRef])
+
+    // Ensure video objects never show selection handles (blue shape)
+    useEffect(() => {
+        if (!canvas) return
+
+        const disableVideoSelection = () => {
+            // @ts-ignore
+            const objects = canvas.getObjects?.() || []
+            objects.forEach((obj: any) => {
+                if (obj.metadata?.isVideo || obj.metadata?.videoSrc) {
+                    // Always disable selection handles for video objects
+                    if (obj.selectable !== false) obj.set('selectable', false)
+                    if (obj.hasControls !== false) obj.set('hasControls', false)
+                    if (obj.hasBorders !== false) obj.set('hasBorders', false)
+                    if (obj.hasCorners !== false) obj.set('hasCorners', false)
+                }
+            })
+            // @ts-ignore
+            canvas.requestRenderAll?.()
+        }
+
+        // Run immediately and on object changes
+        disableVideoSelection()
+        
+        // @ts-ignore
+        canvas.on?.('object:added', disableVideoSelection)
+        // @ts-ignore
+        canvas.on?.('object:modified', disableVideoSelection)
+        // @ts-ignore
+        canvas.on?.('selection:created', disableVideoSelection)
+        // @ts-ignore
+        canvas.on?.('selection:updated', disableVideoSelection)
+
+        return () => {
+            // @ts-ignore
+            canvas.off?.('object:added', disableVideoSelection)
+            // @ts-ignore
+            canvas.off?.('object:modified', disableVideoSelection)
+            // @ts-ignore
+            canvas.off?.('selection:created', disableVideoSelection)
+            // @ts-ignore
+            canvas.off?.('selection:updated', disableVideoSelection)
+        }
+    }, [canvas])
 
     // Make canvas video object transparent when playing so HTML video shows through
     // Also extract text elements that are above the video to render as HTML overlays
@@ -673,7 +727,7 @@ const VideoCanvasPlayer: React.FC = () => {
 
     // Show overlay container for ref even if no videos
     if (videoInfos.length === 0 || !canvasBounds) {
-        return <OverlayContainer ref={overlayRef} />
+                return <OverlayContainer ref={overlayRef} />
     }
 
     return (
@@ -685,6 +739,8 @@ const VideoCanvasPlayer: React.FC = () => {
                     top: canvasBounds.top,
                     width: canvasBounds.width,
                     height: canvasBounds.height,
+                    overflow: 'hidden', // Ensure videos are clipped to canvas bounds
+                    position: 'absolute',
                 }}
             >
                 {videoInfos.map(info => {
@@ -728,9 +784,10 @@ const VideoCanvasPlayer: React.FC = () => {
                     const clipEnd = clipStart + (clip?.duration || 0)
                     const isWithinTimeRange = currentTime >= clipStart && currentTime < clipEnd
 
-                    // Only show video if playhead is within its time range
-                    const shouldShowWrapper = isWithinTimeRange
-
+                    // Always show video wrapper on canvas (show poster when not playing)
+                    // Only play video when within time range and isPlaying
+                    const shouldShowWrapper = true // Always show videos on canvas
+                    
                     return (
                         <VideoPlayerWrapper
                             key={info.id}
@@ -739,10 +796,10 @@ const VideoCanvasPlayer: React.FC = () => {
                                 top: relativeTop,
                                 width: videoWidth,
                                 height: videoHeight,
-                                // Hide entire wrapper for inactive videos when playing
-                                display: shouldShowWrapper ? 'block' : 'none',
-                                visibility: shouldShowWrapper ? 'visible' : 'hidden',
-                                opacity: shouldShowWrapper ? 1 : 0,
+                                // Always show video wrapper
+                                display: 'block',
+                                visibility: 'visible',
+                                opacity: 1,
                             }}
                             onMouseEnter={() => setIsHovered(true)}
                             onMouseLeave={() => setIsHovered(false)}
@@ -755,14 +812,14 @@ const VideoCanvasPlayer: React.FC = () => {
                                         if (el.src !== info.src) {
                                             el.src = info.src
                                             el.load()
-                                        }
+                                                                                    }
                                         // Remove poster when playing to avoid showing play button on poster
                                         if (isVideoPlaying) {
                                             el.removeAttribute('poster')
                                         } else if (info.poster) {
                                             el.poster = info.poster
                                         }
-                                    }
+                                                                            }
                                 }}
                                 src={info.src}
                                 poster={isVideoPlaying ? '' : (info.poster || '')}
@@ -771,7 +828,8 @@ const VideoCanvasPlayer: React.FC = () => {
                                 crossOrigin="anonymous"
                                 controls={false}
                                 style={{
-                                    opacity: isVideoPlaying ? 1 : 0,
+                                    // Always show video element (shows poster when not playing, video when playing)
+                                    opacity: 1,
                                     pointerEvents: isVideoPlaying ? 'auto' : 'none'
                                 }}
                             />

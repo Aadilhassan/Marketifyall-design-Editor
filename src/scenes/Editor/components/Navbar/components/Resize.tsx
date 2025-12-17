@@ -36,8 +36,10 @@ export default function Resize() {
     editor.frame.setSize(frame.size)
   }
   const applyCustomSize = () => {
-    if (customSize.width && customSize.height) {
-      editor.frame.update(customSize)
+    const width = Number(customSize.width)
+    const height = Number(customSize.height)
+    if (width > 0 && height > 0) {
+      editor.frame.update({ width, height })
     }
   }
   useEffect(() => {
@@ -70,16 +72,24 @@ export default function Resize() {
               <div>Custom size</div>
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <Input
-                  value={customSize.width}
-                  onChange={e => setCustomSize({ ...customSize, width: (e.target as any).value })}
+                  type="number"
+                  value={customSize.width || ''}
+                  onChange={e => {
+                    const val = (e.target as HTMLInputElement).value
+                    setCustomSize({ ...customSize, width: val ? Number(val) : 0 })
+                  }}
                   startEnhancer="W"
                   placeholder="width"
                 />
                 <Input
-                  value={customSize.height}
-                  onChange={e => setCustomSize({ ...customSize, height: (e.target as any).value })}
+                  type="number"
+                  value={customSize.height || ''}
+                  onChange={e => {
+                    const val = (e.target as HTMLInputElement).value
+                    setCustomSize({ ...customSize, height: val ? Number(val) : 0 })
+                  }}
                   startEnhancer="H"
-                  placeholder="width"
+                  placeholder="height"
                 />
               </div>
               <Button onClick={() => applyCustomSize()}>Apply</Button>
