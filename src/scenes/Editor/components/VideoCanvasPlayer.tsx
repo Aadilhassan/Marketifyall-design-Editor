@@ -31,7 +31,7 @@ const VideoElement = styled('video', {
     left: 0,
     width: '100%',
     height: '100%',
-    objectFit: 'contain', // Preserve aspect ratio without stretching
+    objectFit: 'cover', // Fill the container (matches how posters are generated)
     display: 'block',
 })
 
@@ -77,6 +77,14 @@ interface VideoInfo {
     height: number
     src: string
     poster?: string
+    videoCrop?: {
+        sourceX: number
+        sourceY: number
+        sourceWidth: number
+        sourceHeight: number
+        videoWidth: number
+        videoHeight: number
+    }
 }
 
 interface CanvasBounds {
@@ -194,12 +202,16 @@ const VideoCanvasPlayer: React.FC = () => {
 
             const frameWidth = (clipObj.width || 900) * (clipObj.scaleX || 1)
             const frameHeight = (clipObj.height || 1200) * (clipObj.scaleY || 1)
-            const frameCenterX = clipObj.left || 0
-            const frameCenterY = clipObj.top || 0
+            let l = clipObj.left || 0
+            let t = clipObj.top || 0
+
+            // Correct for origins
+            if (clipObj.originX === 'center') l -= frameWidth / 2
+            if (clipObj.originY === 'center') t -= frameHeight / 2
 
             // Apply zoom and viewport transform
-            const screenX = frameCenterX * zoom + vpt[4]
-            const screenY = frameCenterY * zoom + vpt[5]
+            const screenX = l * zoom + vpt[4]
+            const screenY = t * zoom + vpt[5]
 
             return {
                 left: screenX + (canvasRect.left - overlayRect.left),
@@ -216,7 +228,7 @@ const VideoCanvasPlayer: React.FC = () => {
     // Find video objects and calculate positions
     const updateVideoPositions = useCallback(() => {
         if (!canvas) {
-                        return
+            return
         }
 
         try {
@@ -225,7 +237,7 @@ const VideoCanvasPlayer: React.FC = () => {
             // @ts-ignore
             const canvasEl = canvas.lowerCanvasEl as HTMLCanvasElement
             if (!canvasEl || !overlayRef.current) {
-                                return
+                return
             }
 
             const canvasRect = canvasEl.getBoundingClientRect()
@@ -239,18 +251,18 @@ const VideoCanvasPlayer: React.FC = () => {
             // Update canvas frame bounds
             const frameBounds = getCanvasFrameBounds()
             setCanvasBounds(frameBounds)
-            
+
             const newVideoInfos: VideoInfo[] = []
             const videoObjectsFound: any[] = []
 
             objects.forEach((obj: any) => {
                 const hasIsVideo = !!obj.metadata?.isVideo
                 const hasVideoSrc = !!obj.metadata?.videoSrc
-                                if (!hasIsVideo && !hasVideoSrc) return
+                if (!hasIsVideo && !hasVideoSrc) return
 
                 const videoSrc = obj.metadata?.videoSrc || obj.metadata?.src
                 if (!videoSrc) {
-                                        return
+                    return
                 }
 
                 const clipId = obj.metadata?.id || obj.id || `video-obj-${newVideoInfos.length}`
@@ -261,14 +273,18 @@ const VideoCanvasPlayer: React.FC = () => {
                 if (!clip && videoSrcForMatch) {
                     clip = clips.find(c => c.src === videoSrcForMatch)
                 }
-                
-                const objLeft = obj.left || 0
-                const objTop = obj.top || 0
+
                 const objWidth = (obj.width || 100) * (obj.scaleX || 1)
                 const objHeight = (obj.height || 100) * (obj.scaleY || 1)
+                let l = obj.left || 0
+                let t = obj.top || 0
 
-                const screenX = objLeft * zoom + vpt[4]
-                const screenY = objTop * zoom + vpt[5]
+                // Correct for origins
+                if (obj.originX === 'center') l -= objWidth / 2
+                if (obj.originY === 'center') t -= objHeight / 2
+
+                const screenX = l * zoom + vpt[4]
+                const screenY = t * zoom + vpt[5]
 
                 const left = screenX + (canvasRect.left - overlayRect.left)
                 const top = screenY + (canvasRect.top - overlayRect.top)
@@ -282,13 +298,14 @@ const VideoCanvasPlayer: React.FC = () => {
                     height: objHeight * zoom,
                     src: clip?.src || videoSrc,
                     poster: clip?.poster || obj.metadata?.src,
+                    videoCrop: obj.metadata?.videoCrop,
                 })
             })
 
-                        setVideoInfos(newVideoInfos)
+            setVideoInfos(newVideoInfos)
         } catch (err) {
             console.error('VideoCanvasPlayer error:', err)
-                    }
+        }
     }, [canvas, clips, getCanvasFrameBounds])
 
     // Update positions continuously
@@ -437,7 +454,7 @@ const VideoCanvasPlayer: React.FC = () => {
 
         // Run immediately and on object changes
         disableVideoSelection()
-        
+
         // @ts-ignore
         canvas.on?.('object:added', disableVideoSelection)
         // @ts-ignore
@@ -727,7 +744,7 @@ const VideoCanvasPlayer: React.FC = () => {
 
     // Show overlay container for ref even if no videos
     if (videoInfos.length === 0 || !canvasBounds) {
-                return <OverlayContainer ref={overlayRef} />
+        return <OverlayContainer ref={overlayRef} />
     }
 
     return (
@@ -787,7 +804,7 @@ const VideoCanvasPlayer: React.FC = () => {
                     // Always show video wrapper on canvas (show poster when not playing)
                     // Only play video when within time range and isPlaying
                     const shouldShowWrapper = true // Always show videos on canvas
-                    
+
                     return (
                         <VideoPlayerWrapper
                             key={info.id}
@@ -812,14 +829,14 @@ const VideoCanvasPlayer: React.FC = () => {
                                         if (el.src !== info.src) {
                                             el.src = info.src
                                             el.load()
-                                                                                    }
+                                        }
                                         // Remove poster when playing to avoid showing play button on poster
                                         if (isVideoPlaying) {
                                             el.removeAttribute('poster')
                                         } else if (info.poster) {
                                             el.poster = info.poster
                                         }
-                                                                            }
+                                    }
                                 }}
                                 src={info.src}
                                 poster={isVideoPlaying ? '' : (info.poster || '')}
@@ -830,7 +847,9 @@ const VideoCanvasPlayer: React.FC = () => {
                                 style={{
                                     // Always show video element (shows poster when not playing, video when playing)
                                     opacity: 1,
-                                    pointerEvents: isVideoPlaying ? 'auto' : 'none'
+                                    pointerEvents: isVideoPlaying ? 'auto' : 'none',
+                                    objectFit: 'cover', // Ensure video covers the element area
+                                    objectPosition: 'center', // Center the crop (matches StockVideos.tsx logic)
                                 }}
                             />
 

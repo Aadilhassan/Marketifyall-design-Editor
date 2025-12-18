@@ -1,72 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#FF6B5B" />
-    
-    <!-- Primary Meta Tags -->
-    <title>Design Editor by Marketifyall - Free Open-Source Canva Alternative with AI</title>
-    <meta name="title" content="Design Editor by Marketifyall - Free Open-Source Canva Alternative with AI" />
-    <meta name="description" content="Free open-source design editor with AI-powered features. A true Canva alternative with stock photos, 1000+ fonts, video editing, and professional templates. No watermarks, no limits, 100% free forever. By QuickShift Labs & Marketifyall." />
-    <meta name="keywords" content="canva alternative, free design editor, open source design tool, graphic design software, AI design tool, online design editor, free canva, design editor, marketifyall, quickshift labs, free graphic design, social media design, marketing design tool" />
-    <meta name="author" content="QuickShift Labs" />
-    
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://design.marketifyall.com/" />
-    <meta property="og:title" content="Design Editor by Marketifyall - Free Open-Source Canva Alternative" />
-    <meta property="og:description" content="Free open-source design editor with AI. Create stunning designs without limits - no watermarks, no subscriptions, 100% free forever." />
-    <meta property="og:image" content="https://design.marketifyall.com/logo.png" />
-    <meta property="og:site_name" content="Design Editor by Marketifyall" />
-    
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://design.marketifyall.com/" />
-    <meta property="twitter:title" content="Design Editor - Free Open-Source Canva Alternative" />
-    <meta property="twitter:description" content="Free open-source design editor with AI. Create stunning designs without limits." />
-    <meta property="twitter:image" content="https://design.marketifyall.com/logo.png" />
-    <meta name="twitter:creator" content="@marketifyall" />
-    
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://design.marketifyall.com/" />
-    
-    <!-- Additional SEO -->
-    <meta name="robots" content="index, follow" />
-    <meta name="language" content="English" />
-    <meta name="revisit-after" content="7 days" />
-    
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
-    <!-- Preconnect to Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    
-    <!-- Preload critical fonts -->
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&family=Poppins:wght@300;400;500;600&display=swap" />
-    
-    <!-- Load critical CSS -->
-    <link rel="stylesheet" href="index.css">
-    
-    <!-- Load other fonts with display=swap -->
-    <link 
-      href="https://fonts.googleapis.com/css2?family=Karla:wght@200;300&family=Lexend:wght@300;400;600;700&family=Comic+Neue:wght@300;400;700&family=Patrick+Hand&family=Mukta:wght@200;300;400;500&display=swap" 
-      rel="stylesheet"
-      media="print"
-      onload="this.media='all'"
-    />
-    <noscript>
-      <link 
-        href="https://fonts.googleapis.com/css2?family=Karla:wght@200;300&family=Lexend:wght@300;400;600;700&family=Comic+Neue:wght@300;400;700&family=Patrick+Hand&family=Mukta:wght@200;300;400;500&display=swap" 
-        rel="stylesheet"
-      />
-    </noscript>
-    <!--
+
+<head>
+  <meta charset="utf-8" />
+  <link rel="icon" href="%PUBLIC_URL%/logo.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#FF6B5B" />
+  <script>
+    // Early polyfill for process used by some libraries
+    window.process = window.process || {
+      env: { NODE_ENV: 'development' },
+      versions: {},
+      nextTick: function (cb) { setTimeout(cb, 0); }
+    };
+    var process = window.process;
+  </script>
+
+  <!-- Primary Meta Tags -->
+  <title>Design Editor by Marketifyall - Free Open-Source Canva Alternative with AI</title>
+  <meta name="title" content="Design Editor by Marketifyall - Free Open-Source Canva Alternative with AI" />
+  <meta name="description"
+    content="Free open-source design editor with AI-powered features. A true Canva alternative with stock photos, 1000+ fonts, video editing, and professional templates. No watermarks, no limits, 100% free forever. By QuickShift Labs & Marketifyall." />
+  <meta name="keywords"
+    content="canva alternative, free design editor, open source design tool, graphic design software, AI design tool, online design editor, free canva, design editor, marketifyall, quickshift labs, free graphic design, social media design, marketing design tool" />
+  <meta name="author" content="QuickShift Labs" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://design.marketifyall.com/" />
+  <meta property="og:title" content="Design Editor by Marketifyall - Free Open-Source Canva Alternative" />
+  <meta property="og:description"
+    content="Free open-source design editor with AI. Create stunning designs without limits - no watermarks, no subscriptions, 100% free forever." />
+  <meta property="og:image" content="https://design.marketifyall.com/logo.png" />
+  <meta property="og:site_name" content="Design Editor by Marketifyall" />
+
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image" />
+  <meta property="twitter:url" content="https://design.marketifyall.com/" />
+  <meta property="twitter:title" content="Design Editor - Free Open-Source Canva Alternative" />
+  <meta property="twitter:description"
+    content="Free open-source design editor with AI. Create stunning designs without limits." />
+  <meta property="twitter:image" content="https://design.marketifyall.com/logo.png" />
+  <meta name="twitter:creator" content="@marketifyall" />
+
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://design.marketifyall.com/" />
+
+  <!-- Additional SEO -->
+  <meta name="robots" content="index, follow" />
+  <meta name="language" content="English" />
+  <meta name="revisit-after" content="7 days" />
+
+  <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+  <!-- Preconnect to Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+  <!-- Preload critical fonts -->
+  <link rel="preload" as="style"
+    href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;600;700&family=Poppins:wght@300;400;500;600&display=swap" />
+
+  <!-- Load critical CSS -->
+  <link rel="stylesheet" href="index.css">
+
+  <!-- Load other fonts with display=swap -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Karla:wght@200;300&family=Lexend:wght@300;400;600;700&family=Comic+Neue:wght@300;400;700&family=Patrick+Hand&family=Mukta:wght@200;300;400;500&display=swap"
+    rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Karla:wght@200;300&family=Lexend:wght@300;400;600;700&family=Comic+Neue:wght@300;400;700&family=Patrick+Hand&family=Mukta:wght@200;300;400;500&display=swap"
+      rel="stylesheet" />
+  </noscript>
+  <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <!--
+  <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+  <!--
       Notice the use of %PUBLIC_URL% in the tags above.
       It will be replaced with the URL of the `public` folder during the build.
       Only files inside the `public` folder can be referenced from the HTML.
@@ -75,18 +86,18 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>Marketifyall Design Editor</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;700&family=Open+Sans:wght@400;700&family=Quicksand:wght@400;600&family=Roboto:wght@400;700&display=swap"
-      rel="stylesheet"
-    />
-  </head>
-  <body style="margin: 0">
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
-    <!--
+  <title>Marketifyall Design Editor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@400;700&family=Open+Sans:wght@400;700&family=Quicksand:wght@400;600&family=Roboto:wght@400;700&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body style="margin: 0">
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+  <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.
 
@@ -96,5 +107,6 @@
       To begin the development, run `npm start` or `yarn start`.
       To create a production bundle, use `npm run build` or `yarn build`.
     -->
-  </body>
+</body>
+
 </html>

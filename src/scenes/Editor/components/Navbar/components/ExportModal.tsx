@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
@@ -300,6 +300,16 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
   const hasVideo = clips.length > 0
   const FORMATS = hasVideo ? [...VIDEO_FORMATS, ...IMAGE_FORMATS] : IMAGE_FORMATS
 
+  // Automatically update video duration based on the latest clip's end time
+  useEffect(() => {
+    if (clips.length > 0) {
+      const maxEnd = Math.max(...clips.map(c => (c.start || 0) + (c.duration || 0)))
+      if (maxEnd > 0 && maxEnd !== videoDuration) {
+        setVideoDuration(Math.ceil(maxEnd))
+      }
+    }
+  }, [clips, videoDuration])
+
   const handleExport = async () => {
     if (!editor) return
 
@@ -307,7 +317,12 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
     setExportProgress(0)
 
     try {
-      // Video export using canvas capture
+      // Pause playback if it's playing to avoid canvas render conflicts
+      if (isPlaying) {
+        pause()
+      }
+
+      // 1. VIDEO EXPORT (MP4, WebM, GIF)
       if (format === 'mp4' || format === 'webm' || format === 'gif') {
         const canvasElement = canvas?.getElement?.() || document.querySelector('canvas')
         if (!canvasElement) {
@@ -316,546 +331,263 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           return
         }
 
-        // Find video element from timeline
-        const videoElement = document.querySelector('.canvas-container video') as HTMLVideoElement
-        if (!videoElement && clips.length > 0) {
-          alert('Video element not found. Make sure video is playing in the timeline.')
-          setIsExporting(false)
-          return
-        }
-
         // Calculate quality/bitrate from preset
         const qualityConfig = QUALITY_PRESETS.find(q => q.id === qualityPreset) || QUALITY_PRESETS[1]
-        const exportBitrate = qualityConfig.bitrate * 1000000 // Convert to bps
+        const exportBitrate = qualityConfig.bitrate * 1000000
 
-        // BACKEND VIDEO EXPORT - Send timeline data to video-processor server
-        try {
-          setExportProgress(5)
+        setExportProgress(5)
 
-          // @ts-ignore - canvas.getObjects is from fabric.js
-          const fabricObjects = canvas?.getObjects?.() || []
+        // @ts-ignore
+        const fabricObjects = canvas?.getObjects?.() || []
 
-          // DETECT WORKAREA / DESIGN FRAME (The white paper)
-          // Strategy 1: Find valid object by name/id
-          let clipObject = fabricObjects.find((obj: any) =>
-            obj.name === 'clip' || obj.id === 'clip' ||
-            obj.name === 'workarea' || obj.id === 'workarea'
-          )
+        // DETECT DESIGN AREA (The white background frame)
+        let designWidth = 0, designHeight = 0, designLeft = 0, designTop = 0
 
-          // Strategy 2: If no explicit clip, find object matching frameSize (if available)
-          if (!clipObject && frameSize?.width && frameSize?.height) {
-            clipObject = fabricObjects.find((obj: any) => {
-              const w = (obj.width || 0) * (obj.scaleX || 1)
-              const h = (obj.height || 0) * (obj.scaleY || 1)
-              // tolerance of 1 pixel
-              return Math.abs(w - frameSize.width) < 1 && Math.abs(h - frameSize.height) < 1
+        const frameObject = fabricObjects.find((obj: any) =>
+          obj.name === 'clip' ||
+          obj.id === 'frame' ||
+          obj.metadata?.role === 'canvas' ||
+          obj.metadata?.id === 'frame'
+        ) || fabricObjects.sort((a, b) => (b.width * b.scaleX * b.height * b.scaleY) - (a.width * a.scaleX * a.height * a.scaleY))[0]
+
+        if (frameObject) {
+          designWidth = (frameObject.width || 100) * (frameObject.scaleX || 1)
+          designHeight = (frameObject.height || 100) * (frameObject.scaleY || 1)
+          designLeft = frameObject.left || 0
+          designTop = frameObject.top || 0
+
+          if (frameObject.originX === 'center') designLeft -= designWidth / 2
+          if (frameObject.originY === 'center') designTop -= designHeight / 2
+        } else if (frameSize?.width) {
+          designWidth = frameSize.width
+          designHeight = frameSize.height
+          designLeft = (canvasElement.width / 2) - (designWidth / 2)
+          designTop = (canvasElement.height / 2) - (designHeight / 2)
+        } else {
+          designWidth = canvasElement.width
+          designHeight = canvasElement.height
+          designLeft = 0; designTop = 0
+        }
+
+        // Resolve export dimensions
+        const resolutionPreset = RESOLUTION_PRESETS.find(r => r.id === videoResolution) || RESOLUTION_PRESETS[1]
+        let finalExportWidth = (videoResolution === 'custom') ? designWidth : (designWidth * (Math.max(resolutionPreset.width, resolutionPreset.height) / Math.max(designWidth, designHeight)))
+        let finalExportHeight = (videoResolution === 'custom') ? designHeight : (designHeight * (Math.max(resolutionPreset.width, resolutionPreset.height) / Math.max(designWidth, designHeight)))
+
+        // Force even dimensions for libx264
+        finalExportWidth = Math.round(finalExportWidth) + (Math.round(finalExportWidth) % 2)
+        finalExportHeight = Math.round(finalExportHeight) + (Math.round(finalExportHeight) % 2)
+
+        const designLogicalRect = { left: designLeft, top: designTop, width: designWidth, height: designHeight }
+        const captureMultiplier = finalExportWidth / designWidth
+
+        // Helper for backend communication
+        const toBase64 = async (url: string): Promise<string> => {
+          try {
+            const res = await fetch(url)
+            const blob = await res.blob()
+            return new Promise((resolve, reject) => {
+              const r = new FileReader()
+              r.onloadend = () => resolve(r.result as string)
+              r.onerror = reject
+              r.readAsDataURL(blob)
             })
-            if (clipObject) console.log('Found Workarea by dimension match')
-          }
+          } catch (e) { return url }
+        }
 
-          let canvasFrameWidth = 0
-          let canvasFrameHeight = 0
+        // 2. EXTRACT DESIGN ELEMENTS (Videos, Images, Text)
+        const videoClipsWithPositions = clips.map(clip => {
+          const obj = fabricObjects.find((o: any) => o.metadata?.id === clip.id || o.id === clip.id || o.metadata?.videoSrc === clip.src)
+          let position = { x: 0, y: 0 }, size = { width: 100, height: 100 }
 
-          console.log('🔍 Canvas dimension detection:', {
-            hasClipObject: !!clipObject,
-            frameSize,
-            canvasElement: { width: canvasElement?.width, height: canvasElement?.height }
-          })
-
-          // PRIORITY 1: FrameSize from Context (Most reliable for exact canvas dimensions)
-          if (frameSize?.width && frameSize?.height) {
-            canvasFrameWidth = frameSize.width
-            canvasFrameHeight = frameSize.height
-            console.log('✅ Using frameSize from context (exact canvas):', canvasFrameWidth, 'x', canvasFrameHeight)
-          }
-          // PRIORITY 2: Object Dimensions (Source of Truth for World Space)
-          else if (clipObject) {
-            canvasFrameWidth = (clipObject.width || 100) * (clipObject.scaleX || 1)
-            canvasFrameHeight = (clipObject.height || 100) * (clipObject.scaleY || 1)
-            console.log('Using Workarea object dimensions:', canvasFrameWidth, 'x', canvasFrameHeight)
-          }
-          // PRIORITY 3: Canvas element dimensions
-          else if (canvasElement?.width && canvasElement?.height) {
-            canvasFrameWidth = canvasElement.width
-            canvasFrameHeight = canvasElement.height
-            console.log('Using canvas element dimensions:', canvasFrameWidth, 'x', canvasFrameHeight)
-          }
-          // PRIORITY 4: Default
-          else {
-            canvasFrameWidth = 1920
-            canvasFrameHeight = 1080
-            console.warn('⚠️ Using default dimensions (1920x1080) - canvas size not detected')
-          }
-
-          // Calculate final export dimensions based on resolution preset
-          const resolutionPreset = RESOLUTION_PRESETS.find(r => r.id === videoResolution) || RESOLUTION_PRESETS[1]
-          let finalExportWidth: number
-          let finalExportHeight: number
-
-          if (videoResolution === 'custom') {
-            // For "custom" (Original), use EXACT canvas frame dimensions to preserve aspect ratio
-            // This ensures the exported video matches exactly what you see on the canvas
-            finalExportWidth = canvasFrameWidth
-            finalExportHeight = canvasFrameHeight
-            console.log('✅ Using EXACT canvas dimensions (custom):', finalExportWidth, 'x', finalExportHeight)
-            console.log('📐 Aspect ratio:', (finalExportWidth / finalExportHeight).toFixed(4))
-          } else {
-            // For preset resolutions, use the preset dimensions
-            finalExportWidth = resolutionPreset.width
-            finalExportHeight = resolutionPreset.height
-            console.log('Using preset dimensions:', finalExportWidth, 'x', finalExportHeight)
-          }
-
-          // Store original dimensions before rounding (for logging)
-          const originalWidth = finalExportWidth
-          const originalHeight = finalExportHeight
-
-          // Force even dimensions for video export (required for libx264)
-          // This only adjusts by 1 pixel if needed, preserving the aspect ratio
-          finalExportWidth = Math.round(finalExportWidth) + (Math.round(finalExportWidth) % 2)
-          finalExportHeight = Math.round(finalExportHeight) + (Math.round(finalExportHeight) % 2)
-
-          console.log('📊 Final Export Resolution:', finalExportWidth, 'x', finalExportHeight)
-          if (finalExportWidth !== originalWidth || finalExportHeight !== originalHeight) {
-            console.log('⚠️ Dimensions adjusted for codec (even numbers):', {
-              original: `${originalWidth}x${originalHeight}`,
-              final: `${finalExportWidth}x${finalExportHeight}`,
-              aspectRatioChange: Math.abs((originalWidth / originalHeight) - (finalExportWidth / finalExportHeight)) < 0.001 ? 'preserved' : 'changed'
-            })
-          }
-
-          // Create export options with final dimensions
-          const exportOptions: VideoExportOptions = {
-            format: format as 'mp4' | 'webm' | 'gif',
-            fps: format === 'gif' ? 10 : videoFPS,
-            quality: qualityConfig.bitrate / 50, // Normalize to 0-1 range
-            duration: videoDuration,
-            width: finalExportWidth,
-            height: finalExportHeight,
-            bitrate: exportBitrate,
-            onProgress: (progress) => setExportProgress(progress),
-          }
-
-          // Define the logical design rect for normalization and background capture
-          // IMPORTANT: Use finalExportWidth/Height to match the export dimensions exactly
-          // If we found a clipObject, use its position (it might be offset/centered)
-          // If not, assume 0,0 (top-left) which is correct if no workarea object exists
-          let designLogicalRect = {
-            left: clipObject?.left || 0,
-            top: clipObject?.top || 0,
-            width: finalExportWidth, // Use the finalized export width (exact canvas dimensions)
-            height: finalExportHeight // Use the finalized export height (exact canvas dimensions)
-          }
-
-          console.log('📐 Design Logical Rect (Workarea) - EXACT EXPORT DIMENSIONS:', designLogicalRect)
-          console.log('🎯 Export will match canvas exactly:', {
-            exportWidth: finalExportWidth,
-            exportHeight: finalExportHeight,
-            canvasFrameWidth,
-            canvasFrameHeight,
-            frameSize,
-            matches: finalExportWidth === canvasFrameWidth && finalExportHeight === canvasFrameHeight
-          })
-
-          const videoClipsWithPositions = clips.map((clip) => {
-            // Find the canvas object for this video clip by matching ID
-            const canvasObj = fabricObjects.find((obj: any) => {
-              const metadata = obj.metadata || {}
-              return (
-                metadata.isVideo &&
-                (metadata.id === clip.id || obj.id === clip.id)
-              )
-            })
-
-            let position = { x: 0, y: 0 }
-            let size = { width: 100, height: 100 }
-
-            if (canvasObj) {
-              const left = canvasObj.left || 0
-              const top = canvasObj.top || 0
-              const width = (canvasObj.width || 100) * (canvasObj.scaleX || 1)
-              const height = (canvasObj.height || 100) * (canvasObj.scaleY || 1)
-
-              // Normalize coordinates relative to DESIGN RECT (Workarea)
-              // Subtract the Workarea offset (designLogicalRect.left/top)
-              const relativeLeft = (left - designLogicalRect.left)
-              const relativeTop = (top - designLogicalRect.top)
-
-              position = {
-                x: (relativeLeft / designLogicalRect.width) * 100,
-                y: (relativeTop / designLogicalRect.height) * 100,
-              }
-              size = {
-                width: (width / designLogicalRect.width) * 100,
-                height: (height / designLogicalRect.height) * 100,
-              }
-
-              console.log(`Video ${clip.id}: pos=(${position.x.toFixed(1)}%, ${position.y.toFixed(1)}%), size=(${size.width.toFixed(1)}%x${size.height.toFixed(1)}%)`)
-            } else {
-              console.warn(`Canvas object not found for video clip: ${clip.id}`)
+          if (obj) {
+            const w = (obj.width || 100) * (obj.scaleX || 1)
+            const h = (obj.height || 100) * (obj.scaleY || 1)
+            let l = obj.left || 0, t = obj.top || 0
+            if (obj.originX === 'center') l -= w / 2
+            if (obj.originY === 'center') t -= h / 2
+            position = {
+              x: Number(((l - designLeft) / designWidth * 100).toFixed(2)),
+              y: Number(((t - designTop) / designHeight * 100).toFixed(2))
             }
+            size = {
+              width: Number((w / designWidth * 100).toFixed(2)),
+              height: Number((h / designHeight * 100).toFixed(2))
+            }
+          }
+          return {
+            id: clip.id,
+            type: 'video' as const,
+            src: clip.src,
+            start: clip.start || 0,
+            duration: clip.duration || videoDuration,
+            position,
+            size,
+            videoCrop: obj?.metadata?.videoCrop
+          }
+        })
 
+        const canvasOverlays = await Promise.all(fabricObjects.map(async (obj: any) => {
+          const meta = obj.metadata || {}
+          if (obj === frameObject || meta.isVideo || meta.videoSrc) return null
+
+          const w = (obj.width || 100) * (obj.scaleX || 1), h = (obj.height || 100) * (obj.scaleY || 1)
+          let l = obj.left || 0, t = obj.top || 0
+          if (obj.originX === 'center') l -= w / 2
+          if (obj.originY === 'center') t -= h / 2
+
+          const pos = {
+            x: Number(((l - designLeft) / designWidth * 100).toFixed(2)),
+            y: Number(((t - designTop) / designHeight * 100).toFixed(2))
+          }
+          const sz = {
+            width: Number((w / designWidth * 100).toFixed(2)),
+            height: Number((h / designHeight * 100).toFixed(2))
+          }
+          const start = meta.timelineStart || 0, dur = meta.duration || videoDuration
+
+          if (obj.type?.toLowerCase().includes('image')) {
+            let src = obj.src || obj._element?.src || obj.getSrc?.() || ''
+            if (src.startsWith('blob:')) src = await toBase64(src)
+            return src ? { id: obj.id || Math.random().toString(), type: 'image' as const, src, start, duration: dur, position: pos, size: sz } : null
+          } else if (obj.type?.toLowerCase().includes('text')) {
             return {
-              id: clip.id,
-              type: 'video' as const,
-              src: clip.src,
-              start: clip.start || 0,
-              duration: clip.duration || videoDuration,
-              position,
-              size,
-            }
-          })
-
-
-
-          // Helper to convert blob/url to constant base64 for backend
-          const toBase64 = async (url: string): Promise<string> => {
-            try {
-              const response = await fetch(url)
-              const blob = await response.blob()
-              return new Promise((resolve, reject) => {
-                const reader = new FileReader()
-                reader.onloadend = () => resolve(reader.result as string)
-                reader.onerror = reject
-                reader.readAsDataURL(blob)
-              })
-            } catch (e) {
-              console.error('Failed to convert to base64:', url, e)
-              return url
+              id: obj.id || Math.random().toString(),
+              type: 'text' as const,
+              content: obj.text || '',
+              start,
+              duration: dur,
+              position: pos,
+              style: {
+                fontSize: Math.round((obj.fontSize || 24) * (obj.scaleX || 1)),
+                fontFamily: obj.fontFamily || 'Arial',
+                color: obj.fill || '#000000',
+                fontWeight: obj.fontWeight || 400,
+                textAlign: obj.textAlign || 'left',
+                opacity: obj.opacity ?? 1
+              }
             }
           }
+          return null
+        }))
+        const overlays = canvasOverlays.filter(Boolean)
 
-          const canvasObjectsProms = fabricObjects.map(async (obj: any) => {
-            // Skip clip/background objects
-            if (obj.name === 'clip' || obj.id === 'clip') return null
+        // 3. CAPTURE BACKGROUND PNG
+        let backgroundImage: string | undefined
+        const objectsToHide: any[] = []
 
-            // Skip video poster images (objects with isVideo or videoSrc in metadata)
-            const metadata = obj.metadata || {}
-            if (metadata.isVideo || metadata.videoSrc) return null
+        const originalRenderTopLayer = canvas.renderTopLayer
+        // @ts-ignore
+        const guidelinesHandler = editor.handlers?.guidelines || canvas.guidelines
+        const originalGuidelinesEnabled = guidelinesHandler?.enabled
+        const originalVpt = [...(canvas.viewportTransform || [1, 0, 0, 1, 0, 0])]
+        const originalZoom = canvas.getZoom()
 
-            const objType = obj.type?.toLowerCase() || ''
+        try {
+          canvas.selection = false
+          canvas.discardActiveObject()
+          if (guidelinesHandler) guidelinesHandler.enabled = false
 
-            // For Fabric objects, use LOGICAL coordinates relative to the clip
-            const relativeLeft = (obj.left || 0) - designLogicalRect.left
-            const relativeTop = (obj.top || 0) - designLogicalRect.top
-            const objWidth = (obj.width || 100) * (obj.scaleX || 1)
-            const objHeight = (obj.height || 100) * (obj.scaleY || 1)
+          // Defensive instance patch for null context crash
+          canvas.renderTopLayer = function (ctx: CanvasRenderingContext2D) {
+            if (!ctx || !this.contextTop) return this
+            return originalRenderTopLayer.call(this, ctx)
+          }
 
-            // Convert to percentage of design frame
-            const position = {
-              x: (relativeLeft / designLogicalRect.width) * 100,
-              y: (relativeTop / designLogicalRect.height) * 100,
+          fabricObjects.forEach((obj: any) => {
+            if (obj.metadata?.isVideo || obj.metadata?.videoSrc || overlays.find((ov: any) => ov.id === obj.id)) {
+              objectsToHide.push({ obj, visible: obj.visible })
+              obj.set('visible', false)
             }
-            const size = {
-              width: (objWidth / designLogicalRect.width) * 100,
-              height: (objHeight / designLogicalRect.height) * 100,
-            }
-
-            // Get timeline properties if available
-            // Check metadata first (where custom properties often live in Fabric)
-            // Note: 'metadata' is already defined in earlier scope logic
-
-            // Format: timelineStart in seconds
-            const timelineStart =
-              (typeof metadata.timelineStart === 'number') ? metadata.timelineStart :
-                (typeof obj.timelineStart === 'number') ? obj.timelineStart : 0
-
-            // Format: duration in seconds
-            const timelineDuration =
-              (typeof metadata.duration === 'number') ? metadata.duration :
-                (typeof obj.duration === 'number') ? obj.duration : videoDuration
-
-            if (objType === 'image' || objType === 'staticimage') {
-              // Get image source
-              let src = obj.src || obj._element?.src || obj.getSrc?.() || ''
-
-              // If blob URL, convert to base64
-              if (src && src.startsWith('blob:')) {
-                src = await toBase64(src)
-              }
-
-              if (src) {
-                return {
-                  id: obj.id || `img_${Math.random().toString(36).substr(2, 9)}`,
-                  type: 'image' as const,
-                  src,
-                  start: timelineStart,
-                  duration: timelineDuration,
-                  position,
-                  size,
-                }
-              }
-            } else if (objType === 'textbox' || objType === 'i-text' || objType === 'text' || objType === 'statictext') {
-              return {
-                id: obj.id || `text_${Math.random().toString(36).substr(2, 9)}`,
-                type: 'text' as const,
-                content: obj.text || '',
-                start: timelineStart,
-                duration: timelineDuration,
-                position,
-                style: {
-                  fontSize: Math.round((obj.fontSize || 24) * (obj.scaleX || 1)),
-                  fontFamily: obj.fontFamily || 'Arial',
-                  color: obj.fill || '#000000',
-                },
-              }
-            }
-            return null
           })
-
-          const canvasObjects = (await Promise.all(canvasObjectsProms)).filter(Boolean)
-
-          console.log('Canvas objects found:', canvasObjects.length)
-          console.log('Video clips found:', videoClipsWithPositions.length)
-
-
-          // PHASE 1: Export canvas as background image
-          let backgroundImage: string | undefined
+          // TEMPORARILY RESET VIEWPORT FOR CAPTURE
+          canvas.setViewportTransform([1, 0, 0, 1, 0, 0])
+          canvas.setZoom(1)
 
           try {
-            // Get fabric.js canvas
-            // @ts-ignore
-            const allObjects = canvas?.getObjects?.() || []
-
-            // Store visibility of ALL overlay objects (Videos + Extracted Canvas Objects)
-            const objectsToHide: any[] = []
-
-            allObjects.forEach((obj: any) => {
-              // Check if this object is a video
-              const metadata = obj.metadata || {}
-              const isVideo = metadata.isVideo || metadata.videoSrc
-
-              // Check if this object was extracted as an overlay (Image or Text)
-              // Simple check by ID match in canvasObjects
-              const isOverlay = canvasObjects.find((co: any) => co.id === obj.id)
-
-              if (isVideo || isOverlay) {
-                objectsToHide.push({ obj, visible: obj.visible, opacity: obj.opacity })
-                obj.set('visible', false)
-              }
-            })
-
-            // Re-render canvas with only background/shapes visible
-            canvas?.renderAll?.()
-
-            // EXPORT BACKGROUND
-            // Use Fabric's built-in cropping which handles coordinate translation (Zoom/Pan) correctly
-            // This isolates the Workarea (white paper) from the Viewport
-            if (canvas && typeof canvas.toDataURL === 'function') {
-              try {
-                backgroundImage = canvas.toDataURL({
-                  format: 'png',
-                  left: designLogicalRect.left,
-                  top: designLogicalRect.top,
-                  width: designLogicalRect.width,
-                  height: designLogicalRect.height,
-                  multiplier: 1
-                })
-                console.log('Background exported using Fabric crop:', backgroundImage.length)
-              } catch (e) {
-                console.warn('Fabric toDataURL failed', e)
-                // Fallback
-                // @ts-ignore
-                const fabricCanvas = canvas?.lowerCanvasEl || canvas?.getElement?.()
-                if (fabricCanvas) backgroundImage = fabricCanvas.toDataURL('image/png')
-              }
-            } else {
-              // Fallback
-              // @ts-ignore
-              const pngData = await editor?.toPNG?.({ multiplier: 1 })
-              if (pngData && typeof pngData === 'string') {
-                backgroundImage = pngData
-              }
-            }
-
-            // Restore visibility
-            objectsToHide.forEach(({ obj, visible, opacity }) => {
-              obj.set('visible', visible !== false)
-              obj.set('opacity', opacity ?? 1)
-            })
-            canvas?.renderAll?.()
-
-          } catch (err) {
-            console.error('Failed to export canvas background:', err)
+            canvas.renderAll()
+          } catch (e) {
+            console.warn('Pre-capture renderAll suppressed:', e)
           }
 
-          console.log('Background image ready:', !!backgroundImage, 'Export size:', finalExportWidth, 'x', finalExportHeight)
-
-          // Build timeline data for backend
-          // IMPORTANT: Use finalExportWidth/Height to ensure exact canvas dimensions
-          const timelineData = {
-            timeline: {
-              duration: videoDuration,
-              fps: videoFPS,
-              width: finalExportWidth,  // EXACT canvas width
-              height: finalExportHeight, // EXACT canvas height
-              backgroundColor: 'white',
-              backgroundImage, // Include canvas background
-            },
-            clips: [...videoClipsWithPositions, ...canvasObjects],
-          }
-
-          console.log('🎬 Timeline data for export:', {
-            width: timelineData.timeline.width,
-            height: timelineData.timeline.height,
-            aspectRatio: (timelineData.timeline.width / timelineData.timeline.height).toFixed(4),
-            canvasFrame: { width: canvasFrameWidth, height: canvasFrameHeight },
-            frameSize: frameSize,
-            matchesCanvas: timelineData.timeline.width === canvasFrameWidth && timelineData.timeline.height === canvasFrameHeight
+          backgroundImage = canvas.toDataURL({
+            format: 'png',
+            left: designLeft,
+            top: designTop,
+            width: designWidth,
+            height: designHeight,
+            multiplier: captureMultiplier
           })
-
-          setExportProgress(10)
-
-          // Call backend API
-          const VIDEO_PROCESSOR_URL = 'http://localhost:3001'
-
-          // First, check if server is reachable
+        } finally {
+          // RESTORE VIEWPORT
+          canvas.setViewportTransform(originalVpt)
+          canvas.setZoom(originalZoom)
+          canvas.renderTopLayer = originalRenderTopLayer
+          if (guidelinesHandler) guidelinesHandler.enabled = originalGuidelinesEnabled
+          objectsToHide.forEach(({ obj, visible }) => obj.set('visible', visible))
           try {
-            const healthCheck = await fetch(`${VIDEO_PROCESSOR_URL}/health`, {
-              method: 'GET',
-              signal: AbortSignal.timeout(5000), // 5 second timeout
-            })
-            if (!healthCheck.ok) {
-              throw new Error(`Server health check failed: ${healthCheck.status}`)
-            }
-          } catch (healthError) {
-            throw new Error(`Cannot connect to video-processor server at ${VIDEO_PROCESSOR_URL}. Make sure it's running on port 3001. Error: ${healthError instanceof Error ? healthError.message : 'Unknown error'}`)
+            canvas.renderAll()
+          } catch (e) {
+            console.warn('Post-export renderAll suppressed:', e)
           }
+        }
 
-          // Start render job
-          const startResponse = await fetch(`${VIDEO_PROCESSOR_URL}/api/render`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(timelineData),
-            signal: AbortSignal.timeout(30000), // 30 second timeout for render start
-          })
+        // 4. CALL BACKEND
+        const timelineData = {
+          timeline: { duration: videoDuration, fps: videoFPS, width: finalExportWidth, height: finalExportHeight, backgroundColor: 'white', backgroundImage },
+          clips: [...videoClipsWithPositions, ...overlays]
+        }
 
-          if (!startResponse.ok) {
-            throw new Error('Failed to start render job')
-          }
+        const VIDEO_PROCESSOR_URL = 'http://localhost:3001'
+        const startRes = await fetch(`${VIDEO_PROCESSOR_URL}/api/render`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(timelineData) })
+        if (!startRes.ok) throw new Error('Render failed to start')
 
-          const { id: jobId } = await startResponse.json()
-          console.log('Render job started:', jobId)
+        const { id: jobId } = await startRes.json()
+        let status = 'processing'
+        while (status === 'processing' || status === 'queued') {
+          await new Promise(r => setTimeout(r, 1000))
+          const stRes = await fetch(`${VIDEO_PROCESSOR_URL}/api/render/${jobId}/status`)
+          const stData = await stRes.json()
+          status = stData.status
+          setExportProgress(Math.max(15, Math.min(stData.progress || 15, 95)))
+          if (stData.error) throw new Error(stData.error)
+        }
 
-          setExportProgress(15)
-
-          // Poll for status
-          let status = 'processing'
-          while (status === 'processing' || status === 'queued') {
-            await new Promise(resolve => setTimeout(resolve, 1000))
-
-            const statusResponse = await fetch(`${VIDEO_PROCESSOR_URL}/api/render/${jobId}/status`)
-            const statusData = await statusResponse.json()
-
-            status = statusData.status
-            setExportProgress(Math.max(15, Math.min(statusData.progress || 15, 95)))
-
-            if (statusData.error) {
-              throw new Error(statusData.error)
-            }
-          }
-
-          if (status !== 'done') {
-            throw new Error('Render failed')
-          }
-
-          setExportProgress(95)
-
-          // Download the video
+        if (status === 'done') {
           const downloadUrl = `${VIDEO_PROCESSOR_URL}/api/render/${jobId}/download`
           const link = document.createElement('a')
           link.href = downloadUrl
           link.download = `${designName}.mp4`
-          document.body.appendChild(link)
           link.click()
-          document.body.removeChild(link)
-
           setExportProgress(100)
+        } else throw new Error('Export failed')
 
-          setTimeout(() => {
-            onClose()
-            setExportProgress(0)
-          }, 500)
-
-          setIsExporting(false)
-        } catch (error) {
-          console.error('Export error:', error)
-          let errorMessage = 'Unknown error'
-          if (error instanceof Error) {
-            errorMessage = error.message
-            // Check for specific fetch errors
-            if (errorMessage.includes('Failed to fetch') || errorMessage.includes('NetworkError')) {
-              errorMessage = `Cannot connect to video-processor server. Make sure it's running on port 3001 at http://localhost:3001`
-            }
-          }
-          alert(`Export failed: ${errorMessage}. Make sure the video-processor server is running on port 3001.`)
-          setIsExporting(false)
-        }
-        return
-      }
-
-      if (format === 'json') {
-        // Export as JSON
-        const exportedTemplate = editor.exportToJSON()
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportedTemplate, null, 2))
-        downloadFile(dataStr, `${designName}.json`)
-      } else if (format === 'svg') {
-        // Export as SVG - use PNG as fallback since SVG export may not be available
-        try {
-          // @ts-ignore
-          const image = await editor.toPNG({})
-          downloadFile(image, `${designName}.png`)
-        } catch {
-          const exportedTemplate = editor.exportToJSON()
-          const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportedTemplate, null, 2))
-          downloadFile(dataStr, `${designName}.json`)
-        }
-      } else if (format === 'pdf') {
-        // Export as PNG for PDF (would need jsPDF for proper PDF)
-        // @ts-ignore
-        const image = await editor.toPNG({})
-        downloadFile(image, `${designName}.png`)
       } else {
-        // Export as image (PNG, JPG, WebP)
-        // The SDK primarily supports PNG export
+        // STATIC IMAGE EXPORT
         // @ts-ignore
-        const image = await editor.toPNG({})
-
+        const image = await editor.toPNG({ multiplier: parseInt(size) || 1 })
         if (format === 'png') {
           downloadFile(image, `${designName}.png`)
         } else {
-          // Convert PNG to other formats using canvas
           const img = new Image()
           img.onload = () => {
-            const canvas = document.createElement('canvas')
-            canvas.width = img.width
-            canvas.height = img.height
-            const ctx = canvas.getContext('2d')
-
+            const c = document.createElement('canvas')
+            c.width = img.width; c.height = img.height
+            const ctx = c.getContext('2d')
             if (ctx) {
-              // For JPG, fill with white background first
-              if (format === 'jpg') {
-                ctx.fillStyle = '#ffffff'
-                ctx.fillRect(0, 0, canvas.width, canvas.height)
-              }
-
+              if (format === 'jpg') { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, c.width, c.height) }
               ctx.drawImage(img, 0, 0)
-
-              const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`
-              const dataURL = canvas.toDataURL(mimeType, quality / 100)
-              downloadFile(dataURL, `${designName}.${format}`)
+              downloadFile(c.toDataURL(`image/${format === 'jpg' ? 'jpeg' : format}`, quality / 100), `${designName}.${format}`)
             }
           }
           img.src = image
         }
       }
 
-      setTimeout(() => {
-        onClose()
-      }, 500)
+      setTimeout(() => { onClose(); setExportProgress(0) }, 500)
     } catch (error) {
-      console.error('Export failed:', error)
-      alert('Export failed. Please try again.')
+      console.error('Export error:', error)
+      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsExporting(false)
     }

@@ -33,8 +33,8 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
             const frameTop = clipPath?.top || -286.5
 
             // Calculate centered position
-            const objWidth = objectOptions.width || 200
-            const objHeight = objectOptions.height || 200
+            const objWidth = (objectOptions.width || 200) * (objectOptions.scaleX || 1)
+            const objHeight = (objectOptions.height || 200) * (objectOptions.scaleY || 1)
             const centerLeft = frameLeft + (frameWidth - objWidth) / 2
             const centerTop = frameTop + (frameHeight - objHeight) / 2
 
@@ -43,20 +43,53 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
             // Handle text types
             if (type === 'StaticText' || type === 'DynamicText' || type === 'textbox' || type === 'text') {
                 const text = objectOptions.metadata?.text || objectOptions.text || 'Sample Text'
+                const fontSize = objectOptions.metadata?.fontSize || objectOptions.fontSize || 32
+                const fontWeight = objectOptions.metadata?.fontWeight || objectOptions.fontWeight || 400
+                const fontFamily = objectOptions.metadata?.fontFamily || objectOptions.fontFamily || 'Arial'
+                const fill = objectOptions.metadata?.fill || objectOptions.fill || '#333333'
+
+                // Use standard Textbox for reliability
                 fabricObject = new fabric.Textbox(text, {
                     left: objectOptions.left ?? centerLeft,
                     top: objectOptions.top ?? centerTop,
                     width: objectOptions.width || 320,
-                    fontSize: objectOptions.metadata?.fontSize || objectOptions.fontSize || 32,
-                    fontFamily: objectOptions.metadata?.fontFamily || objectOptions.fontFamily || 'Arial',
-                    fontWeight: objectOptions.metadata?.fontWeight || objectOptions.fontWeight || 400,
-                    fill: objectOptions.metadata?.fill || objectOptions.fill || '#000000',
+                    fontSize: fontSize,
+                    fontFamily: fontFamily,
+                    fontWeight: fontWeight,
+                    fill: fill,
                     textAlign: objectOptions.metadata?.textAlign || objectOptions.textAlign || 'center',
+                    originX: 'left',
+                    originY: 'top',
                     selectable: true,
                     hasControls: true,
                     editable: true,
                     opacity: objectOptions.opacity ?? 1,
+                    // @ts-ignore - Important for Scenify SDK
+                    metadata: {
+                        ...(objectOptions.metadata || {}),
+                        text: text,
+                        fontSize: fontSize,
+                        fontFamily: fontFamily,
+                        fontWeight: fontWeight,
+                        fill: fill,
+                        type: 'StaticText' // Tell SDK it's a StaticText
+                    }
                 })
+
+                if (fabricObject) {
+                    fabricObject.setCoords()
+                    targetCanvas.add(fabricObject)
+                    targetCanvas.setActiveObject(fabricObject)
+                    targetCanvas.bringToFront(fabricObject)
+
+                    // Force render multiple times to ensure visibility
+                    targetCanvas.requestRenderAll()
+                    setTimeout(() => targetCanvas.requestRenderAll(), 50)
+                    setTimeout(() => targetCanvas.requestRenderAll(), 200)
+
+                    console.log('✅ Text added and brought to front')
+                    return true
+                }
             }
             // Handle rectangle/shape
             else if (type === 'StaticRect' || type === 'rect' || type === 'Rect') {
@@ -143,9 +176,53 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                     return true
                 }
             }
+            // Handle Images robustly
+            else if (type === 'StaticImage' || type === 'image') {
+                const src = objectOptions.metadata?.src || objectOptions.src
+                if (src) {
+                    const img = new Image()
+                    img.crossOrigin = 'anonymous'
+                    img.onload = () => {
+                        const fabricImage = new fabric.Image(img, {
+                            left: objectOptions.left ?? centerLeft,
+                            top: objectOptions.top ?? centerTop,
+                            scaleX: objectOptions.scaleX || 1,
+                            scaleY: objectOptions.scaleY || 1,
+                            opacity: objectOptions.opacity ?? 1,
+                            selectable: true,
+                            hasControls: true,
+                            hasBorders: true,
+                            // @ts-ignore
+                            metadata: objectOptions.metadata || {}
+                        })
+
+                        // If it's a video, ensure we mark it as such in metadata
+                        if (objectOptions.metadata?.videoSrc) {
+                            fabricImage.set('isVideo', true)
+                        }
+
+                        targetCanvas.add(fabricImage)
+                        targetCanvas.setActiveObject(fabricImage)
+                        targetCanvas.requestRenderAll()
+                        console.log('✅ Image added via FabricJS directly')
+                    }
+                    img.onerror = (err) => {
+                        console.error('Failed to load image in addObjectToCanvas:', err)
+                        // Fallback to editor.add if direct fabric fails
+                        editor.add(objectOptions)
+                    }
+                    img.src = src
+                    return true
+                }
+            }
 
             // If we created a fabric object, add it to canvas
             if (fabricObject) {
+                // Set coordinates for correct hit testing and rendering
+                if (typeof fabricObject.setCoords === 'function') {
+                    fabricObject.setCoords()
+                }
+
                 targetCanvas.add(fabricObject)
                 targetCanvas.setActiveObject(fabricObject)
                 targetCanvas.requestRenderAll()

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { Select } from 'baseui/select'
 import { styled } from 'baseui'
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
+import { addObjectToCanvas } from '@/utils/editorHelpers'
 
 const Container = styled('div', {
   display: 'flex',
@@ -219,6 +220,7 @@ function AiStudio() {
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const editor = useEditor()
+  const { canvas } = useEditorContext() as any
 
   const handleGenerate = async () => {
     if (!description.trim()) {
@@ -266,13 +268,12 @@ function AiStudio() {
 
   const handleSave = () => {
     if (generatedImage) {
-      const options = {
+      addObjectToCanvas(editor, {
         type: 'StaticImage',
         metadata: {
           src: generatedImage,
         },
-      }
-      editor.add(options)
+      }, 400, canvas)
       setGeneratedImage(null)
       setDescription('')
     }

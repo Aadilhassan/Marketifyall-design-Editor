@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { Scrollbars } from 'react-custom-scrollbars'
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import DropZone from '@components/Dropzone'
+import { addObjectToCanvas } from '@/utils/editorHelpers'
 
 import { uniqueFilename } from '@/utils/unique'
 import { useSelector } from 'react-redux'
@@ -15,6 +16,7 @@ function Uploads() {
   const uploads = useSelector(selectUploads)
   const uploading = useSelector(selectUploading)
   const editor = useEditor()
+  const { canvas } = useEditorContext() as any
   const dispatch = useAppDispatch()
   const handleDropFiles = (files: FileList) => {
     const file = files[0]
@@ -55,11 +57,10 @@ function Uploads() {
   }
 
   const addImageToCanvas = url => {
-    const options = {
+    addObjectToCanvas(editor, {
       type: 'StaticImage',
       metadata: { src: url },
-    }
-    editor.add(options)
+    }, 400, canvas)
   }
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {

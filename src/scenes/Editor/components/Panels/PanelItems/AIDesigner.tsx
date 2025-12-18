@@ -1,16 +1,17 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { styled } from 'baseui'
-import { useEditor } from '@nkyo/scenify-sdk'
-import { 
-  sendDesignRequest, 
-  improvePrompt, 
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
+import {
+  sendDesignRequest,
+  improvePrompt,
   AVAILABLE_MODELS,
-  ChatMessage, 
+  ChatMessage,
   DesignAction,
 } from '@/services/openrouter'
 import { searchPexelsImages } from '@/services/pexels'
 import { getIconsByCategory, svgToBase64 } from '@/utils/lucideIconsManager'
+import { addObjectToCanvas } from '@/utils/editorHelpers'
 
 // Styled Components
 const Container = styled('div', {
@@ -315,10 +316,11 @@ function AIDesigner() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id)
   const [isImproving, setIsImproving] = useState(false)
-  
+
   const scrollRef = useRef<Scrollbars>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const editor = useEditor()
+  const { canvas } = useEditorContext() as any
 
   // Canvas bounds helper to keep objects inside the frame
   const getCanvasBounds = useCallback(() => {
@@ -349,21 +351,21 @@ function AIDesigner() {
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'
   }, [])
 
-  // Helper to add to canvas - simple and direct
+  // Helper to add to canvas - using robust helper
   const addToCanvas = useCallback(async (config: any): Promise<void> => {
     try {
-      editor.add(config)
+      addObjectToCanvas(editor, config, config.width, canvas)
       // Small delay to let canvas process
       await new Promise(resolve => setTimeout(resolve, 100))
     } catch (e) {
       console.error('Canvas add error:', e)
     }
-  }, [editor])
+  }, [editor, canvas])
 
   // Helper to generate shape SVG
   const generateShapeSvg = useCallback((shape: string, width: number, height: number, fill: string, stroke?: string) => {
     const strokeAttr = stroke ? `stroke="${stroke}" stroke-width="2"` : ''
-    
+
     if (shape === 'rectangle') {
       return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
         <rect x="0" y="0" width="${width}" height="${height}" fill="${fill}" ${strokeAttr}/>
@@ -375,7 +377,7 @@ function AIDesigner() {
       </svg>`
     } else if (shape === 'triangle') {
       return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-        <polygon points="${width/2},0 ${width},${height} 0,${height}" fill="${fill}" ${strokeAttr}/>
+        <polygon points="${width / 2},0 ${width},${height} 0,${height}" fill="${fill}" ${strokeAttr}/>
       </svg>`
     }
     // Default rectangle
@@ -396,7 +398,7 @@ function AIDesigner() {
         case 'addText': {
           const { text, fontFamily, fontSize, fill, fontWeight } = action.params
           const font = fontFamily || 'Open Sans'
-          
+
           // Load font if specified
           if (font) {
             const formattedName = font.replace(/ /g, '+')
@@ -455,11 +457,11 @@ function AIDesigner() {
           const shapeWidth = Math.min(width || 150, canvasW * 0.5)
           const shapeHeight = Math.min(height || 150, canvasH * 0.5)
           const shapeFill = fill || '#5A3FFF'
-          
+
           // Generate SVG and convert to data URL (same approach as Elements panel)
           const svg = generateShapeSvg(shape || 'rectangle', shapeWidth, shapeHeight, shapeFill, stroke)
           const imageUrl = svgToBase64(svg)
-          
+
           await addToCanvas({
             type: 'StaticImage',
             metadata: {
@@ -474,11 +476,11 @@ function AIDesigner() {
           const { iconName, category, color } = action.params
           try {
             const icons = await getIconsByCategory(category || 'shapes')
-            const icon = icons.find(i => 
-              i.id === iconName || 
+            const icon = icons.find(i =>
+              i.id === iconName ||
               i.name.toLowerCase().includes((iconName || '').toLowerCase())
             )
-            
+
             if (icon) {
               let svg = icon.svg
               if (color) {
@@ -487,7 +489,7 @@ function AIDesigner() {
               const imageUrl = svgToBase64(svg)
               await addToCanvas({
                 type: 'StaticImage',
-                metadata: { 
+                metadata: {
                   src: imageUrl,
                   name: icon.name,
                 },
@@ -534,14 +536,14 @@ function AIDesigner() {
   // Execute all design actions - runs outside of React render cycle
   const executeActions = useCallback(async (actions: DesignAction[], messageId: string) => {
     if (!editor || !actions || actions.length === 0) return
-    
+
     const statuses: Record<number, 'pending' | 'running' | 'done' | 'error'> = {}
-    
+
     // Initialize all as pending
     actions.forEach((_, i) => { statuses[i] = 'pending' })
-    
+
     // Update message with initial statuses
-    setMessages(prev => prev.map(msg => 
+    setMessages(prev => prev.map(msg =>
       msg.id === messageId ? { ...msg, actionStatuses: { ...statuses } } : msg
     ))
 
@@ -549,22 +551,22 @@ function AIDesigner() {
     for (let i = 0; i < actions.length; i++) {
       // Update to running
       statuses[i] = 'running'
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg.id === messageId ? { ...msg, actionStatuses: { ...statuses } } : msg
       ))
-      
+
       // Small delay to let React breathe
       await new Promise(resolve => setTimeout(resolve, 50))
-      
+
       // Execute the action
       const success = await executeSingleAction(actions[i])
       statuses[i] = success ? 'done' : 'error'
-      
+
       // Update status after execution
-      setMessages(prev => prev.map(msg => 
+      setMessages(prev => prev.map(msg =>
         msg.id === messageId ? { ...msg, actionStatuses: { ...statuses } } : msg
       ))
-      
+
       // Delay between actions to prevent canvas overload
       await new Promise(resolve => setTimeout(resolve, 200))
     }
@@ -599,7 +601,7 @@ function AIDesigner() {
       // Add timeout to API call
       const response = await Promise.race([
         sendDesignRequest(chatHistory, selectedModel),
-        new Promise<never>((_, reject) => 
+        new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error('Request timed out. Please try again.')), 60000)
         )
       ])
@@ -725,15 +727,15 @@ function AIDesigner() {
                   <MessageBubble $isUser={msg.role === 'user'}>
                     {msg.content}
                   </MessageBubble>
-                  
+
                   {msg.actions && msg.actions.length > 0 && (
                     <ActionsList>
                       {msg.actions.map((action, i) => (
                         <ActionItem key={i} $status={msg.actionStatuses?.[i] || 'pending'}>
                           <ActionIcon $status={msg.actionStatuses?.[i] || 'pending'}>
-                            {msg.actionStatuses?.[i] === 'done' ? '✓' : 
-                             msg.actionStatuses?.[i] === 'error' ? '✕' :
-                             msg.actionStatuses?.[i] === 'running' ? '⟳' : '○'}
+                            {msg.actionStatuses?.[i] === 'done' ? '✓' :
+                              msg.actionStatuses?.[i] === 'error' ? '✕' :
+                                msg.actionStatuses?.[i] === 'running' ? '⟳' : '○'}
                           </ActionIcon>
                           {action.description}
                         </ActionItem>
@@ -753,7 +755,7 @@ function AIDesigner() {
                 </div>
               ))
             )}
-            
+
             {isLoading && (
               <MessageBubble $isUser={false}>
                 <LoadingDots>

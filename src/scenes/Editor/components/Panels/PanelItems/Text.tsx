@@ -289,123 +289,45 @@ function Panel() {
   }, [searchedFonts, ensureFontAvailable])
 
   const handleAddText = (preset: TextPreset) => {
-    if (!editor) {
-      console.error('Editor not available')
+    if (!editor || !canvas) {
+      console.error('Editor or Canvas not available')
       return
     }
 
-    if (!canvas) {
-      console.error('Canvas not available')
-      return
-    }
-
-    // @ts-ignore
-    const fabric = window.fabric
-
-    if (!fabric || !fabric.Textbox) {
-      console.error('FabricJS not available')
-      // Fallback
-      addObjectToCanvas(editor, {
-        type: preset.type,
-        width: 320,
-        metadata: {
-          text: preset.preview || 'Sample Text',
-          fontSize: preset.fontSize,
-          fontWeight: preset.fontWeight,
-          fontFamily: preset.fontFamily,
-          textAlign: 'center',
-          fill: '#000000',
-        },
-      }, 320, canvas)
-      return
-    }
-
-    try {
-      // Get frame dimensions for positioning
-      const clipPath = canvas.clipPath
-      const frameWidth = clipPath?.width || 900
-      const frameHeight = clipPath?.height || 1200
-      const frameLeft = clipPath?.left || 175.5
-      const frameTop = clipPath?.top || -286.5
-
-      const textWidth = 320
-      const left = frameLeft + (frameWidth - textWidth) / 2
-      const top = frameTop + frameHeight / 2 - 50
-
-      // Create fabric.Textbox directly
-      const textbox = new fabric.Textbox(preset.preview || 'Sample Text', {
-        left,
-        top,
-        width: textWidth,
-        fontSize: preset.fontSize || 32,
-        fontFamily: preset.fontFamily || 'Arial',
-        fontWeight: preset.fontWeight || 400,
-        fill: '#000000',
+    addObjectToCanvas(editor, {
+      type: preset.type,
+      width: 320,
+      metadata: {
+        text: preset.preview || 'Sample Text',
+        fontSize: preset.fontSize,
+        fontWeight: preset.fontWeight,
+        fontFamily: preset.fontFamily,
+        fontURL: preset.fontURL,
         textAlign: 'center',
-        selectable: true,
-        hasControls: true,
-        editable: true,
-      })
-
-      canvas.add(textbox)
-      canvas.setActiveObject(textbox)
-      canvas.requestRenderAll()
-
-      console.log('✅ Text added successfully via FabricJS!')
-    } catch (error) {
-      console.error('Error adding text:', error)
-    }
+        fill: '#000000',
+      },
+    }, 320, canvas)
   }
 
   const handleAddGoogleFont = useCallback(
     async (font: GoogleFontOption) => {
       if (!editor || !canvas) return
 
-      const fontUrl = await ensureFontAvailable(font)
+      await ensureFontAvailable(font)
 
-      // @ts-ignore
-      const fabric = window.fabric
-
-      if (!fabric || !fabric.Textbox) {
-        console.error('FabricJS not available')
-        return
-      }
-
-      try {
-        // Get frame dimensions for positioning
-        const clipPath = canvas.clipPath
-        const frameWidth = clipPath?.width || 900
-        const frameHeight = clipPath?.height || 1200
-        const frameLeft = clipPath?.left || 175.5
-        const frameTop = clipPath?.top || -286.5
-
-        const textWidth = 320
-        const left = frameLeft + (frameWidth - textWidth) / 2
-        const top = frameTop + frameHeight / 2 - 50
-
-        // Create fabric.Textbox with Google Font
-        const textbox = new fabric.Textbox(font.preview, {
-          left,
-          top,
-          width: textWidth,
-          fontSize: font.fontSize || 32,
-          fontFamily: font.fontFamily || 'Arial',
-          fontWeight: font.fontWeight || 400,
-          fill: '#000000',
+      addObjectToCanvas(editor, {
+        type: 'StaticText',
+        width: 320,
+        metadata: {
+          text: font.preview,
+          fontSize: font.fontSize,
+          fontWeight: font.fontWeight,
+          fontFamily: font.fontFamily,
+          fontURL: fontSources[font.id],
           textAlign: 'center',
-          selectable: true,
-          hasControls: true,
-          editable: true,
-        })
-
-        canvas.add(textbox)
-        canvas.setActiveObject(textbox)
-        canvas.requestRenderAll()
-
-        console.log('✅ Google Font text added successfully via FabricJS!')
-      } catch (error) {
-        console.error('Error adding Google Font text:', error)
-      }
+          fill: '#000000',
+        },
+      }, 320, canvas)
     },
     [editor, canvas, ensureFontAvailable],
   )

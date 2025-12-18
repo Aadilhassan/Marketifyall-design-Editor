@@ -10,7 +10,7 @@ import fs from 'fs'
 import renderRouter from './routes/render'
 
 const app = express()
-const PORT = process.env.PORT || 3001
+const PORT = Number(process.env.PORT) || 3001
 
 // Ensure temp directory exists
 const tempDir = path.join(__dirname, '../temp')

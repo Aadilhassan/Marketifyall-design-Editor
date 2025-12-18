@@ -2,8 +2,9 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { Input } from 'baseui/input'
 import Icons from '@components/icons'
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { searchPexelsImages, getCuratedImages, isApiKeyConfigured, PexelsImage } from '@/services/pexels'
+import { addObjectToCanvas } from '@/utils/editorHelpers'
 import { useDebounce } from 'use-debounce'
 import { styled } from 'baseui'
 
@@ -155,8 +156,9 @@ function Pexels() {
   const [addingImage, setAddingImage] = useState<number | null>(null)
   const [debouncedSearch] = useDebounce(search, 500)
   const [apiKeyMissing] = useState(!isApiKeyConfigured())
-  
+
   const editor = useEditor()
+  const { frameSize, canvas } = useEditorContext() as any
   const scrollRef = useRef<Scrollbars>(null)
 
   // Load images for category
@@ -183,7 +185,7 @@ function Pexels() {
   // Load initial images
   useEffect(() => {
     if (apiKeyMissing) return
-    
+
     const category = CATEGORIES.find(c => c.id === activeCategory)
     if (category) {
       const isCurated = category.id === 'curated'
@@ -194,7 +196,7 @@ function Pexels() {
   // Search effect
   useEffect(() => {
     if (apiKeyMissing) return
-    
+
     if (debouncedSearch.trim()) {
       loadImages(debouncedSearch, `search-${debouncedSearch}`)
     } else {
@@ -214,23 +216,60 @@ function Pexels() {
   }, [])
 
   const addImageToCanvas = useCallback(async (image: PexelsImage) => {
-    if (addingImage) return
+    if (addingImage || !editor) return
     setAddingImage(image.id)
-    
+
     try {
-      editor.add({
+      const imageUrl = image.src.large2x || image.src.large
+      const imgWidth = image.width
+      const imgHeight = image.height
+
+      // Get frame dimensions from context or fallback to default
+      const frameWidth = frameSize?.width || 900
+      const frameHeight = frameSize?.height || 1200
+
+      // Calculate scale to fit within canvas (max 60% of frame width/height)
+      const maxWidth = frameWidth * 0.7
+      const maxHeight = frameHeight * 0.7
+
+      let scaleX = 1
+      let scaleY = 1
+
+      if (imgWidth > maxWidth || imgHeight > maxHeight) {
+        const widthRatio = maxWidth / imgWidth
+        const heightRatio = maxHeight / imgHeight
+        scaleX = scaleY = Math.min(widthRatio, heightRatio)
+      }
+
+      console.log('Adding Pexels image:', { imageUrl, scaleX })
+
+      // Use the helper to add the object
+      addObjectToCanvas(editor, {
         type: 'StaticImage',
-        metadata: { 
-          src: image.src.large,
+        metadata: {
+          src: imageUrl,
           photographer: image.photographer,
+          photographer_url: image.photographer_url,
         },
-      })
+        width: imgWidth,
+        height: imgHeight,
+        scaleX,
+        scaleY,
+      }, imgWidth, canvas)
+
+      // Fallback for canvas update
+      setTimeout(() => {
+        if (canvas && canvas.requestRenderAll) {
+          canvas.requestRenderAll()
+        }
+      }, 500)
+
     } catch (error) {
       console.error('Failed to add image:', error)
     } finally {
       setAddingImage(null)
     }
-  }, [editor, addingImage])
+  }, [editor, addingImage, frameSize, canvas])
 
   return (
     <Container>
@@ -308,7 +347,7 @@ function Pexels() {
           )}
         </Scrollbars>
       </div>
-      
+
       <PexelsBadge>
         Photos provided by
         <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" style={{ color: '#05A081', fontWeight: 600 }}>

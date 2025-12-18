@@ -78,108 +78,40 @@ function Images() {
 
     console.log('=== ADDING IMAGE TO CANVAS ===')
     console.log('Image URL:', imageUrl)
-    console.log('Canvas available:', !!canvas)
 
-    // Preload the image
+    // Preload to get dimensions for better scaling
     const img = new Image()
     img.crossOrigin = 'anonymous'
-
     img.onload = () => {
-      try {
-        const imgWidth = img.naturalWidth || img.width || 400
-        const imgHeight = img.naturalHeight || img.height || 300
+      const imgWidth = img.naturalWidth || 400
+      const imgHeight = img.naturalHeight || 300
 
-        console.log('Image loaded with dimensions:', imgWidth, 'x', imgHeight)
+      // Get frame dimensions
+      const clipPath = canvas.clipPath
+      const frameWidth = clipPath?.width || 900
+      const frameHeight = clipPath?.height || 1200
 
-        // Get canvas frame dimensions from clipPath
-        // @ts-ignore
-        const clipPath = canvas.clipPath
-        const frameWidth = clipPath?.width || 900
-        const frameHeight = clipPath?.height || 1200
-        const frameLeft = clipPath?.left || 175.5
-        const frameTop = clipPath?.top || -286.5
+      // Calculate scale to fit
+      const maxWidth = frameWidth * 0.6
+      const maxHeight = frameHeight * 0.5
+      let scaleX = 1
+      let scaleY = 1
 
-        console.log('Frame dimensions:', { frameWidth, frameHeight, frameLeft, frameTop })
-
-        // Calculate scale to fit within canvas
-        const maxWidth = frameWidth * 0.6
-        const maxHeight = frameHeight * 0.5
-
-        let scaleX = 1
-        let scaleY = 1
-
-        if (imgWidth > maxWidth || imgHeight > maxHeight) {
-          const widthRatio = maxWidth / imgWidth
-          const heightRatio = maxHeight / imgHeight
-          scaleX = scaleY = Math.min(widthRatio, heightRatio)
-        }
-
-        // Calculate centered position within the frame
-        const scaledWidth = imgWidth * scaleX
-        const scaledHeight = imgHeight * scaleY
-        const left = frameLeft + (frameWidth - scaledWidth) / 2
-        const top = frameTop + (frameHeight - scaledHeight) / 2
-
-        console.log('Calculated position:', { left, top, scaleX, scaleY })
-
-        // Try to access fabric directly from window
-        // @ts-ignore
-        const fabric = window.fabric
-
-        if (fabric && fabric.Image) {
-          console.log('Using FabricJS to add image...')
-          // Create fabric.Image directly from the loaded HTMLImageElement
-          const fabricImage = new fabric.Image(img, {
-            left,
-            top,
-            scaleX,
-            scaleY,
-            opacity: 1,
-            selectable: true,
-            hasControls: true,
-            hasBorders: true,
-            crossOrigin: 'anonymous',
-          })
-
-          // Add directly to canvas using canvas.add (the actual FabricJS method)
-          // @ts-ignore
-          canvas.add(fabricImage)
-          // @ts-ignore
-          canvas.setActiveObject(fabricImage)
-          // @ts-ignore
-          canvas.requestRenderAll()
-
-          console.log('✅ Image added successfully via FabricJS!')
-        } else {
-          // Fallback: try Scenify SDK method
-          console.log('FabricJS not available on window, trying Scenify SDK...')
-          editor.add({
-            type: 'StaticImage',
-            metadata: { src: imageUrl },
-            width: imgWidth,
-            height: imgHeight,
-            left: (frameWidth - scaledWidth) / 2,
-            top: (frameHeight - scaledHeight) / 2,
-            scaleX,
-            scaleY,
-          })
-
-          setTimeout(() => {
-            // @ts-ignore
-            canvas.requestRenderAll?.()
-          }, 100)
-        }
-      } catch (error) {
-        console.error('Error adding image:', error)
-        alert('Failed to add image to canvas: ' + (error as Error).message)
+      if (imgWidth > maxWidth || imgHeight > maxHeight) {
+        const widthRatio = maxWidth / imgWidth
+        const heightRatio = maxHeight / imgHeight
+        scaleX = scaleY = Math.min(widthRatio, heightRatio)
       }
-    }
 
-    img.onerror = (error) => {
-      console.error('Failed to load image:', error)
-      alert('Failed to load image. Check if the URL is accessible.')
+      addObjectToCanvas(editor, {
+        type: 'StaticImage',
+        metadata: { src: imageUrl },
+        width: imgWidth,
+        height: imgHeight,
+        scaleX,
+        scaleY,
+      }, imgWidth, canvas)
     }
-
     img.src = imageUrl
   }, [editor, canvas])
 

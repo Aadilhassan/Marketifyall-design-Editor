@@ -138,12 +138,15 @@ export async function renderVideo(
                 const start = clip.start ?? 0
                 const duration = clip.duration ?? timeline.duration
 
-                // 1. Scale
+                // 1. Scale with aspect ratio preservation (COVER logic - fill and crop)
                 // 2. Trim so it doesn't play forever (important for images too)
                 // 3. Shift PTS (presentation timestamp) to start time
+                // 4. Ensure square pixels (setsar=1)
                 filters.push(
                     `[${idx}:v]` +
-                    `scale=${w}:${h},` +
+                    `scale=w=${w}:h=${h}:force_original_aspect_ratio=increase,` +
+                    `crop=${w}:${h},` +
+                    `setsar=1,` +
                     `trim=start=0:duration=${duration},` +
                     `setpts=PTS-STARTPTS+${start}/TB` +
                     `[clip_${i}]`
