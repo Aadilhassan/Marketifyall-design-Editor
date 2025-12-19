@@ -214,7 +214,7 @@ function StockVideos() {
         if (clips.length === 0) {
             return 0 // Start at beginning if no clips exist
         }
-        
+
         // Find the maximum end time of all existing video clips
         const maxEndTime = Math.max(...clips.map(clip => (clip.start || 0) + (clip.duration || 0)))
         return maxEndTime
@@ -403,10 +403,10 @@ function StockVideos() {
 
             // Calculate start time to place video sequentially after existing videos
             const startTime = getNextVideoStartTime()
-            
+
             // Ensure duration is valid (fallback to 10 seconds if invalid)
             const videoDuration = video.duration && video.duration > 0 ? video.duration : 10
-            
+
             // Prepare clip data for timeline
             const clipData = {
                 id: clipId,
@@ -417,13 +417,13 @@ function StockVideos() {
                 end: startTime + videoDuration,
                 poster: posterUrl || video.image, // Use extracted poster frame
             }
-            
+
             // Verify all required fields are present
             if (!clipData.id || !clipData.src || !clipData.duration || clipData.duration <= 0) {
                 console.error('Invalid clip data:', clipData)
                 throw new Error('Invalid clip data')
             }
-            
+
             // Add to Timeline
             addClip(clipData)
             setActiveClip(clipId)

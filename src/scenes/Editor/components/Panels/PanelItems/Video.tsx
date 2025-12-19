@@ -552,7 +552,7 @@ function Video() {
     if (clips.length === 0) {
       return 0 // Start at beginning if no clips exist
     }
-    
+
     // Find the maximum end time of all existing video clips
     const maxEndTime = Math.max(...clips.map(clip => (clip.start || 0) + (clip.duration || 0)))
     return maxEndTime
@@ -694,8 +694,8 @@ function Video() {
               hasBorders: false, // Hide borders
               hasCorners: false, // Hide corner handles
             }
-                        editor.add(videoObject)
-            
+            editor.add(videoObject)
+
             // Disable selection handles after adding (in case they weren't applied)
             setTimeout(() => {
               // @ts-ignore
@@ -713,7 +713,7 @@ function Video() {
 
             // Calculate start time to place video sequentially after existing videos
             const startTime = getNextVideoStartTime()
-            
+
             // Add to Timeline
             addClip({
               id: clipId,
@@ -872,8 +872,8 @@ function Video() {
         hasBorders: false, // Hide borders
         hasCorners: false, // Hide corner handles
       }
-            editor.add(templateVideoObject)
-      
+      editor.add(templateVideoObject)
+
       // Disable selection handles after adding (in case they weren't applied)
       setTimeout(() => {
         // @ts-ignore
@@ -891,7 +891,7 @@ function Video() {
 
       // Calculate start time to place video sequentially after existing videos
       const startTime = getNextVideoStartTime()
-      
+
       // Add to Timeline
       addClip({
         id: clipId,
@@ -923,7 +923,7 @@ function Video() {
     video.crossOrigin = 'anonymous'
     video.preload = 'metadata'
 
-      video.onloadedmetadata = async () => {
+    video.onloadedmetadata = async () => {
       const videoWidth = video.videoWidth || 1920
       const videoHeight = video.videoHeight || 1080
 
@@ -1004,7 +1004,7 @@ function Video() {
 
         // Calculate start time to place video sequentially after existing videos
         const startTime = getNextVideoStartTime()
-        
+
         // Add to Timeline
         addClip({
           id: clipId,
@@ -1041,7 +1041,7 @@ function Video() {
 
       // Calculate start time to place video sequentially after existing videos
       const startTime = getNextVideoStartTime()
-      
+
       addClip({
         id: clipId,
         name: videoFile?.name || 'Video clip',
@@ -1185,34 +1185,34 @@ function Video() {
         ctx.drawImage(video, 0, 0)
         const frameDataUrl = canvas.toDataURL('image/png')
 
-      // Get canvas frame dimensions from editor context
-      const frameWidth = frameSize?.width || 900
-      const frameHeight = frameSize?.height || 1200
+        // Get canvas frame dimensions from editor context
+        const frameWidth = frameSize?.width || 900
+        const frameHeight = frameSize?.height || 1200
 
-      let targetWidth = videoWidth
-      let targetHeight = videoHeight
-      let scaleX = 1
-      let scaleY = 1
+        let targetWidth = videoWidth
+        let targetHeight = videoHeight
+        let scaleX = 1
+        let scaleY = 1
 
-      // Scale down if video is too large for canvas
-      const maxWidth = frameWidth * 0.8
-      const maxHeight = frameHeight * 0.6
+        // Scale down if video is too large for canvas
+        const maxWidth = frameWidth * 0.8
+        const maxHeight = frameHeight * 0.6
 
-      if (targetWidth > maxWidth || targetHeight > maxHeight) {
-        const widthRatio = maxWidth / targetWidth
-        const heightRatio = maxHeight / targetHeight
-        const scaleRatio = Math.min(widthRatio, heightRatio)
+        if (targetWidth > maxWidth || targetHeight > maxHeight) {
+          const widthRatio = maxWidth / targetWidth
+          const heightRatio = maxHeight / targetHeight
+          const scaleRatio = Math.min(widthRatio, heightRatio)
 
-        scaleX = scaleRatio
-        scaleY = scaleRatio
-        targetWidth = videoWidth * scaleX
-        targetHeight = videoHeight * scaleY
-      }
+          scaleX = scaleRatio
+          scaleY = scaleRatio
+          targetWidth = videoWidth * scaleX
+          targetHeight = videoHeight * scaleY
+        }
 
-      // Center the video on canvas frame (same approach as Images.tsx)
-      // Frame coordinates start at (0,0), so we just center relative to frame dimensions
-      const left = (frameWidth - targetWidth) / 2
-      const top = (frameHeight - targetHeight) / 2
+        // Center the video on canvas frame (same approach as Images.tsx)
+        // Frame coordinates start at (0,0), so we just center relative to frame dimensions
+        const left = (frameWidth - targetWidth) / 2
+        const top = (frameHeight - targetHeight) / 2
 
         const clipId = `recording-${Date.now()}`
 
@@ -1321,7 +1321,7 @@ function Video() {
           />
 
           {/* Uploaded Video Preview */}
-          
+
 
           {/* Video Templates */}
           {/* <SectionTitle>Video Templates</SectionTitle>

@@ -144,36 +144,38 @@ const CloseButton = styled('button', {
 const TimelineBody = styled('div', {
   flex: 1,
   display: 'flex',
-  overflow: 'hidden',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  position: 'relative',
+  // Smooth scrolling
+  scrollBehavior: 'smooth',
+  '::-webkit-scrollbar': {
+    width: '8px',
+  },
+  '::-webkit-scrollbar-track': {
+    background: '#f9fafb',
+  },
+  '::-webkit-scrollbar-thumb': {
+    background: '#d1d5db',
+    borderRadius: '4px',
+  },
+  '::-webkit-scrollbar-thumb:hover': {
+    background: '#9ca3af',
+  },
 })
 
 const TrackLabelsPanel = styled('div', {
-  width: '90px',
+  width: '120px', // Slightly wider for better labels
   background: '#f9fafb',
   borderRight: '1px solid #e5e7eb',
   display: 'flex',
   flexDirection: 'column',
   flexShrink: 0,
-  // Prevent layout shifts
-  contain: 'layout style',
-  overflowY: 'auto',
-  overflowX: 'hidden',
-  // Smooth scrolling
-  scrollBehavior: 'smooth',
-  // Hide scrollbar but keep functionality
-  '::-webkit-scrollbar': {
-    width: '6px',
-  },
-  '::-webkit-scrollbar-track': {
-    background: 'transparent',
-  },
-  '::-webkit-scrollbar-thumb': {
-    background: '#d1d5db',
-    borderRadius: '3px',
-  },
-  '::-webkit-scrollbar-thumb:hover': {
-    background: '#9ca3af',
-  },
+  position: 'sticky',
+  left: 0,
+  zIndex: 20,
+  height: 'fit-content',
+  minHeight: '100%',
 })
 
 const TrackLabelHeader = styled('div', {
@@ -189,8 +191,10 @@ const TrackLabelHeader = styled('div', {
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   flexShrink: 0,
-  // Prevent layout shifts
-  contain: 'layout',
+  position: 'sticky',
+  top: 0,
+  background: '#f9fafb',
+  zIndex: 21,
 })
 
 const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
@@ -354,11 +358,11 @@ const EmptyTrackMessage = styled('div', {
 
 const TracksScrollContainer = styled('div', {
   flex: 1,
-  overflow: 'auto',
+  overflowX: 'auto',
+  overflowY: 'visible',
   position: 'relative',
-  // Prevent layout shifts
-  contain: 'layout style paint',
-  willChange: 'scroll-position',
+  background: '#ffffff',
+  minHeight: '100%',
 })
 
 const TimeRuler = styled('div', {
@@ -369,11 +373,9 @@ const TimeRuler = styled('div', {
   borderBottom: '1px solid #e5e7eb',
   position: 'sticky',
   top: 0,
-  zIndex: 5,
+  zIndex: 15, // Above clips (10) but below labels panel (20) if needed
   cursor: 'pointer',
   flexShrink: 0,
-  // Prevent layout shifts
-  contain: 'layout',
 })
 
 const TimeMarker = styled('div', ({ $left }: { $left: number }) => ({
@@ -732,8 +734,6 @@ const VideoTimeline: React.FC = () => {
   const audioInputRef = useRef<HTMLInputElement>(null)
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({})
   const [hoveredClipId, setHoveredClipId] = useState<string | null>(null)
-  const trackLabelsScrollRef = useRef<HTMLDivElement>(null)
-  const tracksScrollRef = useRef<HTMLDivElement>(null)
   // Local state for drag/resize preview (doesn't affect main tracks calculation)
   const [dragPreview, setDragPreview] = useState<Record<string, { start?: number; duration?: number }>>({})
   // Refs for timeline video elements (mini players in clips)
@@ -1096,33 +1096,6 @@ const VideoTimeline: React.FC = () => {
 
     return newTracks
   }, [canvas, clips, audioClips, totalDuration, canvasObjectVersion])
-
-  // Synchronize scrolling between track labels and tracks area
-  useEffect(() => {
-    const tracksScroll = tracksScrollRef.current
-    const labelsScroll = trackLabelsScrollRef.current
-
-    if (!tracksScroll || !labelsScroll) return
-
-    const handleScroll = (e: Event) => {
-      const target = e.target as HTMLElement
-      if (target === tracksScroll) {
-        // Sync labels panel scroll with tracks scroll
-        labelsScroll.scrollTop = tracksScroll.scrollTop
-      } else if (target === labelsScroll) {
-        // Sync tracks scroll with labels panel scroll
-        tracksScroll.scrollTop = labelsScroll.scrollTop
-      }
-    }
-
-    tracksScroll.addEventListener('scroll', handleScroll, { passive: true })
-    labelsScroll.addEventListener('scroll', handleScroll, { passive: true })
-
-    return () => {
-      tracksScroll.removeEventListener('scroll', handleScroll)
-      labelsScroll.removeEventListener('scroll', handleScroll)
-    }
-  }, [tracks.length])
 
   // Track which audio clips are ready to play
   const audioReadyRef = useRef<Record<string, boolean>>({})
@@ -2727,7 +2700,7 @@ const VideoTimeline: React.FC = () => {
       </TimelineHeader>
 
       <TimelineBody>
-        <TrackLabelsPanel ref={trackLabelsScrollRef}>
+        <TrackLabelsPanel>
           <TrackLabelHeader>Tracks</TrackLabelHeader>
           {tracks.map(track => (
             <TrackLabel key={track.id} $type={track.type}>
@@ -2762,7 +2735,7 @@ const VideoTimeline: React.FC = () => {
           />
         </TrackLabelsPanel>
 
-        <TracksScrollContainer ref={tracksScrollRef}>
+        <TracksScrollContainer>
           <TimeRuler
             ref={timelineRef}
             onClick={handleTimelineClick}
@@ -2892,7 +2865,7 @@ const VideoTimeline: React.FC = () => {
                       onMouseEnter={() => setHoveredClipId(clip.id)}
                       onMouseLeave={() => setHoveredClipId(null)}
                     >
-                      {/* Show video thumbnail/poster for video clips - with mini video player when playing */}
+                      {/* Show video thumbnail/poster for video clips - only static thumbnail as per request */}
                       {clip.type === 'video' && clip.poster ? (
                         <ClipThumbnail style={{
                           width: '100%',
@@ -2904,48 +2877,15 @@ const VideoTimeline: React.FC = () => {
                           overflow: 'hidden',
                           pointerEvents: 'none',
                         }}>
-                          {/* Show actual video when playing, poster when paused */}
-                          {isClipPlaying && clip.videoSrc ? (
-                            <video
-                              ref={(el) => {
-                                if (el) {
-                                  timelineVideoRefs.current[clip.id] = el
-                                  // Initial sync only - ongoing sync handled by requestAnimationFrame
-                                  if (isClipPlaying) {
-                                    const clipStart = clip.start || 0
-                                    const expectedTime = currentTime - clipStart
-                                    if (expectedTime >= 0 && expectedTime <= clip.duration) {
-                                      el.currentTime = expectedTime
-                                    }
-                                  }
-                                } else {
-                                  // Cleanup ref when element unmounts
-                                  delete timelineVideoRefs.current[clip.id]
-                                }
-                              }}
-                              src={clip.videoSrc}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                pointerEvents: 'none',
-                              }}
-                              muted
-                              playsInline
-                              autoPlay
-                              loop={false}
-                            />
-                          ) : (
-                            <img
-                              src={clip.poster}
-                              alt={clip.name}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                              }}
-                            />
-                          )}
+                          <img
+                            src={clip.poster}
+                            alt={clip.name}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'cover',
+                            }}
+                          />
                           {/* Overlay for text readability */}
                           <div style={{
                             position: 'absolute',
