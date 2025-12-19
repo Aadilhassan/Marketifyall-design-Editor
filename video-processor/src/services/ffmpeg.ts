@@ -114,10 +114,14 @@ export async function renderVideo(
                 inputIndex++
             }
 
-            // --- STEP 3: Add Video/Image Clip Inputs (NO LOOPING) ---
+            // --- STEP 3: Add Video/Image Clip Inputs ---
             downloadedAssets.forEach((asset) => {
                 command = command.input(asset.localPath)
-                // We do NOT loop here. We trim to duration in the filter graph.
+                if (asset.clip.type === 'image') {
+                    // Images must be looped to be visible for more than one frame.
+                    // We'll trim them to the correct duration in the filter graph.
+                    command = command.inputOptions(['-loop', '1'])
+                }
             })
 
             // --- STEP 4: Create Overlay Graph for Clips ---

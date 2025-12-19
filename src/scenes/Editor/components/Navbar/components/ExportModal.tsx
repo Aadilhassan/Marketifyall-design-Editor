@@ -444,7 +444,8 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             width: Number((w / designWidth * 100).toFixed(2)),
             height: Number((h / designHeight * 100).toFixed(2))
           }
-          const start = meta.timelineStart || 0, dur = meta.duration || videoDuration
+          const start = Number(meta.timelineStart || 0)
+          const dur = Number(meta.timelineDuration || meta.duration || videoDuration)
 
           if (obj.type?.toLowerCase().includes('image')) {
             let src = obj.src || obj._element?.src || obj.getSrc?.() || ''
