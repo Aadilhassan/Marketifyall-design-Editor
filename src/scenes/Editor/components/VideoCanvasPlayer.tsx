@@ -597,6 +597,19 @@ const VideoCanvasPlayer: React.FC = () => {
 
                     // Hide the canvas text element (we'll render it as HTML overlay)
                     obj.set('opacity', 0)
+                    obj.dirty = true
+                }
+            })
+        } else {
+            // Restore original opacity if we are not playing or showing overlays
+            objects.forEach((obj: any) => {
+                if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
+                    obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
+                    if (obj._wasHiddenForPlayback) {
+                        obj.set('opacity', obj._originalOpacity ?? 1)
+                        obj._wasHiddenForPlayback = false
+                        obj.dirty = true
+                    }
                 }
             })
         }
@@ -643,9 +656,9 @@ const VideoCanvasPlayer: React.FC = () => {
                     }
                 })
 
-                // Extract text elements if playing or when scrubbing
+                // Extract text elements if playing
                 const newTextOverlays: TextOverlayInfo[] = []
-                const shouldShowTextOverlays = isPlaying || videoObjIndex < 0
+                const shouldShowTextOverlays = isPlaying
 
                 if (shouldShowTextOverlays) {
                     objects.forEach((obj: any, idx: number) => {
@@ -702,6 +715,18 @@ const VideoCanvasPlayer: React.FC = () => {
                             // Hide the canvas text element
                             obj.set('opacity', 0)
                             obj.dirty = true
+                        }
+                    })
+                } else {
+                    // Restore original opacity
+                    objects.forEach((obj: any) => {
+                        if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
+                            obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
+                            if (obj._wasHiddenForPlayback) {
+                                obj.set('opacity', obj._originalOpacity ?? 1)
+                                obj._wasHiddenForPlayback = false
+                                obj.dirty = true
+                            }
                         }
                     })
                 }

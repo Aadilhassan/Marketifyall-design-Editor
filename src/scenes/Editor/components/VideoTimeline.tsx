@@ -1660,20 +1660,28 @@ const VideoTimeline: React.FC = () => {
       const fadeOutStart = timelineEnd - FADE_DURATION
       const fadeOutEnd = timelineEnd
 
-      if (currentTime < fadeInStart || currentTime >= fadeOutEnd) {
+      if (currentTime < timelineStart || currentTime >= timelineEnd) {
         // Completely outside the visible range
         targetOpacity = 0
-      } else if (currentTime >= fadeInEnd && currentTime < fadeOutStart) {
-        // Fully visible (between fade in and fade out)
-        targetOpacity = obj._originalOpacity
-      } else if (currentTime >= fadeInStart && currentTime < fadeInEnd) {
-        // Fading in
-        const fadeProgress = Math.min(1, (currentTime - fadeInStart) / FADE_DURATION)
-        targetOpacity = fadeProgress * obj._originalOpacity
-      } else if (currentTime >= fadeOutStart && currentTime < fadeOutEnd) {
-        // Fading out
-        const fadeProgress = Math.max(0, (fadeOutEnd - currentTime) / FADE_DURATION)
-        targetOpacity = fadeProgress * obj._originalOpacity
+      } else {
+        // Visible range - use full opacity by default
+        // Only apply fade during active playback for smooth transitions if desired
+        if (isPlaying) {
+          if (currentTime >= fadeInEnd && currentTime < fadeOutStart) {
+            targetOpacity = obj._originalOpacity
+          } else if (currentTime >= fadeInStart && currentTime < fadeInEnd) {
+            const fadeProgress = Math.min(1, (currentTime - fadeInStart) / FADE_DURATION)
+            targetOpacity = fadeProgress * obj._originalOpacity
+          } else if (currentTime >= fadeOutStart && currentTime < fadeOutEnd) {
+            const fadeProgress = Math.max(0, (fadeOutEnd - currentTime) / FADE_DURATION)
+            targetOpacity = fadeProgress * obj._originalOpacity
+          } else {
+            targetOpacity = obj._originalOpacity
+          }
+        } else {
+          // Not playing - show full opacity if within range
+          targetOpacity = obj._originalOpacity
+        }
       }
 
       // Only update if opacity changed significantly (optimization)
