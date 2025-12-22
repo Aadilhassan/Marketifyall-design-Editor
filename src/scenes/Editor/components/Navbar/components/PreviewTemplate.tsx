@@ -160,7 +160,7 @@ function PreviewTemplate() {
   return (
     <>
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-        <Button
+        {/* <Button
           kind={KIND.tertiary}
           onClick={() => setIsOpen(true)}
           disabled={isProcessing}
@@ -184,7 +184,7 @@ function PreviewTemplate() {
             },
           }}>
           Preview
-        </Button>
+        </Button> */}
 
         {/* Emergency recovery button */}
         <Button

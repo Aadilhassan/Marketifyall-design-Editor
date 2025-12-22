@@ -75,6 +75,9 @@ interface VideoInfo {
     top: number
     width: number
     height: number
+    angle: number
+    originX: string
+    originY: string
     src: string
     poster?: string
     videoCrop?: {
@@ -107,6 +110,10 @@ interface TextOverlayInfo {
     fontWeight: string | number
     textAlign: string
     opacity: number
+    fontStyle?: string
+    textDecoration?: string
+    lineHeight?: number
+    charSpacing?: number
 }
 
 const VideoCanvasPlayer: React.FC = () => {
@@ -276,12 +283,8 @@ const VideoCanvasPlayer: React.FC = () => {
 
                 const objWidth = (obj.width || 100) * (obj.scaleX || 1)
                 const objHeight = (obj.height || 100) * (obj.scaleY || 1)
-                let l = obj.left || 0
-                let t = obj.top || 0
-
-                // Correct for origins
-                if (obj.originX === 'center') l -= objWidth / 2
-                if (obj.originY === 'center') t -= objHeight / 2
+                const l = obj.left || 0
+                const t = obj.top || 0
 
                 const screenX = l * zoom + vpt[4]
                 const screenY = t * zoom + vpt[5]
@@ -296,6 +299,9 @@ const VideoCanvasPlayer: React.FC = () => {
                     top,
                     width: objWidth * zoom,
                     height: objHeight * zoom,
+                    angle: obj.angle || 0,
+                    originX: obj.originX || 'left',
+                    originY: obj.originY || 'top',
                     src: clip?.src || videoSrc,
                     poster: clip?.poster || obj.metadata?.src,
                     videoCrop: obj.metadata?.videoCrop,
@@ -432,50 +438,6 @@ const VideoCanvasPlayer: React.FC = () => {
         })
     }, [videoInfos, registerVideoRef])
 
-    // Ensure video objects never show selection handles (blue shape)
-    useEffect(() => {
-        if (!canvas) return
-
-        const disableVideoSelection = () => {
-            // @ts-ignore
-            const objects = canvas.getObjects?.() || []
-            objects.forEach((obj: any) => {
-                if (obj.metadata?.isVideo || obj.metadata?.videoSrc) {
-                    // Always disable selection handles for video objects
-                    if (obj.selectable !== false) obj.set('selectable', false)
-                    if (obj.hasControls !== false) obj.set('hasControls', false)
-                    if (obj.hasBorders !== false) obj.set('hasBorders', false)
-                    if (obj.hasCorners !== false) obj.set('hasCorners', false)
-                }
-            })
-            // @ts-ignore
-            canvas.requestRenderAll?.()
-        }
-
-        // Run immediately and on object changes
-        disableVideoSelection()
-
-        // @ts-ignore
-        canvas.on?.('object:added', disableVideoSelection)
-        // @ts-ignore
-        canvas.on?.('object:modified', disableVideoSelection)
-        // @ts-ignore
-        canvas.on?.('selection:created', disableVideoSelection)
-        // @ts-ignore
-        canvas.on?.('selection:updated', disableVideoSelection)
-
-        return () => {
-            // @ts-ignore
-            canvas.off?.('object:added', disableVideoSelection)
-            // @ts-ignore
-            canvas.off?.('object:modified', disableVideoSelection)
-            // @ts-ignore
-            canvas.off?.('selection:created', disableVideoSelection)
-            // @ts-ignore
-            canvas.off?.('selection:updated', disableVideoSelection)
-        }
-    }, [canvas])
-
     // Make canvas video object transparent when playing so HTML video shows through
     // Also extract text elements that are above the video to render as HTML overlays
     useEffect(() => {
@@ -535,12 +497,12 @@ const VideoCanvasPlayer: React.FC = () => {
             }
         })
 
-        // Extract ALL text elements when video is playing or when scrubbing
+        // Extract ALL text elements when video is present or playing
         const newTextOverlays: TextOverlayInfo[] = []
 
-        // Show text overlays during playback for HTML rendering
-        // When not playing, text visibility is handled by the timeline's visibility effect
-        const shouldShowTextOverlays = isPlaying
+        // Show text overlays if playing OR if there are videos that might block canvas text
+        const hasVisibleVideos = objects.some((obj: any) => obj && obj.metadata?.isVideo)
+        const shouldShowTextOverlays = isPlaying || hasVisibleVideos
 
         if (shouldShowTextOverlays) {
             objects.forEach((obj: any, idx: number) => {
@@ -592,6 +554,10 @@ const VideoCanvasPlayer: React.FC = () => {
                         fill: obj.fill || obj.metadata?.fill || '#000000',
                         fontWeight: obj.fontWeight || obj.metadata?.fontWeight || 'normal',
                         textAlign: obj.textAlign || obj.metadata?.textAlign || 'left',
+                        fontStyle: obj.fontStyle || 'normal',
+                        textDecoration: obj.underline ? 'underline' : 'none',
+                        lineHeight: obj.lineHeight || 1.16,
+                        charSpacing: obj.charSpacing || 0,
                         opacity: obj._originalOpacity ?? 1,
                     })
 
@@ -656,9 +622,10 @@ const VideoCanvasPlayer: React.FC = () => {
                     }
                 })
 
-                // Extract text elements if playing
+                // Extract text elements if playing or if videos are present
                 const newTextOverlays: TextOverlayInfo[] = []
-                const shouldShowTextOverlays = isPlaying
+                const hasVisibleVideos = objects.some((obj: any) => obj && obj.metadata?.isVideo)
+                const shouldShowTextOverlays = isPlaying || hasVisibleVideos
 
                 if (shouldShowTextOverlays) {
                     objects.forEach((obj: any, idx: number) => {
@@ -709,6 +676,10 @@ const VideoCanvasPlayer: React.FC = () => {
                                 fill: obj.fill || obj.metadata?.fill || '#000000',
                                 fontWeight: obj.fontWeight || obj.metadata?.fontWeight || 'normal',
                                 textAlign: obj.textAlign || obj.metadata?.textAlign || 'left',
+                                fontStyle: obj.fontStyle || 'normal',
+                                textDecoration: obj.underline ? 'underline' : 'none',
+                                lineHeight: obj.lineHeight || 1.16,
+                                charSpacing: obj.charSpacing || 0,
                                 opacity: obj._originalOpacity ?? 1,
                             })
 
@@ -747,6 +718,12 @@ const VideoCanvasPlayer: React.FC = () => {
         canvas.on?.('object:moving', updateTextOverlays)
         // @ts-ignore
         canvas.on?.('object:scaling', updateTextOverlays)
+        // @ts-ignore
+        canvas.on?.('text:changed', updateTextOverlays)
+        // @ts-ignore
+        canvas.on?.('text:editing:entered', updateTextOverlays)
+        // @ts-ignore
+        canvas.on?.('text:editing:exited', updateTextOverlays)
 
         return () => {
             // @ts-ignore
@@ -759,6 +736,12 @@ const VideoCanvasPlayer: React.FC = () => {
             canvas.off?.('object:moving', updateTextOverlays)
             // @ts-ignore
             canvas.off?.('object:scaling', updateTextOverlays)
+            // @ts-ignore
+            canvas.off?.('text:changed', updateTextOverlays)
+            // @ts-ignore
+            canvas.off?.('text:editing:entered', updateTextOverlays)
+            // @ts-ignore
+            canvas.off?.('text:editing:exited', updateTextOverlays)
         }
     }, [canvas, isPlaying, activeClipId])
 
@@ -787,37 +770,10 @@ const VideoCanvasPlayer: React.FC = () => {
             >
                 {videoInfos.map(info => {
                     // Calculate position relative to the canvas frame
-                    let relativeLeft = info.left - canvasBounds.left
-                    let relativeTop = info.top - canvasBounds.top
-                    let videoWidth = info.width
-                    let videoHeight = info.height
-
-                    // Constrain video to canvas frame boundaries (like Canva)
-                    // If video extends beyond left edge, adjust position and width
-                    if (relativeLeft < 0) {
-                        videoWidth += relativeLeft // Reduce width by overflow amount
-                        relativeLeft = 0
-                    }
-                    // If video extends beyond top edge, adjust position and height
-                    if (relativeTop < 0) {
-                        videoHeight += relativeTop // Reduce height by overflow amount
-                        relativeTop = 0
-                    }
-                    // If video extends beyond right edge, reduce width
-                    if (relativeLeft + videoWidth > canvasBounds.width) {
-                        videoWidth = canvasBounds.width - relativeLeft
-                    }
-                    // If video extends beyond bottom edge, reduce height
-                    if (relativeTop + videoHeight > canvasBounds.height) {
-                        videoHeight = canvasBounds.height - relativeTop
-                    }
-
-                    // Ensure dimensions are positive
-                    videoWidth = Math.max(0, videoWidth)
-                    videoHeight = Math.max(0, videoHeight)
+                    const relativeLeft = info.left - canvasBounds.left
+                    const relativeTop = info.top - canvasBounds.top
 
                     // Check if this specific video is playing using shared context state
-                    // Ensure play button is completely hidden when playing
                     const isVideoPlaying = isPlaying && activeClipId === info.id
 
                     // Check if video should be visible based on timeline position
@@ -836,9 +792,10 @@ const VideoCanvasPlayer: React.FC = () => {
                             style={{
                                 left: relativeLeft,
                                 top: relativeTop,
-                                width: videoWidth,
-                                height: videoHeight,
-                                // Always show video wrapper
+                                width: info.width,
+                                height: info.height,
+                                transform: `translate(${info.originX === 'center' ? '-50%' : '0'}, ${info.originY === 'center' ? '-50%' : '0'}) rotate(${info.angle}deg)`,
+                                transformOrigin: 'top left',
                                 display: 'block',
                                 visibility: 'visible',
                                 opacity: 1,
@@ -898,8 +855,8 @@ const VideoCanvasPlayer: React.FC = () => {
                 })}
             </CanvasClipContainer>
 
-            {/* Render text overlays on top of video during playback */}
-            {isPlaying && textOverlays.map(overlay => (
+            {/* Render text overlays on top of video */}
+            {textOverlays.map(overlay => (
                 <TextOverlayElement
                     key={overlay.id}
                     style={{
@@ -911,6 +868,10 @@ const VideoCanvasPlayer: React.FC = () => {
                         color: overlay.fill,
                         fontWeight: overlay.fontWeight,
                         textAlign: overlay.textAlign as any,
+                        fontStyle: overlay.fontStyle,
+                        textDecoration: overlay.textDecoration,
+                        lineHeight: overlay.lineHeight,
+                        letterSpacing: `${(overlay.charSpacing || 0) / 1000}em`,
                         opacity: overlay.opacity,
                     }}
                 >

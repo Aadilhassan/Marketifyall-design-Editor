@@ -375,6 +375,12 @@ function Panel() {
               selectable: true,
               hasControls: true,
               hasBorders: true,
+              // @ts-ignore
+              metadata: {
+                category: 'icons',
+                id: icon.id,
+                name: icon.name,
+              }
             })
 
             canvas.add(svgGroup)
@@ -525,6 +531,11 @@ function Panel() {
               const scaleX = canvasWidth / svgWidth
               const scaleY = canvasHeight / svgHeight
 
+              // Determine category for metadata
+              const category = shape.id.includes('frame') ? 'frames' :
+                (shape.id.includes('line') || shape.id.includes('arrow') || shape.id.includes('divider') || shape.id.includes('wave') || shape.id.includes('zigzag') || shape.id.includes('curved')) ? 'lines' :
+                  (shape.id.includes('badge') || shape.id.includes('sparkle') || shape.id.includes('burst') || shape.id.includes('blob') || shape.id.includes('scribble') || shape.id.includes('confetti') || shape.id.includes('dots') || shape.id.includes('bubble') || shape.id.includes('pattern')) ? 'decor' : 'shapes';
+
               svgGroup.set({
                 left,
                 top,
@@ -533,6 +544,12 @@ function Panel() {
                 selectable: true,
                 hasControls: true,
                 hasBorders: true,
+                // @ts-ignore
+                metadata: {
+                  category: category,
+                  id: shape.id,
+                  name: shape.name,
+                }
               })
 
               canvas.add(svgGroup)

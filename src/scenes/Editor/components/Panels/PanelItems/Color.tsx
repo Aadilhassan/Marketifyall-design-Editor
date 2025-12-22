@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import useAppContext from '@/hooks/useAppContext'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { Input } from 'baseui/input'
 import Icons from '@components/icons'
-import { useActiveObject, useEditor } from '@nkyo/scenify-sdk'
+import { useActiveObject, useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { HexColorPicker } from 'react-colorful'
 import { Plus, ArrowLeft } from 'baseui/icon'
 import throttle from 'lodash/throttle'
@@ -31,40 +31,108 @@ function Color() {
   const [gradientAngle, setGradientAngle] = useState(90)
   const editor = useEditor()
   const activeObject = useActiveObject()
+  const { canvas } = useEditorContext() as any
 
   const { setActiveSubMenu } = useAppContext()
 
-  const updateObjectFill = throttle((color: string) => {
-    if (activeObject) {
-      editor.update({ fill: color })
-      // @ts-ignore
-      if (activeObject._objects) {
-        // @ts-ignore
-        activeObject._objects.forEach((obj: any) => {
-          if (obj.fill && obj.fill !== 'none') {
-            obj.set({ fill: color })
-          }
-          if (obj.stroke && obj.stroke !== 'none') {
-            obj.set({ stroke: color })
-          }
-        })
-        // @ts-ignore
-        activeObject.canvas?.requestRenderAll()
+  const updateObjectFill = useMemo(() => throttle((color: string) => {
+    if (!editor || !canvas) return
+
+    const currentActiveObject = canvas.getActiveObject()
+    const target = currentActiveObject || activeObject
+
+    if (target) {
+      const isText = target.type === 'StaticText' || target.type === 'DynamicText' || target.type === 'textbox' || target.type === 'text' || target.type === 'i-text'
+      const metadata = target.metadata || {}
+      const category = metadata.category || ''
+      const isIcon = category === 'icons'
+
+      // 1. Text is straightforward
+      if (isText) {
+        editor.update({ fill: color })
+        canvas.requestRenderAll()
+        setColor(color)
+        return
       }
+
+      // 2. Specialized logic for Lucide Icons (usually outline-based)
+      if (isIcon) {
+        editor.update({ stroke: color })
+        // Only force border if it's a skeleton with no width
+        if (!target.strokeWidth || target.strokeWidth === 0) {
+          editor.update({ strokeWidth: 2, fill: 'none' })
+        }
+        const updateIconChildren = (obj: any) => {
+          if (obj.stroke && obj.stroke !== 'none') obj.set({ stroke: color })
+          if (obj._objects) obj._objects.forEach(updateIconChildren)
+        }
+        updateIconChildren(target)
+        canvas.requestRenderAll()
+        setColor(color)
+        return
+      }
+
+      // 3. Strict Geometry-Preserving logic for all other items
+      // We ONLY update properties that are already active (non-none)
+      const colorActiveProperties = (obj: any) => {
+        let updated = false
+
+        const hasFill = obj.fill && obj.fill !== 'none' && obj.fill !== 'transparent'
+        const hasStroke = obj.stroke && obj.stroke !== 'none' && obj.stroke !== 'transparent' && obj.strokeWidth > 0
+
+        if (hasFill) {
+          obj.set({ fill: color })
+          updated = true
+        }
+
+        if (hasStroke) {
+          obj.set({ stroke: color })
+          updated = true
+        }
+
+        // Handle uninitialized paths or children without clear color props
+        if (!obj._objects && !updated) {
+          obj.set({ fill: color })
+        }
+
+        if (obj._objects) {
+          obj._objects.forEach(colorActiveProperties)
+        }
+      }
+
+      colorActiveProperties(target)
+
+      // Sync with SDK state without forcing new properties
+      const syncState: any = {}
+      if (target.fill && target.fill !== 'none') syncState.fill = color
+      if (target.stroke && target.stroke !== 'none' && target.strokeWidth > 0) syncState.stroke = color
+
+      if (Object.keys(syncState).length > 0) {
+        editor.update(syncState)
+      } else {
+        editor.update({ _updated: Date.now() })
+      }
+
+      canvas.requestRenderAll()
     } else {
       editor.background.setBackgroundColor(color)
     }
     setColor(color)
-  }, 100)
+  }, 100), [editor, activeObject])
 
-  const updateObjectGradient = throttle((gradient: any) => {
-    if (activeObject) {
+  const updateObjectGradient = useMemo(() => throttle((gradient: any) => {
+    if (!editor || !canvas) return
+
+    const currentActiveObject = canvas.getActiveObject()
+    const target = currentActiveObject || activeObject
+
+    if (target) {
       editor.setGradient(gradient)
     } else {
       editor.background.setGradient(gradient)
     }
     setColor(color)
-  }, 100)
+  }, 100), [editor, activeObject, color])
 
   const applyCustomGradient = () => {
     const customGradient = {
@@ -137,7 +205,7 @@ function Color() {
               <div style={{ padding: '0.5rem 0', cursor: 'default', fontSize: '0.96rem', fontWeight: 500 }}>
                 Create Gradient
               </div>
-              
+
               {/* Gradient Preview */}
               <div
                 style={{
@@ -243,7 +311,7 @@ function Color() {
                 placeholder="#000000"
                 clearOnEscape
               />
-              
+
               {/* Gradient Creator Button */}
               <button
                 onClick={() => {
