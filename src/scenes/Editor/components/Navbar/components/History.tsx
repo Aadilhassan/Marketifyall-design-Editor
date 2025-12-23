@@ -8,7 +8,27 @@ import { useEffect, useState } from 'react'
 const Container = styled('div', props => ({
   display: 'flex',
   alignItems: 'center',
+  gap: '4px',
 }))
+
+const HistoryButton = styled('button', {
+  background: 'transparent',
+  border: 'none',
+  width: '36px',
+  height: '36px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  transition: 'background 0.2s',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#374151',
+  padding: 0,
+  ':hover': {
+    background: '#f3f4f6',
+    color: '#111827',
+  },
+})
 
 function History() {
   const editor = useEditor()
@@ -31,26 +51,22 @@ function History() {
 
   return (
     <Container>
-      <Button
+      <HistoryButton
         onClick={() => {
           editor.undo()
         }}
-        size={SIZE.compact}
-        kind={KIND.tertiary}
-        shape={SHAPE.square}
+        title="Undo"
       >
-        <Icons.Undo size={24} />
-      </Button>
-      <Button
+        <Icons.Undo size={22} />
+      </HistoryButton>
+      <HistoryButton
         onClick={() => {
           editor.redo()
         }}
-        size={SIZE.compact}
-        kind={KIND.tertiary}
-        shape={SHAPE.square}
+        title="Redo"
       >
-        <Icons.Redo size={24} />
-      </Button>
+        <Icons.Redo size={22} />
+      </HistoryButton>
     </Container>
   )
 }

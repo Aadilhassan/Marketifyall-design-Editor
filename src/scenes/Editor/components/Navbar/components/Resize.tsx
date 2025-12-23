@@ -24,6 +24,24 @@ const Container = styled('div', props => ({
   padding: '2rem 2rem',
 }))
 
+const NavButton = styled('button', {
+  background: 'transparent',
+  border: 'none',
+  padding: '8px 12px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontSize: '14px',
+  fontWeight: 500,
+  color: '#374151',
+  transition: 'background 0.2s',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  ':hover': {
+    background: '#f3f4f6',
+  },
+})
+
 export default function Resize() {
   const [value, setValue] = useState<Value>([])
   const [customSize, setCustomSize] = useState({ width: 0, height: 0 })
@@ -98,7 +116,7 @@ export default function Resize() {
         </ThemeProvider>
       )}
     >
-      <Button kind={KIND.tertiary}>Resize</Button>
+      <NavButton>Resize</NavButton>
     </StatefulPopover>
   )
 }

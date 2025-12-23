@@ -187,7 +187,7 @@ function PreviewTemplate() {
         </Button> */}
 
         {/* Emergency recovery button */}
-        <Button
+        {/* <Button
           kind={KIND.tertiary}
           onClick={handleRecoverCanvas}
           disabled={isProcessing}
@@ -211,7 +211,7 @@ function PreviewTemplate() {
             },
           }}>
           Recover Canvas
-        </Button>
+        </Button> */}
       </div>
 
       <ThemeProvider theme={LightTheme}>

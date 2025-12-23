@@ -1345,7 +1345,7 @@ function Video() {
           <ToolsSection>
             <SectionTitle>Video Tools</SectionTitle>
 
-            <ToolButton onClick={() => setActiveModal('animate')} $active={activeModal === 'animate'}>
+            {/* <ToolButton onClick={() => setActiveModal('animate')} $active={activeModal === 'animate'}>
               <ToolIcon $color="#667eea">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" />
@@ -1356,7 +1356,7 @@ function Video() {
                 <ToolName>Animate Design</ToolName>
                 <ToolDesc>Add motion to your static designs</ToolDesc>
               </ToolInfo>
-            </ToolButton>
+            </ToolButton> */}
 
             <ToolButton onClick={() => setActiveModal('record')} $active={activeModal === 'record'}>
               <ToolIcon $color="#10b981">
@@ -1371,7 +1371,7 @@ function Video() {
               </ToolInfo>
             </ToolButton>
 
-            <ToolButton onClick={() => setActiveModal('timeline')} $active={activeModal === 'timeline'}>
+            {/* <ToolButton onClick={() => setActiveModal('timeline')} $active={activeModal === 'timeline'}>
               <ToolIcon $color="#ec4899">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
@@ -1388,7 +1388,7 @@ function Video() {
                 <ToolName>Video Timeline</ToolName>
                 <ToolDesc>Edit video with timeline controls</ToolDesc>
               </ToolInfo>
-            </ToolButton>
+            </ToolButton> */}
           </ToolsSection>
         </Content>
       </Scrollbars>

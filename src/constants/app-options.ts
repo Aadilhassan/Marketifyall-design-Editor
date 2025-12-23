@@ -11,10 +11,10 @@ export const panelListItems = [
     id: 'elements',
     name: 'Elements',
   },
-  {
-    id: 'image',
-    name: 'Images',
-  },
+  // {
+  //   id: 'image',
+  //   name: 'Images',
+  // },
   {
     id: 'uploads',
     name: 'Uploads',
