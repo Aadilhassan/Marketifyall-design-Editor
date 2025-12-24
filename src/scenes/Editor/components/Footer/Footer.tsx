@@ -15,6 +15,7 @@ const Container = styled('div', props => ({
   boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12)',
   padding: '4px',
   border: '1px solid rgba(0, 0, 0, 0.06)',
+  zIndex: 50, // Ensure it's above the canvas workspace
 }))
 
 const zoomValues = [0.27, 0.5, 0.75, 0.92, 1, 1.25, 1.5, 1.75, 2, 3, 4, 5]
@@ -41,9 +42,9 @@ function Footer() {
   return (
     <Container>
       <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-        <Button 
-          onClick={() => editor.zoomOut()} 
-          size={SIZE.compact} 
+        <Button
+          onClick={() => editor.zoomOut()}
+          size={SIZE.compact}
           kind={KIND.tertiary}
           overrides={{
             BaseButton: {
@@ -129,9 +130,9 @@ function Footer() {
             {Math.round(zoomRatio * 100) + '%'}
           </Button>
         </StatefulPopover>
-        <Button 
-          onClick={() => editor.zoomIn()} 
-          size={SIZE.compact} 
+        <Button
+          onClick={() => editor.zoomIn()}
+          size={SIZE.compact}
           kind={KIND.tertiary}
           overrides={{
             BaseButton: {
