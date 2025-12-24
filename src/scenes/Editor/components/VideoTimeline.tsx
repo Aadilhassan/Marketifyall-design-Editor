@@ -141,6 +141,7 @@ const CloseButton = styled('button', {
   },
 })
 
+
 const TimelineBody = styled('div', {
   flex: 1,
   display: 'flex',
@@ -240,25 +241,6 @@ const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
   }
 })
 
-const AddAudioButton = styled('button', {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '6px',
-  padding: '8px 10px',
-  margin: '8px',
-  background: 'transparent',
-  border: '1px dashed #d1d5db',
-  borderRadius: '6px',
-  color: '#6b7280',
-  fontSize: '11px',
-  cursor: 'pointer',
-  transition: 'all 0.15s ease',
-  ':hover': {
-    background: '#f3f4f6',
-    borderColor: '#3b82f6',
-    color: '#3b82f6',
-  },
-})
 
 const AddMediaButton = styled('button', {
   position: 'absolute',
@@ -1083,14 +1065,6 @@ const VideoTimeline: React.FC = () => {
             type: 'audio' as TrackType,
           }],
         })
-      })
-    } else {
-      // Show empty audio track placeholder to maintain consistent layout
-      newTracks.push({
-        id: 'track-audio',
-        name: 'Audio',
-        type: 'audio',
-        clips: [],
       })
     }
 
@@ -2716,13 +2690,6 @@ const VideoTimeline: React.FC = () => {
             </TrackLabel>
           ))}
 
-          <AddAudioButton onClick={() => audioInputRef.current?.click()}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            Add Audio
-          </AddAudioButton>
           <HiddenInput
             ref={audioInputRef}
             type="file"
@@ -3040,27 +3007,29 @@ const VideoTimeline: React.FC = () => {
       </TimelineBody>
 
       {/* Context Menu for Timeline Clips */}
-      {contextMenu.visible && (
-        <>
-          <ContextMenuOverlay onClick={() => setContextMenu({ visible: false, clipId: null, trackId: null, x: 0, y: 0 })} />
-          <ContextMenuContainer
-            data-context-menu
-            $visible={contextMenu.visible}
-            $top={contextMenu.y}
-            $left={contextMenu.x}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ContextMenuItem onClick={handleContextMenuDelete}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                <line x1="10" y1="11" x2="10" y2="17" />
-                <line x1="14" y1="11" x2="14" y2="17" />
-              </svg>
-              <span>Delete</span>
-            </ContextMenuItem>
-          </ContextMenuContainer>
-        </>
-      )}
+      {
+        contextMenu.visible && (
+          <>
+            <ContextMenuOverlay onClick={() => setContextMenu({ visible: false, clipId: null, trackId: null, x: 0, y: 0 })} />
+            <ContextMenuContainer
+              data-context-menu
+              $visible={contextMenu.visible}
+              $top={contextMenu.y}
+              $left={contextMenu.x}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ContextMenuItem onClick={handleContextMenuDelete}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+                <span>Delete</span>
+              </ContextMenuItem>
+            </ContextMenuContainer>
+          </>
+        )
+      }
     </TimelineShell>
   )
 }

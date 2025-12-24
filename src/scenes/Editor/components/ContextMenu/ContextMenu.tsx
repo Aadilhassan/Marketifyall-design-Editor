@@ -267,28 +267,96 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
 
   const handleBringForward = () => {
     if (activeObject && editor) {
-      editor.bringForward()
+      try {
+        editor.bringForward()
+        // Force canvas re-render
+        // @ts-ignore
+        const canvas = editor.canvas?.canvas || editor.canvas
+        if (canvas && canvas.requestRenderAll) {
+          canvas.requestRenderAll()
+        }
+      } catch (error) {
+        console.error('Error bringing forward:', error)
+        // Fallback: use canvas directly
+        // @ts-ignore
+        const canvas = editor.canvas?.canvas || editor.canvas
+        if (canvas && activeObject) {
+          canvas.bringForward(activeObject)
+          canvas.requestRenderAll()
+        }
+      }
     }
     setVisible(false)
   }
 
   const handleSendBackward = () => {
     if (activeObject && editor) {
-      editor.sendBackwards()
+      try {
+        editor.sendBackwards()
+        // Force canvas re-render
+        // @ts-ignore
+        const canvas = editor.canvas?.canvas || editor.canvas
+        if (canvas && canvas.requestRenderAll) {
+          canvas.requestRenderAll()
+        }
+      } catch (error) {
+        console.error('Error sending backward:', error)
+        // Fallback: use canvas directly
+        // @ts-ignore
+        const canvas = editor.canvas?.canvas || editor.canvas
+        if (canvas && activeObject) {
+          canvas.sendBackwards(activeObject)
+          canvas.requestRenderAll()
+        }
+      }
     }
     setVisible(false)
   }
 
   const handleBringToFront = () => {
     if (activeObject && editor) {
-      editor.bringToFront()
+      try {
+        editor.bringToFront()
+        // Force canvas re-render
+        // @ts-ignore
+        const canvas = editor.canvas?.canvas || editor.canvas
+        if (canvas && canvas.requestRenderAll) {
+          canvas.requestRenderAll()
+        }
+      } catch (error) {
+        console.error('Error bringing to front:', error)
+        // Fallback: use canvas directly
+        // @ts-ignore
+        const canvas = editor.canvas?.canvas || editor.canvas
+        if (canvas && activeObject) {
+          canvas.bringToFront(activeObject)
+          canvas.requestRenderAll()
+        }
+      }
     }
     setVisible(false)
   }
 
   const handleSendToBack = () => {
     if (activeObject && editor) {
-      editor.sendToBack()
+      try {
+        editor.sendToBack()
+        // Force canvas re-render
+        // @ts-ignore
+        const canvas = editor.canvas?.canvas || editor.canvas
+        if (canvas && canvas.requestRenderAll) {
+          canvas.requestRenderAll()
+        }
+      } catch (error) {
+        console.error('Error sending to back:', error)
+        // Fallback: use canvas directly
+        // @ts-ignore
+        const canvas = editor.canvas?.canvas || editor.canvas
+        if (canvas && activeObject) {
+          canvas.sendToBack(activeObject)
+          canvas.requestRenderAll()
+        }
+      }
     }
     setVisible(false)
   }
@@ -367,22 +435,38 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
 
             <MenuDivider />
             <SubMenuLabel>Arrange</SubMenuLabel>
-            <MenuItem onClick={handleBringToFront}>
+            <MenuItem onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleBringToFront()
+            }}>
               <ChevronsUp size={16} />
               Bring to Front
               <Shortcut>{ctrlSymbol}+Shift+]</Shortcut>
             </MenuItem>
-            <MenuItem onClick={handleBringForward}>
+            <MenuItem onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleBringForward()
+            }}>
               <ArrowUp size={16} />
               Bring Forward
               <Shortcut>{ctrlSymbol}+]</Shortcut>
             </MenuItem>
-            <MenuItem onClick={handleSendBackward}>
+            <MenuItem onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleSendBackward()
+            }}>
               <ArrowDown size={16} />
               Send Backward
               <Shortcut>{ctrlSymbol}+[</Shortcut>
             </MenuItem>
-            <MenuItem onClick={handleSendToBack}>
+            <MenuItem onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleSendToBack()
+            }}>
               <ChevronsDown size={16} />
               Send to Back
               <Shortcut>{ctrlSymbol}+Shift+[</Shortcut>

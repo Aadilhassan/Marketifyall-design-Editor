@@ -566,22 +566,158 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
       } else {
         // STATIC IMAGE EXPORT
         // @ts-ignore
-        const image = await editor.toPNG({ multiplier: parseInt(size) || 1 })
-        if (format === 'png') {
-          downloadFile(image, `${designName}.png`)
-        } else {
-          const img = new Image()
-          img.onload = () => {
-            const c = document.createElement('canvas')
-            c.width = img.width; c.height = img.height
-            const ctx = c.getContext('2d')
-            if (ctx) {
-              if (format === 'jpg') { ctx.fillStyle = 'white'; ctx.fillRect(0, 0, c.width, c.height) }
-              ctx.drawImage(img, 0, 0)
-              downloadFile(c.toDataURL(`image/${format === 'jpg' ? 'jpeg' : format}`, quality / 100), `${designName}.${format}`)
+        const fabricCanvas = canvas || editor?.canvas
+        
+        // Handle JSON export separately (uses editor.exportToJSON)
+        if (format === 'json') {
+          try {
+            // @ts-ignore
+            const jsonData = editor.exportToJSON()
+            const jsonString = JSON.stringify(jsonData, null, 2)
+            const blob = new Blob([jsonString], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            downloadFile(url, `${designName}.json`)
+            URL.revokeObjectURL(url)
+            setTimeout(() => { onClose(); setExportProgress(0) }, 500)
+          } catch (error) {
+            console.error('JSON export error:', error)
+            throw new Error('Failed to export JSON: ' + (error instanceof Error ? error.message : 'Unknown error'))
+          }
+          return
+        }
+        
+        // Handle SVG export (requires special handling)
+        if (format === 'svg') {
+          try {
+            // @ts-ignore
+            const svgData = fabricCanvas?.toSVG?.()
+            if (!svgData) {
+              throw new Error('SVG export not supported')
+            }
+            const blob = new Blob([svgData], { type: 'image/svg+xml' })
+            const url = URL.createObjectURL(blob)
+            downloadFile(url, `${designName}.svg`)
+            URL.revokeObjectURL(url)
+            setTimeout(() => { onClose(); setExportProgress(0) }, 500)
+          } catch (error) {
+            console.error('SVG export error:', error)
+            throw new Error('Failed to export SVG: ' + (error instanceof Error ? error.message : 'Unknown error'))
+          }
+          return
+        }
+        
+        // For raster image formats (PNG, JPG, WebP), use canvas.toDataURL() directly
+        // This bypasses SDK's object conversion that causes errors
+        if (!fabricCanvas) {
+          throw new Error('Canvas not available for export')
+        }
+
+        // Get canvas element
+        const canvasElement = fabricCanvas.getElement?.() || document.querySelector('canvas')
+        if (!canvasElement) {
+          throw new Error('Canvas element not found')
+        }
+
+        // Calculate export dimensions based on size multiplier
+        const multiplier = parseInt(size) || 1
+        const originalWidth = canvasElement.width
+        const originalHeight = canvasElement.height
+        const exportWidth = originalWidth * multiplier
+        const exportHeight = originalHeight * multiplier
+
+        // Save current canvas state
+        const originalViewportTransform = [...(fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0])]
+        const originalZoom = fabricCanvas.getZoom?.() || 1
+        const originalSelection = fabricCanvas.selection
+        const originalRenderTopLayer = fabricCanvas.renderTopLayer
+        // @ts-ignore
+        const guidelinesHandler = editor?.handlers?.guidelines || fabricCanvas.guidelines
+        const originalGuidelinesEnabled = guidelinesHandler?.enabled
+
+        try {
+          // Temporarily disable selection and guidelines for clean export
+          fabricCanvas.selection = false
+          fabricCanvas.discardActiveObject?.()
+          if (guidelinesHandler) {
+            guidelinesHandler.enabled = false
+          }
+
+          // Patch renderTopLayer to prevent context errors
+          fabricCanvas.renderTopLayer = function (ctx: CanvasRenderingContext2D) {
+            if (!ctx || !this.contextTop) return this
+            return originalRenderTopLayer.call(this, ctx)
+          }
+
+          // Reset viewport for export
+          fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0])
+          fabricCanvas.setZoom?.(1)
+
+          // Render canvas to ensure all objects are drawn
+          try {
+            fabricCanvas.renderAll?.()
+          } catch (renderError) {
+            console.warn('Pre-export renderAll warning:', renderError)
+          }
+
+          // Export using toDataURL with multiplier
+          let image: string
+          if (multiplier === 1) {
+            // Simple export at 1x
+            image = canvasElement.toDataURL('image/png')
+          } else {
+            // For higher resolution, use fabric's toDataURL with multiplier
+            try {
+              image = fabricCanvas.toDataURL({
+                format: 'png',
+                multiplier: multiplier
+              })
+            } catch (e) {
+              // Fallback to simple export if multiplier fails
+              console.warn('Multiplier export failed, using simple export:', e)
+              image = canvasElement.toDataURL('image/png')
             }
           }
-          img.src = image
+
+          // Process image based on format
+          if (format === 'png') {
+            downloadFile(image, `${designName}.png`)
+          } else {
+            const img = new Image()
+            img.onload = () => {
+              const c = document.createElement('canvas')
+              c.width = img.width
+              c.height = img.height
+              const ctx = c.getContext('2d')
+              if (ctx) {
+                // For JPG, fill with white background first
+                if (format === 'jpg') {
+                  ctx.fillStyle = 'white'
+                  ctx.fillRect(0, 0, c.width, c.height)
+                }
+                ctx.drawImage(img, 0, 0)
+                const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`
+                downloadFile(c.toDataURL(mimeType, quality / 100), `${designName}.${format}`)
+              }
+            }
+            img.onerror = () => {
+              throw new Error('Failed to load exported image')
+            }
+            img.src = image
+          }
+        } finally {
+          // Restore canvas state
+          fabricCanvas.setViewportTransform(originalViewportTransform)
+          fabricCanvas.setZoom?.(originalZoom)
+          fabricCanvas.selection = originalSelection
+          fabricCanvas.renderTopLayer = originalRenderTopLayer
+          if (guidelinesHandler && originalGuidelinesEnabled !== undefined) {
+            guidelinesHandler.enabled = originalGuidelinesEnabled
+          }
+          try {
+            fabricCanvas.renderAll?.()
+          } catch (renderError) {
+            console.warn('Post-export renderAll warning:', renderError)
+          }
         }
       }
 

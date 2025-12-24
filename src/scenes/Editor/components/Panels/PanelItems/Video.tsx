@@ -1175,6 +1175,7 @@ function Video() {
     video.onseeked = () => {
       const videoWidth = video.videoWidth || 1920
       const videoHeight = video.videoHeight || 1080
+      const clipDuration = video.duration || 1
 
       const canvas = document.createElement('canvas')
       canvas.width = videoWidth
@@ -1210,12 +1211,12 @@ function Video() {
         }
 
         // Center the video on canvas frame (same approach as Images.tsx)
-        // Frame coordinates start at (0,0), so we just center relative to frame dimensions
         const left = (frameWidth - targetWidth) / 2
         const top = (frameHeight - targetHeight) / 2
 
         const clipId = `recording-${Date.now()}`
 
+        // Add to Canvas
         editor.add({
           type: 'StaticImage',
           metadata: {
@@ -1234,11 +1235,28 @@ function Video() {
           opacity: 1,
           visible: true,
         })
+
+        // Calculate start time to place recording sequentially
+        const startTime = getNextVideoStartTime()
+
+        // Add to Timeline
+        addClip({
+          id: clipId,
+          name: 'Screen Recording',
+          src: recordedVideo,
+          duration: clipDuration,
+          start: startTime,
+          end: startTime + clipDuration,
+          poster: frameDataUrl,
+        })
+
+        setActiveClip(clipId)
+        setTimelineOpen(true)
       }
     }
 
     setActiveModal(null)
-  }, [editor, recordedVideo])
+  }, [editor, recordedVideo, frameSize, addClip, setActiveClip, setTimelineOpen, getNextVideoStartTime])
 
   const downloadRecording = () => {
     if (!recordedVideo) return

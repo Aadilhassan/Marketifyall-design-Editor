@@ -79,6 +79,320 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
+  // Constrain objects (images, text, etc.) to stay within canvas bounds
+  useEffect(() => {
+    if (!editor) return
+
+    // @ts-ignore
+    const canvas = editor.canvas?.canvas || editor.canvas
+    if (!canvas) return
+
+    const constrainObjectToCanvas = (e: any) => {
+      const obj = e.target
+      if (!obj || obj.name === 'clip' || obj.id === 'clip') return // Don't constrain the clip object itself
+
+      try {
+        // Get canvas frame (clipPath) bounds
+        const clipPath = canvas.clipPath
+        if (!clipPath) {
+          // Fallback: try to find the clip object
+          // @ts-ignore
+          const objects = canvas.getObjects?.() || []
+          const clipObj = objects.find((o: any) => o.name === 'clip' || o.id === 'clip')
+          if (!clipObj) return
+
+          const frameLeft = clipObj.left || 175.5
+          const frameTop = clipObj.top || -286.5
+          const frameWidth = (clipObj.width || 900) * (clipObj.scaleX || 1)
+          const frameHeight = (clipObj.height || 1200) * (clipObj.scaleY || 1)
+          const frameRight = frameLeft + frameWidth
+          const frameBottom = frameTop + frameHeight
+
+          // Get object bounding box (accounting for rotation and scale)
+          const boundingRect = obj.getBoundingRect()
+          const boundingLeft = boundingRect.left
+          const boundingTop = boundingRect.top
+          const boundingRight = boundingLeft + boundingRect.width
+          const boundingBottom = boundingTop + boundingRect.height
+
+          // Calculate how much the object needs to move to stay within bounds
+          let deltaX = 0
+          let deltaY = 0
+
+          if (boundingLeft < frameLeft) {
+            deltaX = frameLeft - boundingLeft
+          } else if (boundingRight > frameRight) {
+            deltaX = frameRight - boundingRight
+          }
+
+          if (boundingTop < frameTop) {
+            deltaY = frameTop - boundingTop
+          } else if (boundingBottom > frameBottom) {
+            deltaY = frameBottom - boundingBottom
+          }
+
+          // Update object position if constraint is needed
+          if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
+            // Get current position
+            const currentLeft = obj.left || 0
+            const currentTop = obj.top || 0
+
+            // Calculate new position
+            const newLeft = currentLeft + deltaX
+            const newTop = currentTop + deltaY
+
+            obj.set({
+              left: newLeft,
+              top: newTop,
+            })
+            obj.setCoords()
+            canvas.requestRenderAll()
+          }
+          return
+        }
+
+        const frameLeft = clipPath.left || 175.5
+        const frameTop = clipPath.top || -286.5
+        const frameWidth = clipPath.width || 900
+        const frameHeight = clipPath.height || 1200
+        const frameRight = frameLeft + frameWidth
+        const frameBottom = frameTop + frameHeight
+
+        // Get object bounding box (accounting for rotation and scale)
+        const boundingRect = obj.getBoundingRect()
+        const boundingLeft = boundingRect.left
+        const boundingTop = boundingRect.top
+        const boundingRight = boundingLeft + boundingRect.width
+        const boundingBottom = boundingTop + boundingRect.height
+
+        // Calculate how much the object needs to move to stay within bounds
+        let deltaX = 0
+        let deltaY = 0
+
+        if (boundingLeft < frameLeft) {
+          deltaX = frameLeft - boundingLeft
+        } else if (boundingRight > frameRight) {
+          deltaX = frameRight - boundingRight
+        }
+
+        if (boundingTop < frameTop) {
+          deltaY = frameTop - boundingTop
+        } else if (boundingBottom > frameBottom) {
+          deltaY = frameBottom - boundingBottom
+        }
+
+        // Update object position if constraint is needed
+        if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
+          // Get current position
+          const currentLeft = obj.left || 0
+          const currentTop = obj.top || 0
+
+          // Calculate new position
+          const newLeft = currentLeft + deltaX
+          const newTop = currentTop + deltaY
+
+          obj.set({
+            left: newLeft,
+            top: newTop,
+          })
+          obj.setCoords()
+          canvas.requestRenderAll()
+        }
+      } catch (error) {
+        console.warn('Error constraining object:', error)
+      }
+    }
+
+    // Also constrain on object modification (resizing, etc.)
+    const constrainObjectOnModify = (e: any) => {
+      const obj = e.target
+      if (!obj || obj.name === 'clip' || obj.id === 'clip') return
+
+      try {
+        // Get canvas frame (clipPath) bounds
+        const clipPath = canvas.clipPath
+        if (!clipPath) {
+          // Fallback: try to find the clip object
+          // @ts-ignore
+          const objects = canvas.getObjects?.() || []
+          const clipObj = objects.find((o: any) => o.name === 'clip' || o.id === 'clip')
+          if (!clipObj) return
+
+          const frameLeft = clipObj.left || 175.5
+          const frameTop = clipObj.top || -286.5
+          const frameWidth = (clipObj.width || 900) * (clipObj.scaleX || 1)
+          const frameHeight = (clipObj.height || 1200) * (clipObj.scaleY || 1)
+          const frameRight = frameLeft + frameWidth
+          const frameBottom = frameTop + frameHeight
+
+          // Get object bounding box (accounting for rotation and scale)
+          const boundingRect = obj.getBoundingRect()
+          const boundingLeft = boundingRect.left
+          const boundingTop = boundingRect.top
+          const boundingRight = boundingLeft + boundingRect.width
+          const boundingBottom = boundingTop + boundingRect.height
+
+          // Calculate how much the object needs to move to stay within bounds
+          let deltaX = 0
+          let deltaY = 0
+
+          if (boundingLeft < frameLeft) {
+            deltaX = frameLeft - boundingLeft
+          } else if (boundingRight > frameRight) {
+            deltaX = frameRight - boundingRight
+          }
+
+          if (boundingTop < frameTop) {
+            deltaY = frameTop - boundingTop
+          } else if (boundingBottom > frameBottom) {
+            deltaY = frameBottom - boundingBottom
+          }
+
+          // Update if needed
+          if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
+            // Get current position
+            const currentLeft = obj.left || 0
+            const currentTop = obj.top || 0
+
+            // Calculate new position
+            const newLeft = currentLeft + deltaX
+            const newTop = currentTop + deltaY
+
+            obj.set({
+              left: newLeft,
+              top: newTop,
+            })
+            obj.setCoords()
+            canvas.requestRenderAll()
+          }
+          return
+        }
+
+        const frameLeft = clipPath.left || 175.5
+        const frameTop = clipPath.top || -286.5
+        const frameWidth = clipPath.width || 900
+        const frameHeight = clipPath.height || 1200
+        const frameRight = frameLeft + frameWidth
+        const frameBottom = frameTop + frameHeight
+
+        // Get object bounding box (accounting for rotation and scale)
+        const boundingRect = obj.getBoundingRect()
+        const boundingLeft = boundingRect.left
+        const boundingTop = boundingRect.top
+        const boundingRight = boundingLeft + boundingRect.width
+        const boundingBottom = boundingTop + boundingRect.height
+
+        // Calculate how much the object needs to move to stay within bounds
+        let deltaX = 0
+        let deltaY = 0
+
+        if (boundingLeft < frameLeft) {
+          deltaX = frameLeft - boundingLeft
+        } else if (boundingRight > frameRight) {
+          deltaX = frameRight - boundingRight
+        }
+
+        if (boundingTop < frameTop) {
+          deltaY = frameTop - boundingTop
+        } else if (boundingBottom > frameBottom) {
+          deltaY = frameBottom - boundingBottom
+        }
+
+        // Update if needed
+        if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
+          // Get current position
+          const currentLeft = obj.left || 0
+          const currentTop = obj.top || 0
+
+          // Calculate new position
+          const newLeft = currentLeft + deltaX
+          const newTop = currentTop + deltaY
+
+          obj.set({
+            left: newLeft,
+            top: newTop,
+          })
+          obj.setCoords()
+          canvas.requestRenderAll()
+        }
+      } catch (error) {
+        console.warn('Error constraining object on modify:', error)
+      }
+    }
+
+    // Set up canvas clipping path (Secondary safety layer)
+    const setupClipping = () => {
+      try {
+        // @ts-ignore
+        const objects = canvas.getObjects?.() || []
+        // Smarter search for the design frame
+        const clipObj = objects.find((obj: any) =>
+          obj.id === 'clip' ||
+          obj.name === 'clip' ||
+          obj.type === 'Frame' ||
+          (obj.type === 'Rect' && (obj.fill === '#ffffff' || obj.fill === 'white') && (obj.width || 0) >= 400)
+        )
+
+        if (clipObj) {
+          const w = (clipObj.width || 0) * (clipObj.scaleX || 1)
+          const h = (clipObj.height || 0) * (clipObj.scaleY || 1)
+          let l = clipObj.left || 0
+          let t = clipObj.top || 0
+
+          if (clipObj.originX === 'center') l -= w / 2
+          if (clipObj.originY === 'center') t -= h / 2
+
+          // Use a dedicated Rect for clipping to ensure absolute positioning and avoid origin conflicts
+          // @ts-ignore
+          const clipPath = new fabric.Rect({
+            left: l,
+            top: t,
+            width: w,
+            height: h,
+            absolutePositioned: true,
+            selectable: false,
+            evented: false,
+            fill: 'transparent'
+          })
+
+          // @ts-ignore
+          canvas.clipPath = clipPath
+          // @ts-ignore
+          canvas.controlsAboveOverlay = true // Selection box stays visible, but content is clipped
+          // @ts-ignore
+          canvas.requestRenderAll?.()
+        }
+      } catch (err) {
+        console.warn('Error setting up clipping:', err)
+      }
+    }
+
+    // Listen to all interaction events to keep clipping perfectly synced
+    canvas.on?.('object:moving', () => {
+      constrainObjectToCanvas({ target: canvas.getActiveObject() })
+      setupClipping()
+    })
+    canvas.on?.('object:modified', setupClipping)
+    canvas.on?.('object:scaling', setupClipping)
+    canvas.on?.('after:render', setupClipping)
+
+    // Listen for object additions to ensure clipping is active
+    canvas.on?.('object:added', setupClipping)
+    canvas.on?.('object:removed', setupClipping)
+
+    // Initial setup
+    setupClipping()
+
+    return () => {
+      canvas.off?.('object:moving', setupClipping)
+      canvas.off?.('object:modified', setupClipping)
+      canvas.off?.('object:scaling', setupClipping)
+      canvas.off?.('after:render', setupClipping)
+      canvas.off?.('object:added', setupClipping)
+      canvas.off?.('object:removed', setupClipping)
+    }
+  }, [editor])
+
   // Auto-save feature with debounced saves
   // Let the package handle autosave and change/save callbacks
 
@@ -196,17 +510,18 @@ function App() {
         fontFamily: "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-      <Navbar />
+      <div style={{ zIndex: 60 }}><Navbar /></div>
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Panels />
+        <div style={{ zIndex: 50, display: 'flex' }}><Panels /></div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          <Toolbox />
+          <div style={{ zIndex: 40 }}><Toolbox /></div>
           <div
             style={{
               flex: 1,
               display: 'flex',
-              background: '#e5e7eb',
+              background: '#f1f2f6',
               position: 'relative',
+              overflow: 'hidden', // Contain the workspace mask shadow
               // Add padding when timeline is open and visible
               paddingBottom: shouldShowTimeline ? '300px' : '0', // Timeline height (260px) + bottom offset (20px) + extra spacing (20px)
             }}
@@ -218,7 +533,7 @@ function App() {
             <VideoCanvasPlayer />
             <VideoTimeline />
           </div>
-          <Footer />
+          <div style={{ zIndex: 40 }}><Footer /></div>
         </div>
       </div>
       <ContextMenu />

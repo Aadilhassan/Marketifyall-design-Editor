@@ -17,6 +17,14 @@ const CanvasClipContainer = styled('div', {
     pointerEvents: 'none',
 })
 
+// A mask that covers the grey workspace but has a hole for the design area
+const WorkspaceMask = styled('div', {
+    position: 'absolute',
+    pointerEvents: 'none',
+    boxShadow: '0 0 0 5000px #f0f1f1ff', // Massive grey border covers leakage on Fabric canvas
+    zIndex: 1, // Below the overlays but above Fabric content
+})
+
 const VideoPlayerWrapper = styled('div', {
     position: 'absolute',
     pointerEvents: 'none',
@@ -69,6 +77,12 @@ const TextOverlayElement = styled('div', {
     zIndex: 25, // Above video but below controls
 })
 
+const GenericOverlayElement = styled('img', {
+    position: 'absolute',
+    pointerEvents: 'none',
+    zIndex: 25,
+})
+
 interface VideoInfo {
     id: string
     left: number
@@ -110,11 +124,35 @@ interface TextOverlayInfo {
     fontWeight: string | number
     textAlign: string
     opacity: number
+    originX?: string
+    originY?: string
     fontStyle?: string
     textDecoration?: string
     lineHeight?: number
     charSpacing?: number
+    timelineStart?: number
+    timelineDuration?: number
 }
+
+interface GenericOverlayInfo {
+    id: string
+    src: string
+    left: number
+    top: number
+    width: number
+    height: number
+    angle: number
+    opacity: number
+    originX: string
+    originY: string
+    timelineStart?: number
+    timelineDuration?: number
+}
+
+type OverlayItem =
+    | { type: 'video'; data: VideoInfo; index: number }
+    | { type: 'text'; data: TextOverlayInfo; index: number }
+    | { type: 'generic'; data: GenericOverlayInfo; index: number }
 
 const VideoCanvasPlayer: React.FC = () => {
     const {
@@ -129,11 +167,10 @@ const VideoCanvasPlayer: React.FC = () => {
         setIsPlaying
     } = useVideoContext()
     const { canvas } = useEditorContext()
-    const [videoInfos, setVideoInfos] = useState<VideoInfo[]>([])
     const [canvasBounds, setCanvasBounds] = useState<CanvasBounds | null>(null)
     const [isHovered, setIsHovered] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const [textOverlays, setTextOverlays] = useState<TextOverlayInfo[]>([])
+    const [overlayItems, setOverlayItems] = useState<OverlayItem[]>([])
     const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({})
     const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -163,8 +200,6 @@ const VideoCanvasPlayer: React.FC = () => {
             const canvasEl = canvas.lowerCanvasEl as HTMLCanvasElement
             if (!canvasEl) return null
 
-            // Find the clip/frame object (the white canvas area)
-            // Look for common identifiers
             const clipObj = objects.find((obj: any) =>
                 obj.id === 'clip' ||
                 obj.name === 'clip' ||
@@ -172,19 +207,18 @@ const VideoCanvasPlayer: React.FC = () => {
                 (obj.type === 'Rect' && obj.fill === '#ffffff' && (obj.width || 0) >= 500)
             )
 
+            const canvasRect = canvasEl.getBoundingClientRect()
+            const overlayRect = overlayRef.current.getBoundingClientRect()
+            // @ts-ignore
+            const zoom = canvas.getZoom?.() || 1
+            // @ts-ignore
+            const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0]
+
             if (!clipObj) {
-                // Fallback: use the first large white rectangle
                 const fallbackClip = objects.find((obj: any) =>
                     obj.fill === '#ffffff' && (obj.width || 0) > 400 && (obj.height || 0) > 400
                 )
                 if (!fallbackClip) return null
-
-                const canvasRect = canvasEl.getBoundingClientRect()
-                const overlayRect = overlayRef.current.getBoundingClientRect()
-                // @ts-ignore
-                const zoom = canvas.getZoom?.() || 1
-                // @ts-ignore
-                const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0]
 
                 const frameWidth = (fallbackClip.width || 900) * (fallbackClip.scaleX || 1)
                 const frameHeight = (fallbackClip.height || 1200) * (fallbackClip.scaleY || 1)
@@ -199,24 +233,14 @@ const VideoCanvasPlayer: React.FC = () => {
                 }
             }
 
-            const canvasRect = canvasEl.getBoundingClientRect()
-            const overlayRect = overlayRef.current.getBoundingClientRect()
-
-            // @ts-ignore
-            const zoom = canvas.getZoom?.() || 1
-            // @ts-ignore
-            const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0]
-
             const frameWidth = (clipObj.width || 900) * (clipObj.scaleX || 1)
             const frameHeight = (clipObj.height || 1200) * (clipObj.scaleY || 1)
             let l = clipObj.left || 0
             let t = clipObj.top || 0
 
-            // Correct for origins
             if (clipObj.originX === 'center') l -= frameWidth / 2
             if (clipObj.originY === 'center') t -= frameHeight / 2
 
-            // Apply zoom and viewport transform
             const screenX = l * zoom + vpt[4]
             const screenY = t * zoom + vpt[5]
 
@@ -232,83 +256,140 @@ const VideoCanvasPlayer: React.FC = () => {
         }
     }, [canvas])
 
-    // Find video objects and calculate positions
+    // Find video objects and extract all overlays on top
     const updateVideoPositions = useCallback(() => {
-        if (!canvas) {
-            return
-        }
+        if (!canvas) return
 
         try {
             // @ts-ignore
             const objects = canvas.getObjects?.() || []
             // @ts-ignore
             const canvasEl = canvas.lowerCanvasEl as HTMLCanvasElement
-            if (!canvasEl || !overlayRef.current) {
-                return
-            }
+            if (!canvasEl || !overlayRef.current) return
 
             const canvasRect = canvasEl.getBoundingClientRect()
             const overlayRect = overlayRef.current.getBoundingClientRect()
-
             // @ts-ignore
             const zoom = canvas.getZoom?.() || 1
             // @ts-ignore
             const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0]
 
-            // Update canvas frame bounds
             const frameBounds = getCanvasFrameBounds()
             setCanvasBounds(frameBounds)
 
-            const newVideoInfos: VideoInfo[] = []
-            const videoObjectsFound: any[] = []
+            const newOverlayItems: OverlayItem[] = []
+            const videoIndices: number[] = []
 
-            objects.forEach((obj: any) => {
-                const hasIsVideo = !!obj.metadata?.isVideo
-                const hasVideoSrc = !!obj.metadata?.videoSrc
-                if (!hasIsVideo && !hasVideoSrc) return
-
-                const videoSrc = obj.metadata?.videoSrc || obj.metadata?.src
-                if (!videoSrc) {
-                    return
+            // First pass: find all video object indices
+            objects.forEach((obj: any, idx: number) => {
+                if (obj.metadata?.isVideo || obj.metadata?.videoSrc) {
+                    videoIndices.push(idx)
                 }
+            })
 
-                const clipId = obj.metadata?.id || obj.id || `video-obj-${newVideoInfos.length}`
-                const videoSrcForMatch = obj.metadata?.videoSrc || obj.metadata?.src
+            // If no video, we don't need overlays here
+            if (videoIndices.length === 0) {
+                setOverlayItems([])
+                return
+            }
 
-                // Try to find clip by ID first, then by source URL
-                let clip = clips.find(c => c.id === clipId)
-                if (!clip && videoSrcForMatch) {
-                    clip = clips.find(c => c.src === videoSrcForMatch)
-                }
+            const firstVideoIndex = Math.min(...videoIndices)
+            const lastVideoIndex = Math.max(...videoIndices)
+
+            // Second pass: extract all videos and objects that are on or above any video layer
+            // This ensures objects moved above videos are included
+            objects.forEach((obj: any, idx: number) => {
+                const isVideo = !!(obj.metadata?.isVideo || obj.metadata?.videoSrc)
+                if (obj.id === 'clip' || obj.name === 'clip' || obj.type === 'Frame') return
+
+                // Include videos and all objects from the first video onwards
+                // This way objects moved above videos (higher index) are included
+                if (idx < firstVideoIndex && !isVideo) return
 
                 const objWidth = (obj.width || 100) * (obj.scaleX || 1)
                 const objHeight = (obj.height || 100) * (obj.scaleY || 1)
                 const l = obj.left || 0
                 const t = obj.top || 0
-
                 const screenX = l * zoom + vpt[4]
                 const screenY = t * zoom + vpt[5]
-
                 const left = screenX + (canvasRect.left - overlayRect.left)
                 const top = screenY + (canvasRect.top - overlayRect.top)
 
-                videoObjectsFound.push({ clipId, videoSrc, left, top, width: objWidth * zoom, height: objHeight * zoom })
-                newVideoInfos.push({
-                    id: clip?.id || clipId,
-                    left,
-                    top,
-                    width: objWidth * zoom,
-                    height: objHeight * zoom,
-                    angle: obj.angle || 0,
-                    originX: obj.originX || 'left',
-                    originY: obj.originY || 'top',
-                    src: clip?.src || videoSrc,
-                    poster: clip?.poster || obj.metadata?.src,
-                    videoCrop: obj.metadata?.videoCrop,
-                })
-            })
+                const actualOpacity = obj._originalOpacity ?? obj.opacity ?? 1
 
-            setVideoInfos(newVideoInfos)
+                if (isVideo) {
+                    const videoSrc = obj.metadata?.videoSrc || obj.metadata?.src
+                    const clipId = obj.metadata?.id || obj.id || `video-obj-${idx}`
+                    let clip = clips.find(c => c.id === clipId)
+                    if (!clip && videoSrc) clip = clips.find(c => c.src === videoSrc)
+
+                    newOverlayItems.push({
+                        type: 'video',
+                        index: idx,
+                        data: {
+                            id: clip?.id || clipId,
+                            left, top, width: objWidth * zoom, height: objHeight * zoom,
+                            angle: obj.angle || 0, originX: obj.originX || 'left', originY: obj.originY || 'top',
+                            src: clip?.src || videoSrc || '', poster: clip?.poster || obj.metadata?.src,
+                            videoCrop: obj.metadata?.videoCrop,
+                        }
+                    })
+                } else {
+                    const isText = (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
+                        obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')
+                    if (isText) {
+                        newOverlayItems.push({
+                            type: 'text',
+                            index: idx,
+                            data: {
+                                id: obj.id || `text-${idx}`,
+                                text: obj.text || obj.metadata?.text || '',
+                                left, top, width: objWidth * zoom, height: objHeight * zoom,
+                                fontSize: (obj.fontSize || 16) * (obj.scaleY || 1) * zoom,
+                                fontFamily: obj.fontFamily || 'Arial', fill: obj.fill || '#000000',
+                                fontWeight: obj.fontWeight || 'normal', textAlign: obj.textAlign || 'left',
+                                fontStyle: obj.fontStyle || 'normal', textDecoration: obj.underline ? 'underline' : 'none',
+                                lineHeight: obj.lineHeight || 1.16, charSpacing: obj.charSpacing || 0,
+                                opacity: actualOpacity,
+                                originX: obj.originX || 'left', originY: obj.originY || 'top',
+                                timelineStart: obj.metadata?.timelineStart,
+                                timelineDuration: obj.metadata?.timelineDuration,
+                            }
+                        })
+                    } else {
+                        let src = obj.metadata?.src
+                        // If no src, try to generate it, but MUST restore opacity first to avoid capturing a transparent image
+                        if (!src && obj.toDataURL) {
+                            const currentOpacity = obj.opacity
+                            obj.set('opacity', actualOpacity)
+                            try {
+                                src = obj.toDataURL()
+                            } catch (e) {
+                                console.warn('Failed to get data URL for object', e)
+                            }
+                            obj.set('opacity', currentOpacity)
+                        }
+
+                        if (src) {
+                            newOverlayItems.push({
+                                type: 'generic',
+                                index: idx,
+                                data: {
+                                    id: obj.id || `obj-${idx}`,
+                                    src: src, left, top, width: objWidth * zoom, height: objHeight * zoom,
+                                    angle: obj.angle || 0, opacity: actualOpacity,
+                                    originX: obj.originX || 'left', originY: obj.originY || 'top',
+                                    timelineStart: obj.metadata?.timelineStart,
+                                    timelineDuration: obj.metadata?.timelineDuration,
+                                }
+                            })
+                        }
+                    }
+                }
+            })
+            // Sort overlay items by their canvas index to maintain layer order
+            newOverlayItems.sort((a, b) => a.index - b.index)
+            setOverlayItems(newOverlayItems)
         } catch (err) {
             console.error('VideoCanvasPlayer error:', err)
         }
@@ -317,16 +398,13 @@ const VideoCanvasPlayer: React.FC = () => {
     // Update positions continuously
     useEffect(() => {
         if (!canvas) return
-
         let animId: number
         let running = true
-
         const loop = () => {
             if (!running) return
             updateVideoPositions()
             animId = requestAnimationFrame(loop)
         }
-
         const timer = setTimeout(() => loop(), 200)
         return () => {
             running = false
@@ -335,549 +413,276 @@ const VideoCanvasPlayer: React.FC = () => {
         }
     }, [canvas, updateVideoPositions])
 
-    // Play/pause handler - uses shared context
     const handlePlayPause = useCallback((videoId: string, e: React.MouseEvent) => {
         e.stopPropagation()
         e.preventDefault()
-
-        // Set this video as active if not already
-        if (activeClipId !== videoId) {
-            setActiveClip(videoId)
-        }
-
-        // Toggle playback using shared context
+        if (activeClipId !== videoId) setActiveClip(videoId)
         togglePlayback()
     }, [activeClipId, setActiveClip, togglePlayback])
 
-    // Handle video end
-    const handleEnded = useCallback((videoId: string) => {
-        const video = videoRefs.current[videoId]
-        if (video) {
-            video.currentTime = 0
-            setCurrentTime(0)
-        }
-    }, [setCurrentTime])
-
-    // Sync video playback with shared state and handle sequential playback
     useEffect(() => {
         const activeVideo = activeClipId ? videoRefs.current[activeClipId] : null
         if (!activeVideo) return
-
-        // Find the active clip to get its start time
         const activeClip = clips.find(c => c.id === activeClipId)
         if (!activeClip) return
-
-        // Calculate video time relative to clip start
         const clipStart = activeClip.start || 0
         const videoTime = Math.max(0, currentTime - clipStart)
-
         if (isPlaying) {
-            // Set the correct time before playing
             if (Math.abs(activeVideo.currentTime - videoTime) > 0.1) {
                 activeVideo.currentTime = Math.min(videoTime, activeVideo.duration || activeClip.duration)
             }
-
-            // Start video playback
-            activeVideo.play().then(() => {
-                // Unmute after play starts (needed for browser autoplay policies)
-                activeVideo.muted = false
-            }).catch(err => {
-                if (err.name !== 'AbortError') {
-                    console.error('Play failed:', err)
-                }
+            activeVideo.play().then(() => { activeVideo.muted = false }).catch(err => {
+                if (err.name !== 'AbortError') console.error('Play failed:', err)
             })
         } else {
             activeVideo.pause()
-            activeVideo.muted = true // Mute when paused
-            // Update time when paused
-            if (videoTime < (activeVideo.duration || activeClip.duration)) {
-                activeVideo.currentTime = videoTime
-            }
+            activeVideo.muted = true
+            if (videoTime < (activeVideo.duration || activeClip.duration)) activeVideo.currentTime = videoTime
         }
     }, [isPlaying, activeClipId, currentTime, clips])
 
-    // Handle video ended - transition to next clip
     useEffect(() => {
         const activeVideo = activeClipId ? videoRefs.current[activeClipId] : null
         if (!activeVideo) return
-
         const handleEnded = () => {
-            const activeClip = clips.find(c => c.id === activeClipId)
-            if (!activeClip) return
-
-            // Sort clips by start time to find the next one
             const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
             const currentIndex = sortedClips.findIndex(c => c.id === activeClipId)
             const nextIndex = currentIndex + 1
-
             if (nextIndex < sortedClips.length) {
-                // Switch to next clip
                 const nextClip = sortedClips[nextIndex]
                 setActiveClip(nextClip.id)
                 setCurrentTime(nextClip.start || 0)
-                // Continue playing automatically
-                if (isPlaying) {
-                    // The play effect will handle starting the next video
-                }
             } else {
-                // All clips finished
                 setIsPlaying(false)
             }
         }
-
         activeVideo.addEventListener('ended', handleEnded)
-        return () => {
-            activeVideo.removeEventListener('ended', handleEnded)
-        }
+        return () => activeVideo.removeEventListener('ended', handleEnded)
     }, [activeClipId, clips, setActiveClip, setCurrentTime, setIsPlaying, isPlaying])
 
-    // Register video refs with context for external control
     useEffect(() => {
-        Object.entries(videoRefs.current).forEach(([id, ref]) => {
-            registerVideoRef(id, ref)
-        })
-    }, [videoInfos, registerVideoRef])
-
-    // Make canvas video object transparent when playing so HTML video shows through
-    // Also extract text elements that are above the video to render as HTML overlays
-    useEffect(() => {
-        if (!canvas || !overlayRef.current) return
-
-        // @ts-ignore
-        const objects = canvas.getObjects?.() || []
-        // @ts-ignore
-        const zoom = canvas.getZoom?.() || 1
-        // @ts-ignore
-        const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0]
-
-        const canvasEl = document.querySelector('.canvas-container canvas')
-        if (!canvasEl) return
-
-        const canvasRect = canvasEl.getBoundingClientRect()
-        const overlayRect = overlayRef.current.getBoundingClientRect()
-
-        // Find video objects and their indices
-        let videoObjIndex = -1
-        objects.forEach((obj: any, idx: number) => {
-            if (obj && obj.metadata?.isVideo) {
-                // Find the clip for this video to check timeline position
-                const objId = obj.metadata?.id || obj.id
-                const objSrc = obj.metadata?.videoSrc || obj.metadata?.src
-                let clip = clips.find(c => c.id === objId)
-                if (!clip && objSrc) {
-                    clip = clips.find(c => c.src === objSrc)
-                }
-
-                const clipStart = clip?.start || 0
-                const clipEnd = clipStart + (clip?.duration || 0)
-                const isWithinTimeRange = currentTime >= clipStart && currentTime < clipEnd
-
-                const isThisVideoPlaying = isPlaying && obj.metadata?.id === activeClipId
-
-                // Only show video if:
-                // 1. It's currently playing (then we hide canvas and show HTML video)
-                // 2. We're within its time range on the timeline
-                let targetOpacity = 0
-                if (isThisVideoPlaying) {
-                    // Playing - hide canvas object, HTML video shows
-                    targetOpacity = 0
-                } else if (isWithinTimeRange) {
-                    // Within time range but not playing - show thumbnail
-                    targetOpacity = 1
-                } else {
-                    // Outside time range - hide
-                    targetOpacity = 0
-                }
-
-                obj.set('opacity', targetOpacity)
-                obj.dirty = true
-                if (isThisVideoPlaying) {
-                    videoObjIndex = idx
-                }
+        overlayItems.forEach(item => {
+            if (item.type === 'video' && videoRefs.current[item.data.id]) {
+                registerVideoRef(item.data.id, videoRefs.current[item.data.id])
             }
         })
+    }, [overlayItems, registerVideoRef])
 
-        // Extract ALL text elements when video is present or playing
-        const newTextOverlays: TextOverlayInfo[] = []
+    useEffect(() => {
+        if (!canvas || !overlayRef.current) return
+        // @ts-ignore
+        const objects = canvas.getObjects?.() || []
 
-        // Show text overlays if playing OR if there are videos that might block canvas text
-        const hasVisibleVideos = objects.some((obj: any) => obj && obj.metadata?.isVideo)
-        const shouldShowTextOverlays = isPlaying || hasVisibleVideos
+        objects.forEach((obj: any, idx: number) => {
+            const item = overlayItems.find(it => it.index === idx || it.data.id === (obj.id || obj.metadata?.id))
 
-        if (shouldShowTextOverlays) {
-            objects.forEach((obj: any, idx: number) => {
-                // Process ALL text elements (both above and below video)
-                if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
-                    obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
+            // Check timeline visibility for ALL objects (canvas and overlay)
+            const hasTimeline = obj.metadata?.timelineStart !== undefined || (item?.type === 'video' && clips.find(c => c.id === item.data.id))
+            let isWithinTimeRange = true
 
-                    // Check if text has timeline metadata and if it should be visible at currentTime
-                    const timelineStart = obj.metadata?.timelineStart ?? 0
-                    const timelineDuration = obj.metadata?.timelineDuration
-
-                    // If timelineDuration is set, check if currentTime is within the text's time range
-                    // If timelineDuration is not set, show text always (for backward compatibility)
-                    if (timelineDuration !== undefined && timelineDuration > 0) {
-                        const timelineEnd = timelineStart + timelineDuration
-                        if (currentTime < timelineStart || currentTime >= timelineEnd) {
-                            // Text is outside its time range, hide it
-                            if (!obj._wasHiddenForPlayback) {
-                                obj._originalOpacity = obj.opacity ?? 1
-                                obj._wasHiddenForPlayback = true
-                            }
-                            obj.set('opacity', 0)
-                            obj.dirty = true
-                            return // Skip adding to overlays
-                        }
-                    }
-
-                    // Save original opacity if not already saved
-                    if (!obj._wasHiddenForPlayback) {
-                        obj._originalOpacity = obj.opacity ?? 1
-                        obj._wasHiddenForPlayback = true
-                    }
-
-                    // Calculate screen position
-                    const objLeft = (obj.left || 0) * zoom + vpt[4]
-                    const objTop = (obj.top || 0) * zoom + vpt[5]
-                    const objWidth = (obj.width || 100) * (obj.scaleX || 1) * zoom
-                    const objHeight = (obj.height || 20) * (obj.scaleY || 1) * zoom
-
-                    newTextOverlays.push({
-                        id: obj.id || `text-${idx}`,
-                        text: obj.text || obj.metadata?.text || '',
-                        left: objLeft + (canvasRect.left - overlayRect.left),
-                        top: objTop + (canvasRect.top - overlayRect.top),
-                        width: objWidth,
-                        height: objHeight,
-                        fontSize: (obj.fontSize || obj.metadata?.fontSize || 16) * (obj.scaleY || 1) * zoom,
-                        fontFamily: obj.fontFamily || obj.metadata?.fontFamily || 'Arial',
-                        fill: obj.fill || obj.metadata?.fill || '#000000',
-                        fontWeight: obj.fontWeight || obj.metadata?.fontWeight || 'normal',
-                        textAlign: obj.textAlign || obj.metadata?.textAlign || 'left',
-                        fontStyle: obj.fontStyle || 'normal',
-                        textDecoration: obj.underline ? 'underline' : 'none',
-                        lineHeight: obj.lineHeight || 1.16,
-                        charSpacing: obj.charSpacing || 0,
-                        opacity: obj._originalOpacity ?? 1,
-                    })
-
-                    // Hide the canvas text element (we'll render it as HTML overlay)
-                    obj.set('opacity', 0)
-                    obj.dirty = true
+            if (obj.metadata?.timelineStart !== undefined) {
+                const start = obj.metadata.timelineStart || 0
+                const duration = obj.metadata.timelineDuration || 5
+                isWithinTimeRange = currentTime >= start && currentTime < (start + duration)
+            } else if (item?.type === 'video') {
+                const clip = clips.find(c => c.id === item.data.id)
+                if (clip) {
+                    isWithinTimeRange = currentTime >= (clip.start || 0) && currentTime < ((clip.start || 0) + (clip.duration || 0))
                 }
-            })
-        } else {
-            // Restore original opacity if we are not playing or showing overlays
-            objects.forEach((obj: any) => {
-                if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
-                    obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
-                    if (obj._wasHiddenForPlayback) {
-                        obj.set('opacity', obj._originalOpacity ?? 1)
-                        obj._wasHiddenForPlayback = false
-                        obj.dirty = true
+            }
+
+            // Store original opacity if not already stored
+            if (!obj._wasHiddenForPlayback) {
+                obj._originalOpacity = obj.opacity ?? 1
+                obj._wasHiddenForPlayback = true
+            }
+
+            let targetOpacity = obj._originalOpacity ?? 1 // Default to visible
+
+            if (!isWithinTimeRange) {
+                // Hide everything outside its time range
+                targetOpacity = 0
+            } else if (item) {
+                // If it's in overlay, determine if it should be hidden on canvas
+                if (item.type === 'video') {
+                    const isThisVideoPlaying = isPlaying && item.data.id === activeClipId
+                    // Hide video object on canvas when it's playing (overlay shows it instead)
+                    if (isThisVideoPlaying) {
+                        targetOpacity = 0
+                    } else {
+                        // Show video object when in time range but not playing
+                        targetOpacity = 1
                     }
+                } else {
+                    // For text and images: if they're in the overlay, they're above videos
+                    // Always hide them on canvas and show in overlay to maintain proper layer order
+                    targetOpacity = 0
                 }
-            })
-        }
-        // When not playing, don't touch text visibility here
-        // VideoTimeline's visibility effect handles text/image/shape opacity based on currentTime
+            }
 
-        setTextOverlays(newTextOverlays)
-
+            if (obj.opacity !== targetOpacity) {
+                obj.set('opacity', targetOpacity)
+                obj.dirty = true
+            }
+        })
         // @ts-ignore
         canvas.requestRenderAll?.()
-    }, [isPlaying, activeClipId, canvas, videoInfos, currentTime])
+    }, [isPlaying, activeClipId, canvas, overlayItems, currentTime, clips])
 
-    // Listen to canvas object changes to update text overlays in real-time
     useEffect(() => {
         if (!canvas) return
-
-        const updateTextOverlays = () => {
-            // Trigger the text extraction effect by forcing a re-render
-            // We'll use a small delay to batch updates
-            setTimeout(() => {
-                if (!canvas || !overlayRef.current) return
-
-                // @ts-ignore
-                const objects = canvas.getObjects?.() || []
-                // @ts-ignore
-                const zoom = canvas.getZoom?.() || 1
-                // @ts-ignore
-                const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0]
-
-                const canvasEl = document.querySelector('.canvas-container canvas')
-                if (!canvasEl) return
-
-                const canvasRect = canvasEl.getBoundingClientRect()
-                const overlayRect = overlayRef.current.getBoundingClientRect()
-
-                // Find video objects
-                let videoObjIndex = -1
-                objects.forEach((obj: any, idx: number) => {
-                    if (obj && obj.metadata?.isVideo) {
-                        const isThisVideoPlaying = isPlaying && obj.metadata?.id === activeClipId
-                        if (isThisVideoPlaying) {
-                            videoObjIndex = idx
-                        }
-                    }
-                })
-
-                // Extract text elements if playing or if videos are present
-                const newTextOverlays: TextOverlayInfo[] = []
-                const hasVisibleVideos = objects.some((obj: any) => obj && obj.metadata?.isVideo)
-                const shouldShowTextOverlays = isPlaying || hasVisibleVideos
-
-                if (shouldShowTextOverlays) {
-                    objects.forEach((obj: any, idx: number) => {
-                        if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
-                            obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
-
-                            // Check if text has timeline metadata and if it should be visible at currentTime
-                            const timelineStart = obj.metadata?.timelineStart ?? 0
-                            const timelineDuration = obj.metadata?.timelineDuration
-
-                            // If timelineDuration is set and > 0, check if currentTime is within the text's time range
-                            // If timelineDuration is not set, show text always (for backward compatibility)
-                            if (timelineDuration !== undefined && timelineDuration > 0) {
-                                const timelineEnd = timelineStart + timelineDuration
-                                if (currentTime < timelineStart || currentTime >= timelineEnd) {
-                                    // Text is outside its time range, hide it
-                                    if (!obj._wasHiddenForPlayback) {
-                                        obj._originalOpacity = obj.opacity ?? 1
-                                        obj._wasHiddenForPlayback = true
-                                    }
-                                    obj.set('opacity', 0)
-                                    obj.dirty = true
-                                    return // Skip adding to overlays
-                                }
-                            }
-
-                            // Save original opacity if not already saved
-                            if (!obj._wasHiddenForPlayback) {
-                                obj._originalOpacity = obj.opacity ?? 1
-                                obj._wasHiddenForPlayback = true
-                            }
-
-                            // Calculate screen position
-                            const objLeft = (obj.left || 0) * zoom + vpt[4]
-                            const objTop = (obj.top || 0) * zoom + vpt[5]
-                            const objWidth = (obj.width || 100) * (obj.scaleX || 1) * zoom
-                            const objHeight = (obj.height || 20) * (obj.scaleY || 1) * zoom
-
-                            newTextOverlays.push({
-                                id: obj.id || `text-${idx}`,
-                                text: obj.text || obj.metadata?.text || '',
-                                left: objLeft + (canvasRect.left - overlayRect.left),
-                                top: objTop + (canvasRect.top - overlayRect.top),
-                                width: objWidth,
-                                height: objHeight,
-                                fontSize: (obj.fontSize || obj.metadata?.fontSize || 16) * (obj.scaleY || 1) * zoom,
-                                fontFamily: obj.fontFamily || obj.metadata?.fontFamily || 'Arial',
-                                fill: obj.fill || obj.metadata?.fill || '#000000',
-                                fontWeight: obj.fontWeight || obj.metadata?.fontWeight || 'normal',
-                                textAlign: obj.textAlign || obj.metadata?.textAlign || 'left',
-                                fontStyle: obj.fontStyle || 'normal',
-                                textDecoration: obj.underline ? 'underline' : 'none',
-                                lineHeight: obj.lineHeight || 1.16,
-                                charSpacing: obj.charSpacing || 0,
-                                opacity: obj._originalOpacity ?? 1,
-                            })
-
-                            // Hide the canvas text element
-                            obj.set('opacity', 0)
-                            obj.dirty = true
-                        }
-                    })
-                } else {
-                    // Restore original opacity
-                    objects.forEach((obj: any) => {
-                        if (obj && (obj.type === 'StaticText' || obj.type === 'DynamicText' ||
-                            obj.type === 'textbox' || obj.type === 'text' || obj.type === 'i-text')) {
-                            if (obj._wasHiddenForPlayback) {
-                                obj.set('opacity', obj._originalOpacity ?? 1)
-                                obj._wasHiddenForPlayback = false
-                                obj.dirty = true
-                            }
-                        }
-                    })
-                }
-
-                setTextOverlays(newTextOverlays)
-                // @ts-ignore
-                canvas.requestRenderAll?.()
-            }, 50)
-        }
-
+        const updateOverlays = () => setTimeout(() => updateVideoPositions(), 50)
         // @ts-ignore
-        canvas.on?.('object:added', updateTextOverlays)
+        canvas.on?.('object:added', updateOverlays)
         // @ts-ignore
-        canvas.on?.('object:modified', updateTextOverlays)
+        canvas.on?.('object:modified', updateOverlays)
         // @ts-ignore
-        canvas.on?.('object:removed', updateTextOverlays)
+        canvas.on?.('object:removed', updateOverlays)
         // @ts-ignore
-        canvas.on?.('object:moving', updateTextOverlays)
+        canvas.on?.('object:moving', updateOverlays)
         // @ts-ignore
-        canvas.on?.('object:scaling', updateTextOverlays)
-        // @ts-ignore
-        canvas.on?.('text:changed', updateTextOverlays)
-        // @ts-ignore
-        canvas.on?.('text:editing:entered', updateTextOverlays)
-        // @ts-ignore
-        canvas.on?.('text:editing:exited', updateTextOverlays)
-
+        canvas.on?.('object:scaling', updateOverlays)
         return () => {
             // @ts-ignore
-            canvas.off?.('object:added', updateTextOverlays)
+            canvas.off?.('object:added', updateOverlays)
             // @ts-ignore
-            canvas.off?.('object:modified', updateTextOverlays)
+            canvas.off?.('object:modified', updateOverlays)
             // @ts-ignore
-            canvas.off?.('object:removed', updateTextOverlays)
+            canvas.off?.('object:removed', updateOverlays)
             // @ts-ignore
-            canvas.off?.('object:moving', updateTextOverlays)
+            canvas.off?.('object:moving', updateOverlays)
             // @ts-ignore
-            canvas.off?.('object:scaling', updateTextOverlays)
-            // @ts-ignore
-            canvas.off?.('text:changed', updateTextOverlays)
-            // @ts-ignore
-            canvas.off?.('text:editing:entered', updateTextOverlays)
-            // @ts-ignore
-            canvas.off?.('text:editing:exited', updateTextOverlays)
+            canvas.off?.('object:scaling', updateOverlays)
         }
-    }, [canvas, isPlaying, activeClipId])
+    }, [canvas, updateVideoPositions])
 
-    // Show nothing if modal is open
-    if (isModalOpen) {
-        return <OverlayContainer ref={overlayRef} style={{ display: 'none' }} />
-    }
-
-    // Show overlay container for ref even if no videos
-    if (videoInfos.length === 0 || !canvasBounds) {
-        return <OverlayContainer ref={overlayRef} />
-    }
+    if (isModalOpen) return <OverlayContainer ref={overlayRef} style={{ display: 'none' }} />
+    if (!canvasBounds) return <OverlayContainer ref={overlayRef} />
 
     return (
         <OverlayContainer ref={overlayRef}>
-            {/* Canvas clip container - all videos are clipped to this boundary */}
-            <CanvasClipContainer
+            {/* The Workspace Mask provides the Canva-style clipping for the Fabric canvas below */}
+            <WorkspaceMask
                 style={{
                     left: canvasBounds.left,
                     top: canvasBounds.top,
                     width: canvasBounds.width,
                     height: canvasBounds.height,
-                    overflow: 'hidden', // Ensure videos are clipped to canvas bounds
-                    position: 'absolute',
+                }}
+            />
+            <CanvasClipContainer
+                style={{
+                    left: canvasBounds.left, top: canvasBounds.top,
+                    width: canvasBounds.width, height: canvasBounds.height,
+                    overflow: 'hidden', position: 'absolute',
                 }}
             >
-                {videoInfos.map(info => {
-                    // Calculate position relative to the canvas frame
+                {overlayItems.map((item, overlayIndex) => {
+                    const { data: info, type } = item
                     const relativeLeft = info.left - canvasBounds.left
                     const relativeTop = info.top - canvasBounds.top
+                    // Use overlayIndex for z-index to maintain layer order
+                    const zIndexValue = overlayIndex + 1
 
-                    // Check if this specific video is playing using shared context state
-                    const isVideoPlaying = isPlaying && activeClipId === info.id
+                    if (type === 'video') {
+                        const videoData = info as VideoInfo
+                        const clip = clips.find(c => c.id === videoData.id)
+                        const isWithinRange = clip && currentTime >= (clip.start || 0) && currentTime < ((clip.start || 0) + (clip.duration || 0))
 
-                    // Check if video should be visible based on timeline position
-                    const clip = clips.find(c => c.id === info.id)
-                    const clipStart = clip?.start || 0
-                    const clipEnd = clipStart + (clip?.duration || 0)
-                    const isWithinTimeRange = currentTime >= clipStart && currentTime < clipEnd
+                        if (!isWithinRange) return null
 
-                    // Always show video wrapper on canvas (show poster when not playing)
-                    // Only play video when within time range and isPlaying
-                    const shouldShowWrapper = true // Always show videos on canvas
-
-                    return (
-                        <VideoPlayerWrapper
-                            key={info.id}
-                            style={{
-                                left: relativeLeft,
-                                top: relativeTop,
-                                width: info.width,
-                                height: info.height,
-                                transform: `translate(${info.originX === 'center' ? '-50%' : '0'}, ${info.originY === 'center' ? '-50%' : '0'}) rotate(${info.angle}deg)`,
-                                transformOrigin: 'top left',
-                                display: 'block',
-                                visibility: 'visible',
-                                opacity: 1,
-                            }}
-                            onMouseEnter={() => setIsHovered(true)}
-                            onMouseLeave={() => setIsHovered(false)}
-                        >
-                            <VideoElement
-                                ref={el => {
-                                    if (el) {
-                                        videoRefs.current[info.id] = el
-                                        // Update video source if it changed (for clip switching)
-                                        if (el.src !== info.src) {
-                                            el.src = info.src
-                                            el.load()
-                                        }
-                                        // Remove poster when playing to avoid showing play button on poster
-                                        if (isVideoPlaying) {
-                                            el.removeAttribute('poster')
-                                        } else if (info.poster) {
-                                            el.poster = info.poster
-                                        }
-                                    }
-                                }}
-                                src={info.src}
-                                poster={isVideoPlaying ? '' : (info.poster || '')}
-                                muted={!isVideoPlaying}
-                                playsInline
-                                crossOrigin="anonymous"
-                                controls={false}
+                        const isVideoPlaying = isPlaying && activeClipId === videoData.id
+                        return (
+                            <VideoPlayerWrapper
+                                key={videoData.id}
                                 style={{
-                                    // Always show video element (shows poster when not playing, video when playing)
-                                    opacity: 1,
-                                    pointerEvents: isVideoPlaying ? 'auto' : 'none',
-                                    objectFit: 'cover', // Ensure video covers the element area
-                                    objectPosition: 'center', // Center the crop (matches StockVideos.tsx logic)
+                                    left: relativeLeft, top: relativeTop,
+                                    width: videoData.width, height: videoData.height,
+                                    transform: `translate(${videoData.originX === 'center' ? '-50%' : '0'}, ${videoData.originY === 'center' ? '-50%' : '0'}) rotate(${videoData.angle}deg)`,
+                                    transformOrigin: 'top left', display: 'block', visibility: 'visible',
+                                    zIndex: zIndexValue,
+                                }}
+                            >
+                                <VideoElement
+                                    ref={el => {
+                                        if (el) {
+                                            videoRefs.current[videoData.id] = el
+                                            if (el.src !== videoData.src) { el.src = videoData.src; el.load() }
+                                            if (isVideoPlaying) el.removeAttribute('poster')
+                                            else if (videoData.poster) el.poster = videoData.poster
+                                        }
+                                    }}
+                                    src={videoData.src}
+                                    poster={isVideoPlaying ? '' : (videoData.poster || '')}
+                                    muted={!isVideoPlaying} playsInline crossOrigin="anonymous" controls={false}
+                                    style={{ opacity: 1, pointerEvents: isVideoPlaying ? 'auto' : 'none', objectFit: 'cover', objectPosition: 'center' }}
+                                />
+                                {isVideoPlaying && (
+                                    <div
+                                        style={{ position: 'absolute', inset: 0, cursor: 'pointer', pointerEvents: 'auto', zIndex: 5, background: 'transparent' }}
+                                        onClick={(e) => handlePlayPause(videoData.id, e)}
+                                    />
+                                )}
+                            </VideoPlayerWrapper>
+                        )
+                    } else if (type === 'text') {
+                        const textData = info as TextOverlayInfo
+                        const isWithinTimeline = currentTime >= (textData.timelineStart || 0) &&
+                            currentTime < ((textData.timelineStart || 0) + (textData.timelineDuration || 99999))
+
+                        if (!isWithinTimeline) return null
+
+                        // Always show text overlay if it's in the overlay (meaning it's above videos)
+                        // Canvas object is hidden, so overlay must show it to maintain layer order
+                        return (
+                            <TextOverlayElement
+                                key={textData.id}
+                                style={{
+                                    left: relativeLeft, top: relativeTop, width: textData.width,
+                                    fontSize: textData.fontSize, fontFamily: textData.fontFamily,
+                                    color: textData.fill, fontWeight: textData.fontWeight,
+                                    textAlign: textData.textAlign as any, fontStyle: textData.fontStyle,
+                                    textDecoration: textData.textDecoration, lineHeight: textData.lineHeight,
+                                    letterSpacing: `${(textData.charSpacing || 0) / 1000}em`,
+                                    opacity: textData.opacity,
+                                    position: 'absolute',
+                                    transform: `translate(${textData.originX === 'center' ? '-50%' : '0'}, ${textData.originY === 'center' ? '-50%' : '0'})`,
+                                    transformOrigin: 'top left',
+                                    pointerEvents: 'none',
+                                    zIndex: zIndexValue,
+                                }}
+                            >
+                                {textData.text}
+                            </TextOverlayElement>
+                        )
+                    } else if (type === 'generic') {
+                        const genericData = info as GenericOverlayInfo
+                        const isWithinTimeline = currentTime >= (genericData.timelineStart || 0) &&
+                            currentTime < ((genericData.timelineStart || 0) + (genericData.timelineDuration || 99999))
+
+                        if (!isWithinTimeline) return null
+
+                        // Always show image overlay if it's in the overlay (meaning it's above videos)
+                        // Canvas object is hidden, so overlay must show it to maintain layer order
+                        return (
+                            <GenericOverlayElement
+                                key={genericData.id}
+                                src={genericData.src}
+                                style={{
+                                    left: relativeLeft, top: relativeTop,
+                                    width: genericData.width, height: genericData.height,
+                                    opacity: genericData.opacity,
+                                    transform: `translate(${genericData.originX === 'center' ? '-50%' : '0'}, ${genericData.originY === 'center' ? '-50%' : '0'}) rotate(${genericData.angle}deg)`,
+                                    transformOrigin: 'top left', position: 'absolute',
+                                    pointerEvents: 'none',
+                                    zIndex: zIndexValue,
                                 }}
                             />
-
-                            {/* No play button - videos autoplay with timeline */}
-                            {isVideoPlaying && (
-                                <div
-                                    style={{
-                                        position: 'absolute',
-                                        inset: 0,
-                                        cursor: 'pointer',
-                                        pointerEvents: 'auto',
-                                        zIndex: 5,
-                                        // Ensure no background or visible elements
-                                        background: 'transparent'
-                                    }}
-                                    onClick={(e) => handlePlayPause(info.id, e)}
-                                />
-                            )}
-                        </VideoPlayerWrapper>
-                    )
+                        )
+                    }
+                    return null
                 })}
             </CanvasClipContainer>
-
-            {/* Render text overlays on top of video */}
-            {textOverlays.map(overlay => (
-                <TextOverlayElement
-                    key={overlay.id}
-                    style={{
-                        left: overlay.left,
-                        top: overlay.top,
-                        width: overlay.width,
-                        fontSize: overlay.fontSize,
-                        fontFamily: overlay.fontFamily,
-                        color: overlay.fill,
-                        fontWeight: overlay.fontWeight,
-                        textAlign: overlay.textAlign as any,
-                        fontStyle: overlay.fontStyle,
-                        textDecoration: overlay.textDecoration,
-                        lineHeight: overlay.lineHeight,
-                        letterSpacing: `${(overlay.charSpacing || 0) / 1000}em`,
-                        opacity: overlay.opacity,
-                    }}
-                >
-                    {overlay.text}
-                </TextOverlayElement>
-            ))}
         </OverlayContainer>
     )
 }
