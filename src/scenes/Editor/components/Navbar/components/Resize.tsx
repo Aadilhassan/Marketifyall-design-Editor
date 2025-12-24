@@ -70,6 +70,13 @@ export default function Resize() {
     <StatefulPopover
       focusLock
       placement={PLACEMENT.bottomLeft}
+      overrides={{
+        Body: {
+          style: {
+            zIndex: 1000,
+          },
+        },
+      }}
       content={({ close }) => (
         <ThemeProvider theme={LightTheme}>
           <Container>
@@ -84,6 +91,19 @@ export default function Resize() {
                 getValueLabel={getLabel}
                 getOptionLabel={getLabel}
                 clearable={false}
+                overrides={{
+                  Popover: {
+                    props: {
+                      overrides: {
+                        Body: {
+                          style: {
+                            zIndex: 2000
+                          }
+                        }
+                      }
+                    }
+                  }
+                }}
               />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>

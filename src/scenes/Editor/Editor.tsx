@@ -510,11 +510,11 @@ function App() {
         fontFamily: "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-      <div style={{ zIndex: 60 }}><Navbar /></div>
+      <div style={{ position: 'relative', zIndex: 100 }}><Navbar /></div>
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <div style={{ zIndex: 50, display: 'flex' }}><Panels /></div>
+        <Panels />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          <div style={{ zIndex: 40 }}><Toolbox /></div>
+          <Toolbox />
           <div
             style={{
               flex: 1,
@@ -533,7 +533,7 @@ function App() {
             <VideoCanvasPlayer />
             <VideoTimeline />
           </div>
-          <div style={{ zIndex: 40 }}><Footer /></div>
+          <Footer />
         </div>
       </div>
       <ContextMenu />
