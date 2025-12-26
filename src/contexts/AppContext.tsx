@@ -29,7 +29,7 @@ export const AppContext = createContext<IAppContext>({
   setUploads: () => {},
   shapes: [],
   setShapes: () => {},
-  activePanel: PanelType.TEMPLATES,
+  activePanel: PanelType.ELEMENTS,
   setActivePanel: () => {},
   activeSubMenu: null,
   setActiveSubMenu: (value: SubMenuType) => {},
@@ -42,7 +42,7 @@ export const AppProvider: FC = ({ children }) => {
   const [templates, setTemplates] = useState<Template[]>([])
   const [uploads, setUploads] = useState<any[]>([])
   const [shapes, setShapes] = useState<Template[]>([])
-  const [activePanel, setActivePanel] = useState<PanelType>(PanelType.TEMPLATES)
+  const [activePanel, setActivePanel] = useState<PanelType>(PanelType.ELEMENTS)
   const [activeSubMenu, setActiveSubMenu] = useState<SubMenuType | null>(null)
   const [currentTemplate, setCurrentTemplate] = useState(null)
   const context = {

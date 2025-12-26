@@ -3,6 +3,7 @@ import useAppContext from '@/hooks/useAppContext'
 import { useLocation } from 'react-router'
 import { getElements } from '@store/slices/elements/actions'
 import { getFonts } from '@store/slices/fonts/actions'
+import { getTemplates } from '@store/slices/templates/actions'
 import { useAppDispatch } from '@store/store'
 import useVideoContext from '@/hooks/useVideoContext'
 import Navbar from './components/Navbar'
@@ -35,6 +36,7 @@ function App() {
   useEffect(() => {
     dispath(getElements())
     dispath(getFonts())
+    dispath(getTemplates())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   const editorConfig = useMemo(() => ({ clipToFrame: true, scrollLimit: 0 }), [])

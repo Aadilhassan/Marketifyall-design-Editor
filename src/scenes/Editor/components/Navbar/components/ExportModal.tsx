@@ -618,12 +618,56 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           throw new Error('Canvas element not found')
         }
 
+        // Detect the design area (frame/clipPath) - same logic as video export
+        // @ts-ignore
+        const fabricObjects = fabricCanvas.getObjects?.() || []
+        let designWidth = 0, designHeight = 0, designLeft = 0, designTop = 0
+
+        // Try to find the frame/clip object
+        const frameObject = fabricObjects.find((obj: any) =>
+          obj.name === 'clip' ||
+          obj.id === 'clip' ||
+          obj.id === 'frame' ||
+          obj.metadata?.role === 'canvas' ||
+          obj.metadata?.id === 'frame'
+        )
+
+        if (frameObject) {
+          designWidth = (frameObject.width || 900) * (frameObject.scaleX || 1)
+          designHeight = (frameObject.height || 1200) * (frameObject.scaleY || 1)
+          designLeft = frameObject.left || 0
+          designTop = frameObject.top || 0
+
+          if (frameObject.originX === 'center') designLeft -= designWidth / 2
+          if (frameObject.originY === 'center') designTop -= designHeight / 2
+        } else if (frameSize?.width && frameSize?.height) {
+          // Fallback to frameSize from context
+          designWidth = frameSize.width
+          designHeight = frameSize.height
+          // Center the frame on canvas
+          designLeft = (canvasElement.width / 2) - (designWidth / 2)
+          designTop = (canvasElement.height / 2) - (designHeight / 2)
+        } else {
+          // Last resort: use clipPath dimensions
+          const clipPath = fabricCanvas.clipPath
+          if (clipPath) {
+            designWidth = (clipPath.width || 900) * (clipPath.scaleX || 1)
+            designHeight = (clipPath.height || 1200) * (clipPath.scaleY || 1)
+            designLeft = clipPath.left || 0
+            designTop = clipPath.top || 0
+          } else {
+            // Final fallback: use canvas dimensions
+            designWidth = canvasElement.width
+            designHeight = canvasElement.height
+            designLeft = 0
+            designTop = 0
+          }
+        }
+
         // Calculate export dimensions based on size multiplier
         const multiplier = parseInt(size) || 1
-        const originalWidth = canvasElement.width
-        const originalHeight = canvasElement.height
-        const exportWidth = originalWidth * multiplier
-        const exportHeight = originalHeight * multiplier
+        const exportWidth = Math.round(designWidth * multiplier)
+        const exportHeight = Math.round(designHeight * multiplier)
 
         // Save current canvas state
         const originalViewportTransform = [...(fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0])]
@@ -659,23 +703,55 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             console.warn('Pre-export renderAll warning:', renderError)
           }
 
-          // Export using toDataURL with multiplier
+          // Export only the frame area using toDataURL with specific bounds
           let image: string
-          if (multiplier === 1) {
-            // Simple export at 1x
-            image = canvasElement.toDataURL('image/png')
-          } else {
-            // For higher resolution, use fabric's toDataURL with multiplier
-            try {
-              image = fabricCanvas.toDataURL({
-                format: 'png',
-                multiplier: multiplier
-              })
-            } catch (e) {
-              // Fallback to simple export if multiplier fails
-              console.warn('Multiplier export failed, using simple export:', e)
-              image = canvasElement.toDataURL('image/png')
-            }
+          try {
+            image = fabricCanvas.toDataURL({
+              format: 'png',
+              left: designLeft,
+              top: designTop,
+              width: designWidth,
+              height: designHeight,
+              multiplier: multiplier
+            })
+          } catch (e) {
+            // Fallback: export entire canvas and crop manually
+            console.warn('Bounded export failed, using full canvas export:', e)
+            const fullImage = fabricCanvas.toDataURL({
+              format: 'png',
+              multiplier: multiplier
+            })
+            
+            // Crop to frame area
+            image = await new Promise<string>((resolve, reject) => {
+              const img = new Image()
+              img.onload = () => {
+                try {
+                  const c = document.createElement('canvas')
+                  c.width = exportWidth
+                  c.height = exportHeight
+                  const ctx = c.getContext('2d')
+                  if (ctx) {
+                    const sourceLeft = designLeft * multiplier
+                    const sourceTop = designTop * multiplier
+                    const sourceWidth = designWidth * multiplier
+                    const sourceHeight = designHeight * multiplier
+                    ctx.drawImage(
+                      img,
+                      sourceLeft, sourceTop, sourceWidth, sourceHeight,
+                      0, 0, exportWidth, exportHeight
+                    )
+                    resolve(c.toDataURL('image/png'))
+                  } else {
+                    reject(new Error('Failed to create crop canvas'))
+                  }
+                } catch (err) {
+                  reject(err)
+                }
+              }
+              img.onerror = () => reject(new Error('Failed to load full canvas image'))
+              img.src = fullImage
+            })
           }
 
           // Process image based on format
@@ -685,8 +761,8 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             const img = new Image()
             img.onload = () => {
               const c = document.createElement('canvas')
-              c.width = img.width
-              c.height = img.height
+              c.width = exportWidth
+              c.height = exportHeight
               const ctx = c.getContext('2d')
               if (ctx) {
                 // For JPG, fill with white background first

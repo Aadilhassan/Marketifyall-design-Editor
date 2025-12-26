@@ -3,10 +3,10 @@ export const panelListItems = [
   //   id: 'ai-designer',
   //   name: 'AI Designer',
   // },
-  // {
-  //   id: 'templates',
-  //   name: 'Templates',
-  // },
+  {
+    id: 'templates',
+    name: 'Templates',
+  },
   {
     id: 'elements',
     name: 'Elements',
@@ -48,4 +48,5 @@ export const panelListItems = [
 export enum PanelType {
   TEMPLATES = 'Templates',
   BACKGROUND = 'Background',
+  ELEMENTS = 'Elements',
 }
