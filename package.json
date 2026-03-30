@@ -2,9 +2,6 @@
   "name": "marketifyall-design-editor",
   "version": "0.1.0",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
   "dependencies": {
     "@nkyo/scenify-sdk": "^0.3.4",
     "@reduxjs/toolkit": "^1.9.7",
