@@ -6,8 +6,6 @@ import useAppContext from '@/hooks/useAppContext'
 import { SubMenuType } from '@/constants/editor'
 import { useEffect, useState } from 'react'
 import { useActiveObject, useEditor } from '@nkyo/scenify-sdk'
-import { StatefulPopover, PLACEMENT } from 'baseui/popover'
-import { StatefulMenu } from 'baseui/menu'
 import Spacing from './components/Spacing'
 import Common from './components/Common'
 import Animate from './components/Animate'
@@ -34,25 +32,10 @@ const defaultOptions = {
   fill: '#000000',
 }
 
-const ITEMS = [
-  { label: 8 },
-  { label: 10 },
-  { label: 12 },
-  { label: 14 },
-  { label: 16 },
-  { label: 18 },
-  { label: 20 },
-  { label: 22 },
-  { label: 24 },
-  { label: 32 },
-  { label: 36 },
-  { label: 64 },
-]
-
 function Text() {
   const { setActiveSubMenu } = useAppContext()
   const activeObject = useActiveObject<fabric.TextOptions>()
-  const [css, theme] = useStyletron()
+  const [css] = useStyletron()
   const [options, setOptions] = useState<TextOptions>(defaultOptions)
   const editor = useEditor()
   useEffect(() => {

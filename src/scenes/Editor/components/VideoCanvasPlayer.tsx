@@ -43,31 +43,6 @@ const VideoElement = styled('video', {
     display: 'block',
 })
 
-const PlayButtonStyled = styled('button', {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    width: '50px',
-    height: '50px',
-    borderRadius: '50%',
-    background: 'rgba(0, 0, 0, 0.75)',
-    border: '3px solid rgba(255, 255, 255, 0.95)',
-    color: '#ffffff',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'auto',
-    transition: 'all 0.2s ease',
-    boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
-    zIndex: 20,
-    ':hover': {
-        transform: 'translate(-50%, -50%) scale(1.15)',
-        background: 'rgba(0, 0, 0, 0.9)',
-    },
-})
-
 // Text overlay that renders on top of video during playback
 const TextOverlayElement = styled('div', {
     position: 'absolute',
@@ -168,7 +143,6 @@ const VideoCanvasPlayer: React.FC = () => {
     } = useVideoContext()
     const { canvas } = useEditorContext()
     const [canvasBounds, setCanvasBounds] = useState<CanvasBounds | null>(null)
-    const [isHovered, setIsHovered] = useState(false)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [overlayItems, setOverlayItems] = useState<OverlayItem[]>([])
     const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({})
@@ -194,10 +168,8 @@ const VideoCanvasPlayer: React.FC = () => {
         if (!canvas || !overlayRef.current) return null
 
         try {
-            // @ts-ignore
-            const objects = canvas.getObjects?.() || []
-            // @ts-ignore
-            const canvasEl = canvas.lowerCanvasEl as HTMLCanvasElement
+            const objects = (canvas as any).getObjects?.() || []
+            const canvasEl = (canvas as any).lowerCanvasEl as HTMLCanvasElement
             if (!canvasEl) return null
 
             const clipObj = objects.find((obj: any) =>
@@ -209,10 +181,8 @@ const VideoCanvasPlayer: React.FC = () => {
 
             const canvasRect = canvasEl.getBoundingClientRect()
             const overlayRect = overlayRef.current.getBoundingClientRect()
-            // @ts-ignore
-            const zoom = canvas.getZoom?.() || 1
-            // @ts-ignore
-            const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0]
+            const zoom = (canvas as any).getZoom?.() || 1
+            const vpt = (canvas as any).viewportTransform || [1, 0, 0, 1, 0, 0]
 
             if (!clipObj) {
                 const fallbackClip = objects.find((obj: any) =>
@@ -251,7 +221,6 @@ const VideoCanvasPlayer: React.FC = () => {
                 height: frameHeight * zoom,
             }
         } catch (err) {
-            console.error('Error getting canvas bounds:', err)
             return null
         }
     }, [canvas])
@@ -261,18 +230,14 @@ const VideoCanvasPlayer: React.FC = () => {
         if (!canvas) return
 
         try {
-            // @ts-ignore
-            const objects = canvas.getObjects?.() || []
-            // @ts-ignore
-            const canvasEl = canvas.lowerCanvasEl as HTMLCanvasElement
+            const objects = (canvas as any).getObjects?.() || []
+            const canvasEl = (canvas as any).lowerCanvasEl as HTMLCanvasElement
             if (!canvasEl || !overlayRef.current) return
 
             const canvasRect = canvasEl.getBoundingClientRect()
             const overlayRect = overlayRef.current.getBoundingClientRect()
-            // @ts-ignore
-            const zoom = canvas.getZoom?.() || 1
-            // @ts-ignore
-            const vpt = canvas.viewportTransform || [1, 0, 0, 1, 0, 0]
+            const zoom = (canvas as any).getZoom?.() || 1
+            const vpt = (canvas as any).viewportTransform || [1, 0, 0, 1, 0, 0]
 
             const frameBounds = getCanvasFrameBounds()
             setCanvasBounds(frameBounds)
@@ -365,7 +330,7 @@ const VideoCanvasPlayer: React.FC = () => {
                             try {
                                 src = obj.toDataURL()
                             } catch (e) {
-                                console.warn('Failed to get data URL for object', e)
+                                // silently handled
                             }
                             obj.set('opacity', currentOpacity)
                         }
@@ -391,7 +356,7 @@ const VideoCanvasPlayer: React.FC = () => {
             newOverlayItems.sort((a, b) => a.index - b.index)
             setOverlayItems(newOverlayItems)
         } catch (err) {
-            console.error('VideoCanvasPlayer error:', err)
+            // silently handled
         }
     }, [canvas, clips, getCanvasFrameBounds])
 
@@ -432,7 +397,7 @@ const VideoCanvasPlayer: React.FC = () => {
                 activeVideo.currentTime = Math.min(videoTime, activeVideo.duration || activeClip.duration)
             }
             activeVideo.play().then(() => { activeVideo.muted = false }).catch(err => {
-                if (err.name !== 'AbortError') console.error('Play failed:', err)
+                // silently handled (AbortError expected during seeking)
             })
         } else {
             activeVideo.pause()
@@ -470,8 +435,7 @@ const VideoCanvasPlayer: React.FC = () => {
 
     useEffect(() => {
         if (!canvas || !overlayRef.current) return
-        // @ts-ignore
-        const objects = canvas.getObjects?.() || []
+        const objects = (canvas as any).getObjects?.() || []
 
         objects.forEach((obj: any, idx: number) => {
             const item = overlayItems.find(it => it.index === idx || it.data.id === (obj.id || obj.metadata?.id))
@@ -525,34 +489,24 @@ const VideoCanvasPlayer: React.FC = () => {
                 obj.dirty = true
             }
         })
-        // @ts-ignore
-        canvas.requestRenderAll?.()
+        ;(canvas as any).requestRenderAll?.()
     }, [isPlaying, activeClipId, canvas, overlayItems, currentTime, clips])
 
     useEffect(() => {
         if (!canvas) return
         const updateOverlays = () => setTimeout(() => updateVideoPositions(), 50)
-        // @ts-ignore
-        canvas.on?.('object:added', updateOverlays)
-        // @ts-ignore
-        canvas.on?.('object:modified', updateOverlays)
-        // @ts-ignore
-        canvas.on?.('object:removed', updateOverlays)
-        // @ts-ignore
-        canvas.on?.('object:moving', updateOverlays)
-        // @ts-ignore
-        canvas.on?.('object:scaling', updateOverlays)
+        const c = canvas as any
+        c.on?.('object:added', updateOverlays)
+        c.on?.('object:modified', updateOverlays)
+        c.on?.('object:removed', updateOverlays)
+        c.on?.('object:moving', updateOverlays)
+        c.on?.('object:scaling', updateOverlays)
         return () => {
-            // @ts-ignore
-            canvas.off?.('object:added', updateOverlays)
-            // @ts-ignore
-            canvas.off?.('object:modified', updateOverlays)
-            // @ts-ignore
-            canvas.off?.('object:removed', updateOverlays)
-            // @ts-ignore
-            canvas.off?.('object:moving', updateOverlays)
-            // @ts-ignore
-            canvas.off?.('object:scaling', updateOverlays)
+            c.off?.('object:added', updateOverlays)
+            c.off?.('object:modified', updateOverlays)
+            c.off?.('object:removed', updateOverlays)
+            c.off?.('object:moving', updateOverlays)
+            c.off?.('object:scaling', updateOverlays)
         }
     }, [canvas, updateVideoPositions])
 

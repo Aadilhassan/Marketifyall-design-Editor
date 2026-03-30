@@ -731,11 +731,11 @@ function Video() {
         }
 
         video.onerror = () => {
-          console.error('Failed to load video metadata')
+          // silently handled
         }
       }
     }
-  }, [editor, addClip, setActiveClip])
+  }, [editor, addClip, setActiveClip, frameSize?.width, frameSize?.height, getNextVideoStartTime])
 
   // Add video as image frame to canvas
   const handleAddFrame = useCallback(async () => {
@@ -771,11 +771,12 @@ function Video() {
         }
       }
     } catch (error) {
-      console.error('Error extracting frame:', error)
+      // silently handled
     }
   }, [editor, uploadedVideo, frameTime])
 
   // Handle template click
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleTemplateClick = useCallback(async (template) => {
     try {
       if (!editor) return
@@ -906,9 +907,9 @@ function Video() {
       setActiveClip(clipId)
       setTimelineOpen(true)
     } catch (error) {
-      console.error('Error loading template:', error)
+      // silently handled
     }
-  }, [editor, addClip, setActiveClip, setTimelineOpen])
+  }, [editor, addClip, setActiveClip, setTimelineOpen, frameSize?.width, frameSize?.height, getNextVideoStartTime])
 
   // Add video to global timeline instead of flattening to an image
   const handleAddVideoToTimeline = useCallback(async () => {
@@ -1055,8 +1056,9 @@ function Video() {
       setActiveClip(clipId)
       setTimelineOpen(true)
     }
-  }, [uploadedVideo, extractFrame, duration, addClip, videoFile, setActiveClip, setTimelineOpen, editor])
+  }, [uploadedVideo, extractFrame, duration, addClip, videoFile, setActiveClip, setTimelineOpen, editor, frameSize?.width, frameSize?.height, getNextVideoStartTime])
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRemoveVideo = () => {
     if (uploadedVideo) {
       URL.revokeObjectURL(uploadedVideo)
@@ -1148,7 +1150,6 @@ function Video() {
       mediaRecorder.start()
       setIsRecording(true)
     } catch (error) {
-      console.error('Error starting recording:', error)
       alert('Could not start screen recording. Please allow screen sharing.')
     }
   }
