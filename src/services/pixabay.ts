@@ -18,7 +18,7 @@ export interface PixabayImage {
 export function getPixabayImages(query: string): Promise<PixabayImage[]> {
   // Check if API key is configured
   if (!PIXABAY_KEY || PIXABAY_KEY.trim() === '') {
-    console.warn('Pixabay API key is not configured')
+    // Pixabay API key not configured
     return Promise.resolve([])
   }
 
@@ -35,7 +35,6 @@ export function getPixabayImages(query: string): Promise<PixabayImage[]> {
         }
       })
       .catch(err => {
-        console.error('Pixabay API error:', err.message)
         // Return empty array instead of rejecting to prevent UI freeze
         resolve([])
       })

@@ -7,7 +7,7 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import fs from 'fs'
-import renderRouter from './routes/render'
+
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -33,7 +33,11 @@ app.get('/health', (req, res) => {
 })
 
 // Routes
+import renderRouter from './routes/render'
+import autoRouter from './routes/auto'
+
 app.use('/api/render', renderRouter)
+app.use('/api/generate', autoRouter)
 
 // Error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {

@@ -1,0 +1,19 @@
+{
+  "name": "@marketifyall/cms-webflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Marketifyall Design Editor extension for Webflow Designer",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@marketifyall/cms-sdk": "workspace:*",
+    "@marketifyall/quick-actions": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
+  }
+}

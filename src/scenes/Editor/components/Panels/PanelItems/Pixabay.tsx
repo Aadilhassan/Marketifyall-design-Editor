@@ -96,7 +96,6 @@ function Pixabay() {
       const data = await getPixabayImages(query)
       setImages(data)
     } catch (error) {
-      console.error('Failed to load Pixabay images:', error)
       setImages([])
     } finally {
       setLoading(false)
@@ -155,7 +154,6 @@ function Pixabay() {
       }
       img.src = imageUrl
     } catch (error) {
-      console.error('Failed to add image:', error)
       setAddingImage(null)
     }
   }, [editor, addingImage, frameSize, canvas])

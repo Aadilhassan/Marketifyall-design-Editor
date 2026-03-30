@@ -39,6 +39,7 @@ export interface TextClip {
     start: number
     duration: number
     position: Position
+    size?: Size  // Optional size for text area
     style: {
         fontSize: number
         fontFamily?: string
@@ -57,6 +58,7 @@ export interface RenderRequest {
         height: number
         backgroundColor?: string
         backgroundImage?: string  // Base64 PNG of canvas (without videos)
+        audioPath?: string       // Path to audio file (TTS)
     }
     clips: TimelineClip[]
 }

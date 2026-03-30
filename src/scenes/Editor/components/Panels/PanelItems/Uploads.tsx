@@ -1,75 +1,102 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import DropZone from '@components/Dropzone'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
 
-import { uniqueFilename } from '@/utils/unique'
-import { useSelector } from 'react-redux'
-import { selectUploading, selectUploads } from '@/store/slices/uploads/selectors'
-import { useAppDispatch } from '@/store/store'
-import { setUploading, uploadFile } from '@/store/slices/uploads/actions'
+// ─── Local uploads storage ───────────────────────────────────
+
+interface LocalUpload {
+  id: string
+  name: string
+  url: string // data URL
+  timestamp: number
+}
+
+const STORAGE_KEY = 'mfa-local-uploads'
+const MAX_UPLOADS = 50
+
+function loadLocalUploads(): LocalUpload[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function saveLocalUploads(uploads: LocalUpload[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads.slice(0, MAX_UPLOADS)))
+  } catch {
+    // storage full — drop oldest
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads.slice(0, 10)))
+    } catch { /* ignore */ }
+  }
+}
+
+// ─── Component ───────────────────────────────────────────────
 
 function Uploads() {
-  const [currentFile, setCurrentFile] = useState<any>(null)
+  const [uploads, setUploads] = useState<LocalUpload[]>(() => loadLocalUploads())
+  const [isProcessing, setIsProcessing] = useState(false)
   const inputFileRef = useRef<HTMLInputElement>(null)
-  const uploads = useSelector(selectUploads)
-  const uploading = useSelector(selectUploading)
   const editor = useEditor()
   const { canvas } = useEditorContext() as any
-  const dispatch = useAppDispatch()
-  const handleDropFiles = (files: FileList) => {
-    const file = files[0]
-    handleUploadFile(file)
+
+  // Persist uploads when they change
+  useEffect(() => {
+    saveLocalUploads(uploads)
+  }, [uploads])
+
+  const processFile = useCallback((file: File) => {
+    if (!file || !file.type.startsWith('image/')) return
+    setIsProcessing(true)
+
     const reader = new FileReader()
-    reader.addEventListener(
-      'load',
-      function () {
-        setCurrentFile(reader.result)
-      },
-      false
-    )
-
-    if (file) {
-      reader.readAsDataURL(file)
+    reader.onload = () => {
+      const dataUrl = reader.result as string
+      const newUpload: LocalUpload = {
+        id: `upload-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        name: file.name,
+        url: dataUrl,
+        timestamp: Date.now(),
+      }
+      setUploads(prev => [newUpload, ...prev])
+      setIsProcessing(false)
     }
+    reader.onerror = () => setIsProcessing(false)
+    reader.readAsDataURL(file)
+  }, [])
+
+  const handleDropFiles = useCallback((files: FileList) => {
+    for (let i = 0; i < files.length; i++) {
+      processFile(files[i])
+    }
+  }, [processFile])
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) handleDropFiles(e.target.files)
+    // Reset so same file can be selected again
+    e.target.value = ''
   }
 
-  const handleUploadFile = async (file: File) => {
-    try {
-      const updatedFileName = uniqueFilename(file.name)
-      const updatedFile = new File([file], updatedFileName)
-      dispatch(
-        setUploading({
-          progress: 0,
-          status: 'IN_PROGRESS',
-        })
-      )
-      dispatch(uploadFile({ file: updatedFile }))
-      // const response = await api.getSignedURLForUpload({ name: updatedFileName })
-      // await axios.put(response.url, updatedFile, {
-      //   headers: { 'Content-Type': 'image/png' },
-      // })
-      // await api.updateUploadFile({ name: updatedFileName })
-    } catch (err) {
-      console.log({ err })
-    }
-  }
-
-  const addImageToCanvas = url => {
+  const addImageToCanvas = useCallback((url: string) => {
+    if (!url || !editor) return
     addObjectToCanvas(editor, {
       type: 'StaticImage',
       metadata: { src: url },
     }, 400, canvas)
-  }
+  }, [editor, canvas])
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleDropFiles(e.target.files)
-  }
+  const handleDragStart = useCallback((e: React.DragEvent, url: string) => {
+    e.dataTransfer.setData('image-url', url)
+  }, [])
 
-  const handleInputFileRefClick = () => {
-    inputFileRef.current?.click()
-  }
+  const handleRemove = useCallback((id: string) => {
+    setUploads(prev => prev.filter(u => u.id !== id))
+  }, [])
 
   return (
     <DropZone handleDropFiles={handleDropFiles}>
@@ -85,15 +112,17 @@ function Uploads() {
               cursor: 'pointer',
               height: '50px',
               width: '100%',
+              borderRadius: '8px',
             }}
-            onClick={handleInputFileRefClick}
+            onClick={() => inputFileRef.current?.click()}
           >
             Upload file
           </div>
           <input
             onChange={handleFileInput}
             type="file"
-            id="file"
+            accept="image/*"
+            multiple
             ref={inputFileRef}
             style={{ display: 'none' }}
           />
@@ -108,7 +137,20 @@ function Uploads() {
                 gridTemplateColumns: '1fr 1fr',
               }}
             >
-              {uploading && <img width="100%" src={currentFile} alt="uploaded" />}
+              {isProcessing && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  aspectRatio: '1',
+                  background: '#f5f5f5',
+                  borderRadius: '8px',
+                  color: '#999',
+                  fontSize: '12px',
+                }}>
+                  Processing...
+                </div>
+              )}
 
               {uploads.map(upload => (
                 <div
@@ -117,12 +159,46 @@ function Uploads() {
                     display: 'flex',
                     alignItems: 'center',
                     cursor: 'pointer',
+                    position: 'relative',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    border: '1px solid #eee',
                   }}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, upload.url)}
                   onClick={() => addImageToCanvas(upload.url)}
+                  title={upload.name}
                 >
-                  <div>
-                    <img width="100%" src={upload.url} alt="preview" />
-                  </div>
+                  <img
+                    width="100%"
+                    src={upload.url}
+                    alt={upload.name}
+                    style={{ display: 'block', pointerEvents: 'none' }}
+                  />
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRemove(upload.id) }}
+                    style={{
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      width: 20,
+                      height: 20,
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: 'rgba(0,0,0,0.5)',
+                      color: '#fff',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      opacity: 0.6,
+                      lineHeight: 1,
+                    }}
+                    title="Remove"
+                  >
+                    x
+                  </button>
                 </div>
               ))}
             </div>

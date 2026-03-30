@@ -45,12 +45,16 @@ export const getContextMenuType = (selection: any) => {
 const toolboxOptions = {
   Default: 'Default',
   StaticText: 'StaticText',
+  DynamicText: 'DynamicText',
   StaticPath: 'StaticPath',
   StaticVector: 'StaticVector',
   StaticImage: 'StaticImage',
   MultiElement: 'MultiElement',
-  DynamicText: 'DynamicText',
   DynamicImage: 'DynamicImage',
+  // fabric.js internal types that map to our toolbox items
+  textbox: 'StaticText',
+  'i-text': 'StaticText',
+  text: 'StaticText',
 }
 
 function EditorToolbox() {
@@ -61,15 +65,12 @@ function EditorToolbox() {
 
   useEffect(() => {
     if (activeObject) {
-      // @ts-ignore
-      setLocked(activeObject.locked)
+      setLocked((activeObject as any).locked)
       const activeObjectType = getContextMenuType(activeObject)
       if (isArray(activeObjectType)) {
-        // @ts-ignore
         setActiveToolbox(toolboxOptions['MultiElement'])
       } else {
-        // @ts-ignore
-        setActiveToolbox(toolboxOptions[activeObjectType])
+        setActiveToolbox((toolboxOptions as any)[activeObjectType as any])
       }
     } else {
       setLocked(false)
@@ -80,8 +81,7 @@ function EditorToolbox() {
   useEffect(() => {
     const handleHistoryChange = () => {
       if (activeObject) {
-        // @ts-ignore
-        setLocked(activeObject.locked)
+        setLocked((activeObject as any).locked)
       } else {
         setLocked(false)
         // setActiveToolbox(null)

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 
 interface EmbedConfig {
   isEmbedMode: boolean
@@ -7,6 +7,10 @@ interface EmbedConfig {
   showBranding: boolean
   initialImage: string | null
   theme: 'light' | 'dark'
+  nonce: string | null
+  embedToken: string | null
+  loadTemplateId: string | null
+  loadImageUrl: string | null
 }
 
 interface EmbedContextType {
@@ -24,6 +28,10 @@ const defaultConfig: EmbedConfig = {
   showBranding: true,
   initialImage: null,
   theme: 'light',
+  nonce: null,
+  embedToken: null,
+  loadTemplateId: null,
+  loadImageUrl: null,
 }
 
 const EmbedContext = createContext<EmbedContextType>({
@@ -36,12 +44,41 @@ const EmbedContext = createContext<EmbedContextType>({
 
 export const useEmbedMode = () => useContext(EmbedContext)
 
+const isDev = process.env.REACT_APP_ENVIRONMENT === 'development'
+
+/**
+ * Validate that an origin is in the allowed whitelist.
+ * Allowed: *.marketifyall.com, and localhost (dev only).
+ */
+function isOriginAllowed(origin: string): boolean {
+  try {
+    const url = new URL(origin)
+    const hostname = url.hostname
+
+    // Allow *.marketifyall.com
+    if (hostname === 'marketifyall.com' || hostname.endsWith('.marketifyall.com')) {
+      return true
+    }
+
+    // Allow localhost in development
+    if (isDev && (hostname === 'localhost' || hostname === '127.0.0.1')) {
+      return true
+    }
+
+    return false
+  } catch {
+    return false
+  }
+}
+
 interface EmbedProviderProps {
   children: React.ReactNode
 }
 
 export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
   const [config, setConfig] = useState<EmbedConfig>(defaultConfig)
+  const nonceRef = useRef<string | null>(null)
+  const validatedOriginRef = useRef<string | null>(null)
 
   useEffect(() => {
     // Check if running in iframe
@@ -51,7 +88,6 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
     const urlParams = new URLSearchParams(window.location.search)
     const embedParam = urlParams.get('embed')
     const callbackParam = urlParams.get('callback')
-    const originParam = urlParams.get('origin')
     const brandingParam = urlParams.get('branding')
     const imageParam = urlParams.get('image')
     const themeParam = urlParams.get('theme')
@@ -67,45 +103,105 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
       try {
         initialImage = decodeURIComponent(imageParam)
       } catch (e) {
-        console.warn('Failed to decode initial image URL')
+        // silently handled
       }
     }
 
-    setConfig({
+    setConfig((prev) => ({
+      ...prev,
       isEmbedMode,
       callbackEnabled,
-      parentOrigin: originParam || '*',
+      parentOrigin: null,
       showBranding,
       initialImage,
       theme,
-    })
+    }))
 
     // Listen for messages from parent window
     const handleMessage = (event: MessageEvent) => {
       if (!isEmbedMode) return
 
-      const { type, data } = event.data || {}
+      // Validate origin
+      if (!isOriginAllowed(event.origin)) {
+        return
+      }
+
+      const { type, data, nonce: msgNonce } = event.data || {}
+
+      // Handle init message -- establishes the nonce and validated origin
+      if (type === 'mfa:init') {
+        const initNonce = data?.nonce || msgNonce
+        const initToken = data?.token || null
+
+        if (!initNonce) {
+          // Reject init without nonce
+          return
+        }
+
+        nonceRef.current = initNonce
+        validatedOriginRef.current = event.origin
+
+        setConfig((prev) => ({
+          ...prev,
+          parentOrigin: event.origin,
+          nonce: initNonce,
+          embedToken: initToken,
+        }))
+        return
+      }
+
+      // All messages after init must include matching nonce
+      if (!nonceRef.current) {
+        // No init received yet, reject
+        return
+      }
+
+      const incomingNonce = data?.nonce || msgNonce
+      if (incomingNonce !== nonceRef.current) {
+        // Nonce mismatch, reject
+        return
+      }
 
       switch (type) {
-        case 'marketifyall:load-image':
-          // Parent wants to load a new image
+        case 'mfa:load-template':
+          if (data?.templateId) {
+            setConfig((prev) => ({ ...prev, loadTemplateId: data.templateId }))
+          }
+          break
+
+        case 'mfa:load-image':
           if (data?.imageUrl) {
+            setConfig((prev) => ({ ...prev, loadImageUrl: data.imageUrl }))
             window.dispatchEvent(
               new CustomEvent('embed:load-image', { detail: { imageUrl: data.imageUrl } })
             )
           }
           break
 
-        case 'marketifyall:set-config':
-          // Parent wants to update config
+        case 'mfa:set-config':
           if (data) {
-            setConfig((prev) => ({ ...prev, ...data }))
+            const { nonce: _n, ...configData } = data
+            setConfig((prev) => ({ ...prev, ...configData }))
           }
           break
 
-        case 'marketifyall:export':
-          // Parent requests export
+        case 'mfa:export':
           window.dispatchEvent(new CustomEvent('embed:request-export'))
+          break
+
+        case 'mfa:close':
+          // Parent requests close -- treated as cancel
+          // notifyCancel is called via the ref-based approach below
+          if (validatedOriginRef.current) {
+            window.parent.postMessage(
+              {
+                type: 'mfa:closed',
+                nonce: nonceRef.current,
+                timestamp: Date.now(),
+              },
+              validatedOriginRef.current
+            )
+          }
           break
 
         default:
@@ -121,28 +217,44 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
     (eventType: string, data?: Record<string, any>) => {
       if (!config.isEmbedMode) return
 
+      const targetOrigin = validatedOriginRef.current
+      if (!targetOrigin) {
+        // No validated origin yet -- cannot send in production
+        if (isDev) {
+          // In dev, allow fallback to '*' only if explicitly no origin set
+          // But prefer not to -- just skip
+        }
+        return
+      }
+
       try {
         window.parent.postMessage(
           {
-            type: `marketifyall:${eventType}`,
+            type: `mfa:${eventType}`,
             data,
+            nonce: nonceRef.current,
             timestamp: Date.now(),
           },
-          config.parentOrigin || '*'
+          targetOrigin
         )
       } catch (error) {
-        console.error('Failed to send message to parent:', error)
+        // silently handled
       }
     },
-    [config.isEmbedMode, config.parentOrigin]
+    [config.isEmbedMode]
   )
 
   const sendImageToParent = useCallback(
     (imageDataUrl: string, metadata?: Record<string, any>) => {
-      sendEventToParent('design-complete', {
-        image: imageDataUrl,
-        format: imageDataUrl.startsWith('data:image/png') ? 'png' : 'jpeg',
-        ...metadata,
+      sendEventToParent('export', {
+        asset: {
+          url: imageDataUrl,
+          blob: null,
+          width: metadata?.width || null,
+          height: metadata?.height || null,
+          format: imageDataUrl.startsWith('data:image/png') ? 'png' : 'jpeg',
+          name: metadata?.name || 'design',
+        },
       })
     },
     [sendEventToParent]
@@ -156,7 +268,7 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
   }, [sendEventToParent])
 
   const notifyCancel = useCallback(() => {
-    sendEventToParent('cancelled')
+    sendEventToParent('closed')
   }, [sendEventToParent])
 
   // Notify parent when embed is ready

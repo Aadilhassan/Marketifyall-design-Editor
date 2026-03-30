@@ -1,7 +1,4 @@
-import axios from 'axios'
-
-const OPENROUTER_API_KEY = process.env.REACT_APP_OPENROUTER_API_KEY || ''
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
+import { marketifyallApi } from './marketifyall-api'
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -61,37 +58,27 @@ Example response for "Create a social media post about coffee":
 
 Always respond with valid JSON only. Be creative with colors, fonts, and compositions. Consider visual hierarchy and balance.`
 
-const openRouterClient = axios.create({
-  baseURL: OPENROUTER_BASE_URL,
-  timeout: 60000, // 60 second timeout
-  headers: {
-    'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-    'Content-Type': 'application/json',
-    'HTTP-Referer': typeof window !== 'undefined' ? window.location.origin : '',
-    'X-Title': 'Marketifyall Design Editor',
-  },
-})
-
 export async function sendDesignRequest(
   messages: ChatMessage[],
   model: string = 'anthropic/claude-3.5-sonnet'
 ): Promise<AIDesignResponse> {
   try {
-    const response = await openRouterClient.post('/chat/completions', {
-      model,
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        ...messages,
-      ],
-      temperature: 0.7,
-      max_tokens: 2000,
-    })
+    const allMessages = [
+      { role: 'system' as const, content: SYSTEM_PROMPT },
+      ...messages,
+    ]
 
-    const content = response.data.choices[0]?.message?.content || ''
-    
+    const response = await marketifyallApi.aiProxy(
+      'ai_full_design',
+      model,
+      allMessages,
+      { temperature: 0.7, max_tokens: 2000 }
+    )
+
+    const content = response.choices?.[0]?.message?.content || ''
+
     // Parse the JSON response
     try {
-      // Find JSON in the response (in case there's extra text)
       const jsonMatch = content.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
@@ -102,39 +89,36 @@ export async function sendDesignRequest(
         }
       }
     } catch (parseError) {
-      console.error('Failed to parse AI response:', parseError)
+      // silently handled
     }
 
-    // If parsing fails, return just the message
     return {
       message: content,
       actions: [],
       suggestions: [],
     }
   } catch (error: any) {
-    console.error('OpenRouter API error:', error)
-    throw new Error(error.response?.data?.error?.message || 'Failed to get AI response')
+    throw new Error(error.response?.data?.error?.message || error.message || 'Failed to get AI response')
   }
 }
 
 export async function improvePrompt(prompt: string): Promise<string> {
   try {
-    const response = await openRouterClient.post('/chat/completions', {
-      model: 'anthropic/claude-3.5-sonnet',
-      messages: [
+    const response = await marketifyallApi.aiProxy(
+      'ai_text_generation',
+      'anthropic/claude-3.5-sonnet',
+      [
         {
           role: 'system',
           content: 'You are a prompt improvement assistant. Take the user\'s design request and enhance it with more specific details about colors, fonts, layout, and visual elements. Keep it concise but descriptive. Only return the improved prompt, nothing else.',
         },
         { role: 'user', content: prompt },
       ],
-      temperature: 0.7,
-      max_tokens: 500,
-    })
+      { temperature: 0.7, max_tokens: 500 }
+    )
 
-    return response.data.choices[0]?.message?.content || prompt
+    return response.choices?.[0]?.message?.content || prompt
   } catch (error) {
-    console.error('Failed to improve prompt:', error)
     return prompt
   }
 }

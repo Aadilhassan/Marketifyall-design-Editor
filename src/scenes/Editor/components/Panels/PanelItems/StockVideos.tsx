@@ -234,7 +234,6 @@ function StockVideos() {
             videoCache.set(cacheKey, data)
             setVideos(data)
         } catch (error) {
-            console.error('Failed to load videos:', error)
             setVideos([])
         } finally {
             setLoading(false)
@@ -281,7 +280,6 @@ function StockVideos() {
         try {
             const videoFile = getBestVideoFile(video)
             if (!videoFile) {
-                console.error('No suitable video file found')
                 return
             }
 
@@ -420,7 +418,6 @@ function StockVideos() {
 
             // Verify all required fields are present
             if (!clipData.id || !clipData.src || !clipData.duration || clipData.duration <= 0) {
-                console.error('Invalid clip data:', clipData)
                 throw new Error('Invalid clip data')
             }
 
@@ -428,7 +425,7 @@ function StockVideos() {
             addClip(clipData)
             setActiveClip(clipId)
         } catch (error) {
-            console.error('Failed to add video:', error)
+            // silently handled
         } finally {
             setAddingVideo(null)
         }

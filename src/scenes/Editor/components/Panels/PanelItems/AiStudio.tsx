@@ -250,7 +250,6 @@ function AiStudio() {
         alert('Failed to generate image. Please try again.')
       }
     } catch (error) {
-      console.error('Error generating image:', error)
       alert('Error generating image. Please check your connection.')
     } finally {
       setIsLoading(false)

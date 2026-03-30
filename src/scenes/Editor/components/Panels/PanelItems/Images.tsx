@@ -53,31 +53,25 @@ function Images() {
         setQueryImageUrl(paramUrl)
       }
     } catch (error) {
-      console.error('Failed to read imageUrl from query params:', error)
+      // silently handled
     }
   }, [])
 
   const addImageToCanvasWithSizing = useCallback((imageUrl: string) => {
     if (!editor) {
-      console.error('Editor is not available')
       alert('Editor is not available. Please wait for the editor to load.')
       return
     }
 
     if (!canvas) {
-      console.error('Canvas is not available')
       alert('Canvas is not available. Please wait for the editor to load.')
       return
     }
 
     if (!imageUrl || imageUrl.trim() === '') {
-      console.error('Invalid image URL:', imageUrl)
       alert('Invalid image URL')
       return
     }
-
-    console.log('=== ADDING IMAGE TO CANVAS ===')
-    console.log('Image URL:', imageUrl)
 
     // Preload to get dimensions for better scaling
     const img = new Image()
@@ -127,19 +121,13 @@ function Images() {
   const loadImages = async () => {
     setLoading(true)
     try {
-      console.log('Loading images from API...')
       const data = await api.getImages()
-      console.log('Images loaded:', data?.length || 0, 'images')
 
       // Limit total images to prevent resource exhaustion
       const limitedData = (data || []).slice(0, 100) // Max 100 images total
-      setImages(limitedData)
+      setImages(limitedData as any)
 
-      if (limitedData.length < (data?.length || 0)) {
-        console.warn(`Limited images to ${limitedData.length} to prevent resource exhaustion`)
-      }
     } catch (error) {
-      console.error('Failed to load images:', error)
       setImages([])
     } finally {
       setLoading(false)
@@ -170,20 +158,16 @@ function Images() {
 
   const addImageToCanvas = useCallback((imageUrl: string, imageId?: string) => {
     if (!editor) {
-      console.error('Editor is not available')
       return
     }
 
     if (!imageUrl) {
-      console.error('No image URL provided')
       return
     }
 
     if (imageId) {
       setAddingImageId(imageId)
     }
-
-    console.log('addImageToCanvas called with URL:', imageUrl)
 
     // Use the sizing function
     addImageToCanvasWithSizing(imageUrl)
@@ -283,17 +267,18 @@ function Images() {
                           e.preventDefault()
                           e.stopPropagation()
                           if (addingImageId === image.id) {
-                            console.log('Image is already being added, skipping...')
                             return
                           }
                           if (imageUrl) {
-                            console.log('Image clicked:', imageUrl)
-                            console.log('Full image object:', image)
                             addImageToCanvas(imageUrl, image.id)
                           } else {
-                            console.error('No image URL found for image:', image)
-                            alert('Image URL is missing. Check console for details.')
+                            alert('Image URL is missing.')
                           }
+                        }}
+                        draggable={true}
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('image-url', imageUrl)
+                          e.dataTransfer.effectAllowed = 'copy'
                         }}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.borderColor = '#5A3FFF'
@@ -320,7 +305,6 @@ function Images() {
                             // Fallback to a placeholder if image fails to load
                             const target = e.target as HTMLImageElement
                             target.style.display = 'none'
-                            console.warn('Failed to load image thumbnail:', image.preview || image.url)
                           }}
                         />
                         {addingImageId === image.id && (

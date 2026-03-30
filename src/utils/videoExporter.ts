@@ -63,8 +63,7 @@ export async function exportVideoWithRecorder(
         const videos = canvasContainer.querySelectorAll('video') as NodeListOf<HTMLVideoElement>
         videos.forEach(video => {
           try {
-            // @ts-ignore
-            const videoStream = video.captureStream?.()
+            const videoStream = (video as any).captureStream?.()
             if (videoStream) {
               const audioTracks = videoStream.getAudioTracks()
               audioTracks.forEach(track => stream.addTrack(track))

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import useAppContext from '@/hooks/useAppContext'
 import { useLocation } from 'react-router'
 import { getElements } from '@store/slices/elements/actions'
@@ -13,326 +13,241 @@ import Footer from './components/Footer'
 import ContextMenu from './components/ContextMenu'
 import VideoTimeline from './components/VideoTimeline'
 import VideoCanvasPlayer from './components/VideoCanvasPlayer'
-import Editor, { useEditor } from '@nkyo/scenify-sdk'
+import ErrorBoundary from '@/components/ErrorBoundary/ErrorBoundary'
+import InsufficientCreditsModal from '@/components/InsufficientCreditsModal'
+import { useCredits } from '@/contexts/CreditsContext'
+import Editor, { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
+import { fabric } from 'fabric'
+import { addObjectToCanvas } from '@/utils/editorHelpers'
+
+interface CanvasObject {
+  name?: string
+  id?: string
+  type?: string
+  left?: number
+  top?: number
+  width?: number
+  height?: number
+  scaleX?: number
+  scaleY?: number
+  fill?: string
+  originX?: string
+  originY?: string
+  getBoundingRect: () => { left: number; top: number; width: number; height: number }
+  set: (props: Record<string, unknown>) => void
+  setCoords: () => void
+}
+
+interface CanvasWithExtras {
+  canvas?: CanvasWithExtras
+  clipPath?: CanvasObject | null
+  getObjects?: () => CanvasObject[]
+  getActiveObject?: () => CanvasObject | null
+  requestRenderAll?: () => void
+  controlsAboveOverlay?: boolean
+  on?: (event: string, handler: (...args: unknown[]) => void) => void
+  off?: (event: string, handler: (...args: unknown[]) => void) => void
+}
+
+interface EditorWithCanvas {
+  canvas?: CanvasWithExtras
+  importFromJSON: (data: unknown) => void
+  add: (options: unknown) => void
+  update: (options: unknown) => void
+}
+
+function getCanvas(editor: EditorWithCanvas): CanvasWithExtras | null {
+  const raw = editor.canvas as CanvasWithExtras | undefined
+  return raw?.canvas || raw || null
+}
 
 function App() {
-  const { setCurrentTemplate, activePanel } = useAppContext()
-  const editor = useEditor()
+  const { setCurrentTemplate } = useAppContext()
+  const editor = useEditor() as unknown as EditorWithCanvas | null
   const location = useLocation()
-  const dispath = useAppDispatch()
+  const dispatch = useAppDispatch()
   const [hasInitialized, setHasInitialized] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const { clips, audioClips, isTimelineOpen } = useVideoContext()
+  const { showUpgradeModal, upgradeModalData, dismissUpgradeModal } = useCredits()
 
-  // Check if timeline should be visible (has video/animation content)
   const hasTimelineContent = clips.length > 0 || audioClips.length > 0
   const shouldShowTimeline = hasTimelineContent && isTimelineOpen
 
-  // Parse URL parameters
   const searchParams = new URLSearchParams(location.search)
   const imgUrl = searchParams.get('img_url')
-  const userId = searchParams.get('user_id') // Used for context/tracking
   const prebuiltJsonUrl = searchParams.get('prebuilt_json_url')
 
   useEffect(() => {
-    dispath(getElements())
-    dispath(getFonts())
-    dispath(getTemplates())
+    dispatch(getElements())
+    dispatch(getFonts())
+    dispatch(getTemplates())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
   const editorConfig = useMemo(() => ({ clipToFrame: true, scrollLimit: 0 }), [])
 
+  const handleCanvasDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    const imageUrl = e.dataTransfer.getData('image-url')
+    if (!imageUrl || !editor) return
+    const canvas = (editor as any).canvas?.canvas || (editor as any).canvas
+    if (!canvas) return
+    addObjectToCanvas(editor, {
+      type: 'StaticImage',
+      metadata: { src: imageUrl },
+    }, 400, canvas)
+  }, [editor])
+
+  const loadFonts = useCallback((fonts: Array<{ name: string; url: string; options: FontFaceDescriptors }>) => {
+    const promisesList = fonts.map(font => {
+      return new FontFace(font.name, `url(${font.url})`, font.options).load().catch(() => null)
+    })
+    return Promise.all(promisesList).then(res => {
+      res.forEach(uniqueFont => {
+        if (uniqueFont && uniqueFont.family) {
+          document.fonts.add(uniqueFont)
+        }
+      })
+    })
+  }, [])
+
+  const handleLoadTemplate = useCallback(
+    async (template: { objects: Array<{ type: string; metadata: { fontFamily: string; fontURL: string } }> }) => {
+      const fonts: Array<{ name: string; url: string; options: FontFaceDescriptors }> = []
+      template.objects.forEach(object => {
+        if (object.type === 'StaticText' || object.type === 'DynamicText') {
+          fonts.push({
+            name: object.metadata.fontFamily,
+            url: object.metadata.fontURL,
+            options: { style: 'normal', weight: '400' } as FontFaceDescriptors,
+          })
+        }
+      })
+
+      const filteredFonts = fonts.filter(f => !!f.url)
+      if (filteredFonts.length > 0) {
+        await loadFonts(filteredFonts)
+      }
+
+      editor?.importFromJSON(template)
+    },
+    [editor, loadFonts],
+  )
+
+  const handleLoadImageTemplate = useCallback(
+    (imageUrl: string) => {
+      if (!editor) return
+      try {
+        const imageOptions = {
+          type: 'StaticImage',
+          metadata: { src: imageUrl },
+        }
+        editor.add(imageOptions)
+      } catch (err) {
+        setLoadError('Failed to load image onto canvas')
+      }
+    },
+    [editor],
+  )
+
   useEffect(() => {
-    if (editor && !hasInitialized) {
-      setHasInitialized(true)
-      console.log('Editor initialized')
+    if (!editor || hasInitialized) return
+    setHasInitialized(true)
 
-      // Wait a bit for editor to be fully ready
-      setTimeout(() => {
-        try {
-          // @ts-ignore
-          const canvas = editor.canvas?.canvas || editor.canvas
-          if (canvas) {
-            console.log('Canvas is available')
-            // @ts-ignore
-            const objects = canvas.getObjects?.() || []
-            console.log('Initial canvas objects:', objects.length)
-          }
-        } catch (e) {
-          console.warn('Could not check canvas on init:', e)
-        }
+    const canvas = getCanvas(editor)
+    if (!canvas) return
 
-        // Load template from prebuilt_json_url if provided
-        if (prebuiltJsonUrl) {
-          fetch(prebuiltJsonUrl)
-            .then(res => res.json())
-            .then(template => {
-              setCurrentTemplate(template)
-              handleLoadTemplate(template)
-            })
-            .catch(err => console.error('Error loading template from URL:', err))
-        }
-        // If img_url is provided, preload image on canvas
-        else if (imgUrl) {
-          handleLoadImageTemplate(imgUrl)
-        }
-        // Editor should handle blank canvas initialization automatically
-      }, 300)
+    if (prebuiltJsonUrl) {
+      fetch(prebuiltJsonUrl)
+        .then(res => res.json())
+        .then(template => {
+          setCurrentTemplate(template)
+          handleLoadTemplate(template)
+        })
+        .catch(() => {
+          setLoadError('Failed to load template from URL')
+        })
+    } else if (imgUrl) {
+      handleLoadImageTemplate(imgUrl)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
-  // Constrain objects (images, text, etc.) to stay within canvas bounds
+  // Constrain objects to stay within canvas bounds
   useEffect(() => {
     if (!editor) return
 
-    // @ts-ignore
-    const canvas = editor.canvas?.canvas || editor.canvas
+    const canvas = getCanvas(editor)
     if (!canvas) return
 
-    const constrainObjectToCanvas = (e: any) => {
-      const obj = e.target
-      if (!obj || obj.name === 'clip' || obj.id === 'clip') return // Don't constrain the clip object itself
-
-      try {
-        // Get canvas frame (clipPath) bounds
-        const clipPath = canvas.clipPath
-        if (!clipPath) {
-          // Fallback: try to find the clip object
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
-          const clipObj = objects.find((o: any) => o.name === 'clip' || o.id === 'clip')
-          if (!clipObj) return
-
-          const frameLeft = clipObj.left || 175.5
-          const frameTop = clipObj.top || -286.5
-          const frameWidth = (clipObj.width || 900) * (clipObj.scaleX || 1)
-          const frameHeight = (clipObj.height || 1200) * (clipObj.scaleY || 1)
-          const frameRight = frameLeft + frameWidth
-          const frameBottom = frameTop + frameHeight
-
-          // Get object bounding box (accounting for rotation and scale)
-          const boundingRect = obj.getBoundingRect()
-          const boundingLeft = boundingRect.left
-          const boundingTop = boundingRect.top
-          const boundingRight = boundingLeft + boundingRect.width
-          const boundingBottom = boundingTop + boundingRect.height
-
-          // Calculate how much the object needs to move to stay within bounds
-          let deltaX = 0
-          let deltaY = 0
-
-          if (boundingLeft < frameLeft) {
-            deltaX = frameLeft - boundingLeft
-          } else if (boundingRight > frameRight) {
-            deltaX = frameRight - boundingRight
-          }
-
-          if (boundingTop < frameTop) {
-            deltaY = frameTop - boundingTop
-          } else if (boundingBottom > frameBottom) {
-            deltaY = frameBottom - boundingBottom
-          }
-
-          // Update object position if constraint is needed
-          if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
-            // Get current position
-            const currentLeft = obj.left || 0
-            const currentTop = obj.top || 0
-
-            // Calculate new position
-            const newLeft = currentLeft + deltaX
-            const newTop = currentTop + deltaY
-
-            obj.set({
-              left: newLeft,
-              top: newTop,
-            })
-            obj.setCoords()
-            canvas.requestRenderAll()
-          }
-          return
-        }
-
+    const getFrameBounds = () => {
+      const clipPath = canvas.clipPath
+      if (clipPath) {
         const frameLeft = clipPath.left || 175.5
         const frameTop = clipPath.top || -286.5
         const frameWidth = clipPath.width || 900
         const frameHeight = clipPath.height || 1200
-        const frameRight = frameLeft + frameWidth
-        const frameBottom = frameTop + frameHeight
-
-        // Get object bounding box (accounting for rotation and scale)
-        const boundingRect = obj.getBoundingRect()
-        const boundingLeft = boundingRect.left
-        const boundingTop = boundingRect.top
-        const boundingRight = boundingLeft + boundingRect.width
-        const boundingBottom = boundingTop + boundingRect.height
-
-        // Calculate how much the object needs to move to stay within bounds
-        let deltaX = 0
-        let deltaY = 0
-
-        if (boundingLeft < frameLeft) {
-          deltaX = frameLeft - boundingLeft
-        } else if (boundingRight > frameRight) {
-          deltaX = frameRight - boundingRight
-        }
-
-        if (boundingTop < frameTop) {
-          deltaY = frameTop - boundingTop
-        } else if (boundingBottom > frameBottom) {
-          deltaY = frameBottom - boundingBottom
-        }
-
-        // Update object position if constraint is needed
-        if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
-          // Get current position
-          const currentLeft = obj.left || 0
-          const currentTop = obj.top || 0
-
-          // Calculate new position
-          const newLeft = currentLeft + deltaX
-          const newTop = currentTop + deltaY
-
-          obj.set({
-            left: newLeft,
-            top: newTop,
-          })
-          obj.setCoords()
-          canvas.requestRenderAll()
-        }
-      } catch (error) {
-        console.warn('Error constraining object:', error)
+        return { frameLeft, frameTop, frameRight: frameLeft + frameWidth, frameBottom: frameTop + frameHeight }
       }
+
+      const objects = canvas.getObjects?.() || []
+      const clipObj = objects.find((o: CanvasObject) => o.name === 'clip' || o.id === 'clip')
+      if (!clipObj) return null
+
+      const frameLeft = clipObj.left || 175.5
+      const frameTop = clipObj.top || -286.5
+      const frameWidth = (clipObj.width || 900) * (clipObj.scaleX || 1)
+      const frameHeight = (clipObj.height || 1200) * (clipObj.scaleY || 1)
+      return { frameLeft, frameTop, frameRight: frameLeft + frameWidth, frameBottom: frameTop + frameHeight }
     }
 
-    // Also constrain on object modification (resizing, etc.)
-    const constrainObjectOnModify = (e: any) => {
-      const obj = e.target
+    const constrainObject = (obj: CanvasObject) => {
       if (!obj || obj.name === 'clip' || obj.id === 'clip') return
 
       try {
-        // Get canvas frame (clipPath) bounds
-        const clipPath = canvas.clipPath
-        if (!clipPath) {
-          // Fallback: try to find the clip object
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
-          const clipObj = objects.find((o: any) => o.name === 'clip' || o.id === 'clip')
-          if (!clipObj) return
+        const bounds = getFrameBounds()
+        if (!bounds) return
 
-          const frameLeft = clipObj.left || 175.5
-          const frameTop = clipObj.top || -286.5
-          const frameWidth = (clipObj.width || 900) * (clipObj.scaleX || 1)
-          const frameHeight = (clipObj.height || 1200) * (clipObj.scaleY || 1)
-          const frameRight = frameLeft + frameWidth
-          const frameBottom = frameTop + frameHeight
-
-          // Get object bounding box (accounting for rotation and scale)
-          const boundingRect = obj.getBoundingRect()
-          const boundingLeft = boundingRect.left
-          const boundingTop = boundingRect.top
-          const boundingRight = boundingLeft + boundingRect.width
-          const boundingBottom = boundingTop + boundingRect.height
-
-          // Calculate how much the object needs to move to stay within bounds
-          let deltaX = 0
-          let deltaY = 0
-
-          if (boundingLeft < frameLeft) {
-            deltaX = frameLeft - boundingLeft
-          } else if (boundingRight > frameRight) {
-            deltaX = frameRight - boundingRight
-          }
-
-          if (boundingTop < frameTop) {
-            deltaY = frameTop - boundingTop
-          } else if (boundingBottom > frameBottom) {
-            deltaY = frameBottom - boundingBottom
-          }
-
-          // Update if needed
-          if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
-            // Get current position
-            const currentLeft = obj.left || 0
-            const currentTop = obj.top || 0
-
-            // Calculate new position
-            const newLeft = currentLeft + deltaX
-            const newTop = currentTop + deltaY
-
-            obj.set({
-              left: newLeft,
-              top: newTop,
-            })
-            obj.setCoords()
-            canvas.requestRenderAll()
-          }
-          return
-        }
-
-        const frameLeft = clipPath.left || 175.5
-        const frameTop = clipPath.top || -286.5
-        const frameWidth = clipPath.width || 900
-        const frameHeight = clipPath.height || 1200
-        const frameRight = frameLeft + frameWidth
-        const frameBottom = frameTop + frameHeight
-
-        // Get object bounding box (accounting for rotation and scale)
+        const { frameLeft, frameTop, frameRight, frameBottom } = bounds
         const boundingRect = obj.getBoundingRect()
-        const boundingLeft = boundingRect.left
-        const boundingTop = boundingRect.top
-        const boundingRight = boundingLeft + boundingRect.width
-        const boundingBottom = boundingTop + boundingRect.height
 
-        // Calculate how much the object needs to move to stay within bounds
         let deltaX = 0
         let deltaY = 0
 
-        if (boundingLeft < frameLeft) {
-          deltaX = frameLeft - boundingLeft
-        } else if (boundingRight > frameRight) {
-          deltaX = frameRight - boundingRight
+        if (boundingRect.left < frameLeft) {
+          deltaX = frameLeft - boundingRect.left
+        } else if (boundingRect.left + boundingRect.width > frameRight) {
+          deltaX = frameRight - (boundingRect.left + boundingRect.width)
         }
 
-        if (boundingTop < frameTop) {
-          deltaY = frameTop - boundingTop
-        } else if (boundingBottom > frameBottom) {
-          deltaY = frameBottom - boundingBottom
+        if (boundingRect.top < frameTop) {
+          deltaY = frameTop - boundingRect.top
+        } else if (boundingRect.top + boundingRect.height > frameBottom) {
+          deltaY = frameBottom - (boundingRect.top + boundingRect.height)
         }
 
-        // Update if needed
         if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
-          // Get current position
-          const currentLeft = obj.left || 0
-          const currentTop = obj.top || 0
-
-          // Calculate new position
-          const newLeft = currentLeft + deltaX
-          const newTop = currentTop + deltaY
-
-          obj.set({
-            left: newLeft,
-            top: newTop,
-          })
+          const currentLeft = (obj.left || 0) as number
+          const currentTop = (obj.top || 0) as number
+          obj.set({ left: currentLeft + deltaX, top: currentTop + deltaY })
           obj.setCoords()
-          canvas.requestRenderAll()
+          canvas.requestRenderAll?.()
         }
-      } catch (error) {
-        console.warn('Error constraining object on modify:', error)
+      } catch {
+        // Canvas not ready or object invalid
       }
     }
 
-    // Set up canvas clipping path (Secondary safety layer)
     const setupClipping = () => {
       try {
-        // @ts-ignore
         const objects = canvas.getObjects?.() || []
-        // Smarter search for the design frame
-        const clipObj = objects.find((obj: any) =>
-          obj.id === 'clip' ||
-          obj.name === 'clip' ||
-          obj.type === 'Frame' ||
-          (obj.type === 'Rect' && (obj.fill === '#ffffff' || obj.fill === 'white') && (obj.width || 0) >= 400)
+        const clipObj = objects.find(
+          (obj: CanvasObject) =>
+            obj.id === 'clip' ||
+            obj.name === 'clip' ||
+            obj.type === 'Frame' ||
+            (obj.type === 'Rect' && (obj.fill === '#ffffff' || obj.fill === 'white') && (obj.width || 0) >= 400),
         )
 
         if (clipObj) {
@@ -344,8 +259,6 @@ function App() {
           if (clipObj.originX === 'center') l -= w / 2
           if (clipObj.originY === 'center') t -= h / 2
 
-          // Use a dedicated Rect for clipping to ensure absolute positioning and avoid origin conflicts
-          // @ts-ignore
           const clipPath = new fabric.Rect({
             left: l,
             top: t,
@@ -354,39 +267,35 @@ function App() {
             absolutePositioned: true,
             selectable: false,
             evented: false,
-            fill: 'transparent'
+            fill: 'transparent',
           })
 
-          // @ts-ignore
-          canvas.clipPath = clipPath
-          // @ts-ignore
-          canvas.controlsAboveOverlay = true // Selection box stays visible, but content is clipped
-          // @ts-ignore
+          ;(canvas as any).clipPath = clipPath
+          ;(canvas as any).controlsAboveOverlay = true
           canvas.requestRenderAll?.()
         }
-      } catch (err) {
-        console.warn('Error setting up clipping:', err)
+      } catch {
+        // Clipping setup failed
       }
     }
 
-    // Listen to all interaction events to keep clipping perfectly synced
-    canvas.on?.('object:moving', () => {
-      constrainObjectToCanvas({ target: canvas.getActiveObject() })
+    const onMoving = () => {
+      const activeObj = canvas.getActiveObject?.()
+      if (activeObj) constrainObject(activeObj as CanvasObject)
       setupClipping()
-    })
+    }
+
+    canvas.on?.('object:moving', onMoving)
     canvas.on?.('object:modified', setupClipping)
     canvas.on?.('object:scaling', setupClipping)
     canvas.on?.('after:render', setupClipping)
-
-    // Listen for object additions to ensure clipping is active
     canvas.on?.('object:added', setupClipping)
     canvas.on?.('object:removed', setupClipping)
 
-    // Initial setup
     setupClipping()
 
     return () => {
-      canvas.off?.('object:moving', setupClipping)
+      canvas.off?.('object:moving', onMoving)
       canvas.off?.('object:modified', setupClipping)
       canvas.off?.('object:scaling', setupClipping)
       canvas.off?.('after:render', setupClipping)
@@ -395,112 +304,6 @@ function App() {
     }
   }, [editor])
 
-  // Auto-save feature with debounced saves
-  // Let the package handle autosave and change/save callbacks
-
-  const handleLoadTemplate = async template => {
-    const fonts = []
-    template.objects.forEach(object => {
-      if (object.type === 'StaticText' || object.type === 'DynamicText') {
-        fonts.push({
-          name: object.metadata.fontFamily,
-          url: object.metadata.fontURL,
-          options: { style: 'normal', weight: 400 },
-        })
-      }
-    })
-
-    const filteredFonts = fonts.filter(f => !!f.url)
-    if (filteredFonts.length > 0) {
-      await loadFonts(filteredFonts)
-    }
-
-    editor.importFromJSON(template)
-  }
-
-  const handleLoadBlankCanvas = () => {
-    // Load an empty canvas with default white background
-    const blankTemplate = {
-      version: '5.3.0',
-      objects: [
-        {
-          type: 'rect',
-          version: '5.3.0',
-          originX: 'left',
-          originY: 'top',
-          left: 175.5,
-          top: -286.5,
-          width: 900,
-          height: 1200,
-          fill: 'white',
-          stroke: null,
-          strokeWidth: 1,
-          opacity: 1,
-          visible: true,
-          selectable: false,
-          hasControls: false,
-          name: 'clip'
-        }
-      ],
-      clipPath: {
-        type: 'rect',
-        version: '5.3.0',
-        originX: 'left',
-        originY: 'top',
-        left: 175.5,
-        top: -286.5,
-        width: 900,
-        height: 1200,
-        fill: 'white'
-      }
-    }
-    editor.importFromJSON(blankTemplate)
-  }
-
-  const handleLoadImageTemplate = async (imageUrl: string) => {
-    try {
-      console.log('Starting to load image:', imageUrl)
-
-      // Add the image using the editor's add method
-      setTimeout(() => {
-        try {
-          if (editor) {
-            const imageOptions = {
-              type: 'StaticImage',
-              metadata: { src: imageUrl },
-            }
-            editor.add(imageOptions)
-            console.log('Image added to canvas successfully')
-          }
-        } catch (err) {
-          console.error('Error adding image to canvas:', err)
-        }
-      }, 500)
-    } catch (err) {
-      console.error('Error in handleLoadImageTemplate:', err)
-    }
-  }
-
-  const loadFonts = fonts => {
-    const promisesList = fonts.map(font => {
-      // @ts-ignore
-      return new FontFace(font.name, `url(${font.url})`, font.options).load().catch(err => err)
-    })
-    return new Promise((resolve, reject) => {
-      Promise.all(promisesList)
-        .then(res => {
-          res.forEach(uniqueFont => {
-            // @ts-ignore
-            if (uniqueFont && uniqueFont.family) {
-              // @ts-ignore
-              document.fonts.add(uniqueFont)
-              resolve(true)
-            }
-          })
-        })
-        .catch(err => reject(err))
-    })
-  }
   return (
     <div
       style={{
@@ -512,33 +315,74 @@ function App() {
         fontFamily: "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
-      <div style={{ position: 'relative', zIndex: 100 }}><Navbar /></div>
+      <div style={{ position: 'relative', zIndex: 100 }}>
+        <Navbar />
+      </div>
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Panels />
+        <ErrorBoundary fallback={<div style={{ padding: 20, color: '#ef4444' }}>Panel failed to load</div>}>
+          <Panels />
+        </ErrorBoundary>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          <Toolbox />
+          <ErrorBoundary fallback={<div style={{ padding: 10, color: '#ef4444' }}>Toolbar error</div>}>
+            <Toolbox />
+          </ErrorBoundary>
           <div
             style={{
               flex: 1,
               display: 'flex',
               background: '#f1f2f6',
               position: 'relative',
-              overflow: 'hidden', // Contain the workspace mask shadow
-              // Add padding when timeline is open and visible
-              paddingBottom: shouldShowTimeline ? '300px' : '0', // Timeline height (260px) + bottom offset (20px) + extra spacing (20px)
+              overflow: 'hidden',
+              paddingBottom: shouldShowTimeline ? '300px' : '0',
             }}
             className="canvas-container"
+            onDrop={handleCanvasDrop}
+            onDragOver={(e) => e.preventDefault()}
           >
-            <Editor
-              config={editorConfig}
-            />
+            {loadError ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flex: 1,
+                  color: '#ef4444',
+                  flexDirection: 'column',
+                  gap: 12,
+                }}
+              >
+                <p>{loadError}</p>
+                <button
+                  onClick={() => setLoadError(null)}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#f1f5f9',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Dismiss
+                </button>
+              </div>
+            ) : (
+              <Editor config={editorConfig} />
+            )}
             <VideoCanvasPlayer />
-            <VideoTimeline />
+            <ErrorBoundary fallback={null}>
+              <VideoTimeline />
+            </ErrorBoundary>
           </div>
           <Footer />
         </div>
       </div>
       <ContextMenu />
+      <InsufficientCreditsModal
+        isOpen={showUpgradeModal}
+        onClose={dismissUpgradeModal}
+        balance={upgradeModalData?.balance || 0}
+        cost={upgradeModalData?.cost || 0}
+      />
     </div>
   )
 }

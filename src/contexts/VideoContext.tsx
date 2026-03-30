@@ -213,9 +213,7 @@ export const VideoProvider: React.FC = ({ children }) => {
           setIsPlaying(true)
         })
         .catch(err => {
-          if (err.name !== 'AbortError') {
-            console.error('Playback error:', err)
-          }
+          // silently handled (AbortError expected during seeking)
           playPromiseRef.current = null
           setIsPlaying(false)
         })

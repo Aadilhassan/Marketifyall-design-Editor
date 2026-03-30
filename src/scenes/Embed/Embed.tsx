@@ -657,7 +657,7 @@ function CodeBlockWithCopy({ code, language = 'html', fileName }: CodeBlockProps
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (err) {
-      console.error('Failed to copy:', err)
+      // silently handled
     }
   }
 
@@ -677,7 +677,7 @@ function CodeBlockWithCopy({ code, language = 'html', fileName }: CodeBlockProps
   try {
     highlightedCode = hljs.highlight(code, { language: highlighterLanguage, ignoreIllegals: true }).value
   } catch (err) {
-    console.warn('Syntax highlighting failed:', err)
+    // silently handled
   }
 
   return (

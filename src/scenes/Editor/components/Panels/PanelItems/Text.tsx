@@ -272,7 +272,6 @@ function Panel() {
         setFontSources(prev => ({ ...prev, [font.id]: fontUrl }))
         return fontUrl
       } catch (error) {
-        console.error('Failed to load Google font:', font.fontFamily, error)
         return undefined
       } finally {
         setFontLoading(prev => ({ ...prev, [font.id]: false }))
@@ -290,7 +289,6 @@ function Panel() {
 
   const handleAddText = (preset: TextPreset) => {
     if (!editor || !canvas) {
-      console.error('Editor or Canvas not available')
       return
     }
 

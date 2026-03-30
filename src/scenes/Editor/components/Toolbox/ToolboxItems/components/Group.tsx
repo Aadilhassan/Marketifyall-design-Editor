@@ -22,8 +22,7 @@ function Locked() {
 
   const updateOptions = (object: any) => {
     const { type } = object
-    // @ts-ignore
-    setOptions({ ...options, isGroup: type === 'group', multiple: !!activeObject._objects })
+    setOptions({ ...options, isGroup: type === 'group', multiple: !!(activeObject as any)._objects })
   }
 
   return (

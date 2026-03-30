@@ -156,7 +156,7 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
           }
           editor.add(pastedObject)
         } catch (err) {
-          console.error('Error pasting:', err)
+          // silently handled
         }
       }
       // Duplicate
@@ -231,7 +231,7 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
         }
         editor.add(pastedObject)
       } catch (err) {
-        console.error('Error pasting:', err)
+        // silently handled
       }
     }
     setVisible(false)
@@ -270,15 +270,14 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
       try {
         editor.bringForward()
         // Force canvas re-render
-        // @ts-ignore
+        // @ts-expect-error -- Scenify SDK internal canvas access
         const canvas = editor.canvas?.canvas || editor.canvas
         if (canvas && canvas.requestRenderAll) {
           canvas.requestRenderAll()
         }
       } catch (error) {
-        console.error('Error bringing forward:', error)
         // Fallback: use canvas directly
-        // @ts-ignore
+        // @ts-expect-error -- Scenify SDK internal canvas access
         const canvas = editor.canvas?.canvas || editor.canvas
         if (canvas && activeObject) {
           canvas.bringForward(activeObject)
@@ -294,15 +293,14 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
       try {
         editor.sendBackwards()
         // Force canvas re-render
-        // @ts-ignore
+        // @ts-expect-error -- Scenify SDK internal canvas access
         const canvas = editor.canvas?.canvas || editor.canvas
         if (canvas && canvas.requestRenderAll) {
           canvas.requestRenderAll()
         }
       } catch (error) {
-        console.error('Error sending backward:', error)
         // Fallback: use canvas directly
-        // @ts-ignore
+        // @ts-expect-error -- Scenify SDK internal canvas access
         const canvas = editor.canvas?.canvas || editor.canvas
         if (canvas && activeObject) {
           canvas.sendBackwards(activeObject)
@@ -318,15 +316,14 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
       try {
         editor.bringToFront()
         // Force canvas re-render
-        // @ts-ignore
+        // @ts-expect-error -- Scenify SDK internal canvas access
         const canvas = editor.canvas?.canvas || editor.canvas
         if (canvas && canvas.requestRenderAll) {
           canvas.requestRenderAll()
         }
       } catch (error) {
-        console.error('Error bringing to front:', error)
         // Fallback: use canvas directly
-        // @ts-ignore
+        // @ts-expect-error -- Scenify SDK internal canvas access
         const canvas = editor.canvas?.canvas || editor.canvas
         if (canvas && activeObject) {
           canvas.bringToFront(activeObject)
@@ -342,15 +339,14 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
       try {
         editor.sendToBack()
         // Force canvas re-render
-        // @ts-ignore
+        // @ts-expect-error -- Scenify SDK internal canvas access
         const canvas = editor.canvas?.canvas || editor.canvas
         if (canvas && canvas.requestRenderAll) {
           canvas.requestRenderAll()
         }
       } catch (error) {
-        console.error('Error sending to back:', error)
         // Fallback: use canvas directly
-        // @ts-ignore
+        // @ts-expect-error -- Scenify SDK internal canvas access
         const canvas = editor.canvas?.canvas || editor.canvas
         if (canvas && activeObject) {
           canvas.sendToBack(activeObject)
@@ -363,7 +359,6 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
 
   const handleFlipHorizontal = () => {
     if (activeObject && editor) {
-      // @ts-ignore - flipX is a fabric.js property
       const currentFlipX = (activeObject as any).flipX || false
       editor.update({ flipX: !currentFlipX })
     }
@@ -372,7 +367,6 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
 
   const handleFlipVertical = () => {
     if (activeObject && editor) {
-      // @ts-ignore - flipY is a fabric.js property
       const currentFlipY = (activeObject as any).flipY || false
       editor.update({ flipY: !currentFlipY })
     }

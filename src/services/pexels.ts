@@ -41,7 +41,7 @@ export interface PexelsResponse {
 export async function searchPexelsImages(query: string, perPage: number = 30): Promise<PexelsImage[]> {
   // Check if API key is configured
   if (!PEXELS_API_KEY || PEXELS_API_KEY.trim() === '') {
-    console.warn('Pexels API key is not configured')
+    // Pexels API key not configured
     return []
   }
 
@@ -56,14 +56,14 @@ export async function searchPexelsImages(query: string, perPage: number = 30): P
 
     return response.data.photos || []
   } catch (error: any) {
-    console.error('Pexels API error:', error.message)
+    // silently handled
     return []
   }
 }
 
 export async function getCuratedImages(perPage: number = 30): Promise<PexelsImage[]> {
   if (!PEXELS_API_KEY || PEXELS_API_KEY.trim() === '') {
-    console.warn('Pexels API key is not configured')
+    // Pexels API key not configured
     return []
   }
 
@@ -76,7 +76,7 @@ export async function getCuratedImages(perPage: number = 30): Promise<PexelsImag
 
     return response.data.photos || []
   } catch (error: any) {
-    console.error('Pexels API error:', error.message)
+    // silently handled
     return []
   }
 }
@@ -129,7 +129,7 @@ const pexelsVideoClient = axios.create({
 
 export async function searchPexelsVideos(query: string, perPage: number = 20): Promise<PexelsVideo[]> {
   if (!PEXELS_API_KEY || PEXELS_API_KEY.trim() === '') {
-    console.warn('Pexels API key is not configured')
+    // Pexels API key not configured
     return []
   }
 
@@ -144,14 +144,14 @@ export async function searchPexelsVideos(query: string, perPage: number = 20): P
 
     return response.data.videos || []
   } catch (error: any) {
-    console.error('Pexels Video API error:', error.message)
+    // silently handled
     return []
   }
 }
 
 export async function getPopularVideos(perPage: number = 20): Promise<PexelsVideo[]> {
   if (!PEXELS_API_KEY || PEXELS_API_KEY.trim() === '') {
-    console.warn('Pexels API key is not configured')
+    // Pexels API key not configured
     return []
   }
 
@@ -164,7 +164,7 @@ export async function getPopularVideos(perPage: number = 20): Promise<PexelsVide
 
     return response.data.videos || []
   } catch (error: any) {
-    console.error('Pexels Video API error:', error.message)
+    // silently handled
     return []
   }
 }

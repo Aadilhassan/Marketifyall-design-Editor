@@ -114,6 +114,14 @@ export async function renderVideo(
                 inputIndex++
             }
 
+            // --- STEP 2.5: Handle Audio (Input 2 if present, or next index) ---
+            let audioInputIndex = -1
+            if (timeline.audioPath && fs.existsSync(timeline.audioPath)) {
+                command = command.input(timeline.audioPath)
+                audioInputIndex = inputIndex
+                inputIndex++
+            }
+
             // --- STEP 3: Add Video/Image Clip Inputs ---
             downloadedAssets.forEach((asset) => {
                 command = command.input(asset.localPath)
@@ -124,11 +132,16 @@ export async function renderVideo(
                 }
             })
 
-            // --- STEP 4: Create Overlay Graph for Clips ---
+            // --- STEP 4: Create Overlay Graph for Clips with Fade Transitions ---
             downloadedAssets.forEach((asset, i) => {
                 const clip = asset.clip as VideoClip | ImageClip
                 // The ffmpeg input index for this clip
                 const idx = inputIndex + i
+
+                // Check if this is a sticker (smaller overlay, likely GIF)
+                const isSticker = clip.id?.startsWith('sticker-') ||
+                    asset.localPath.endsWith('.gif') ||
+                    (clip.size?.width || 100) < 50
 
                 // Scale clip to target size
                 const w = Math.round((clip.size?.width ?? 100) / 100 * timeline.width)
@@ -138,29 +151,45 @@ export async function renderVideo(
                 const x = Math.round((clip.position?.x ?? 0) / 100 * timeline.width)
                 const y = Math.round((clip.position?.y ?? 0) / 100 * timeline.height)
 
-                // Timing Logic (The Fix)
+                // Timing Logic
                 const start = clip.start ?? 0
                 const duration = clip.duration ?? timeline.duration
-
-                // 1. Scale with aspect ratio preservation (COVER logic - fill and crop)
-                // 2. Trim so it doesn't play forever (important for images too)
-                // 3. Shift PTS (presentation timestamp) to start time
-                // 4. Ensure square pixels (setsar=1)
-                filters.push(
-                    `[${idx}:v]` +
-                    `scale=w=${w}:h=${h}:force_original_aspect_ratio=increase,` +
-                    `crop=${w}:${h},` +
-                    `setsar=1,` +
-                    `trim=start=0:duration=${duration},` +
-                    `setpts=PTS-STARTPTS+${start}/TB` +
-                    `[clip_${i}]`
-                )
-
-                const outputName = `tmp_media_${i}`
                 const end = start + duration
 
-                // Overlay with enable to gate visibility safely
-                // Reverting to 't' (global main input time) to fix 'Invalid argument' with 'T'
+                // Fade duration (0.5 sec fade in/out for images, none for stickers)
+                const fadeDuration = isSticker ? 0 : 0.5
+
+                if (isSticker) {
+                    // GIF stickers: scale with alpha channel preservation, fifo to stabilize
+                    filters.push(
+                        `[${idx}:v]` +
+                        `scale=w=${w}:h=${h}:flags=lanczos,` +
+                        `format=rgba,` +
+                        `fifo,` +
+                        `setpts=PTS-STARTPTS+${start}/TB` +
+                        `[clip_${i}]`
+                    )
+                } else {
+                    // Regular images: scale, crop, add fade transitions
+                    const fadeIn = fadeDuration > 0 ? `fade=t=in:st=0:d=${fadeDuration},` : ''
+                    const fadeOut = fadeDuration > 0 ? `fade=t=out:st=${Math.max(0, duration - fadeDuration)}:d=${fadeDuration},` : ''
+
+                    filters.push(
+                        `[${idx}:v]` +
+                        `scale=w=${w}:h=${h}:force_original_aspect_ratio=increase,` +
+                        `crop=${w}:${h},` +
+                        `setsar=1,` +
+                        `${fadeIn}${fadeOut}` +
+                        `trim=start=0:duration=${duration},` +
+                        `setpts=PTS-STARTPTS+${start}/TB` +
+                        `[clip_${i}]`
+                    )
+                }
+
+                const outputName = `tmp_media_${i}`
+
+                // Overlay with enable to gate visibility
+                // Use 'shortest=0' for stickers to allow alpha
                 filters.push(
                     `[${currentBase}][clip_${i}]overlay=${x}:${y}:enable='between(t,${start},${end})':eval=frame[${outputName}]`
                 )
@@ -168,33 +197,68 @@ export async function renderVideo(
                 currentBase = outputName
             })
 
-            // --- STEP 5: Text Overlays ---
-            // Helper to escape text for drawtext filter
+            // --- STEP 5: Text Overlays (TikTok-style captions) ---
+            // Helper to escape text for drawtext filter - remove ALL problematic chars
             const escapeDrawtext = (text: string) => {
                 return text
-                    .replace(/\\/g, '\\\\')
-                    .replace(/:/g, '\\:')
-                    .replace(/'/g, "\\'")
-                    .replace(/\n/g, '\\n')
+                    .replace(/['''`]/g, '')     // ALL apostrophe variants
+                    .replace(/["""]/g, '')      // ALL quote variants
+                    .replace(/[—–-]/g, ' ')     // ALL dash variants to space
+                    .replace(/:/g, ' ')
+                    .replace(/[[\]()]/g, '')
+                    .replace(/[,!$@#%^&*]/g, '') // Remove special chars
+                    .replace(/\\/g, '')
+                    .replace(/\./g, ' ')
+                    .replace(/\s+/g, ' ')        // Collapse multiple spaces
+                    .trim()
+                    .substring(0, 40)            // Limit to 40 chars
             }
+
+            // Safe margins: 10% from edges
+            const safeMarginX = Math.round(timeline.width * 0.1)
+            const safeMarginY = Math.round(timeline.height * 0.05)
+
+            // Responsive font size: 3% of video width for portrait, 4% for landscape
+            const baseFontSize = Math.round(timeline.width * (timeline.height > timeline.width ? 0.04 : 0.035))
 
             const textClips = clips.filter(c => c.type === 'text') as TextClip[]
             textClips.forEach((clip, i) => {
-                const x = Math.round((clip.position.x / 100) * timeline.width)
-                const y = Math.round((clip.position.y / 100) * timeline.height)
-
                 const start = clip.start ?? 0
                 const end = start + (clip.duration ?? timeline.duration)
 
-                const fontSize = Math.round((clip.style?.fontSize || 24))
-                const fontColor = clip.style?.color || 'black'
+                // Use clip font size or responsive default
+                const fontSize = clip.style?.fontSize || baseFontSize
+
+                // Simple color handling - use color names or simple hex
+                let fontColor = clip.style?.color || 'white'
+                if (fontColor.startsWith('#')) fontColor = fontColor // keep as-is, FFmpeg handles #RRGGBB
+
+                // For box, use simple black@opacity format
+                const bgColor = 'black@0.7'
+
+                // Position: center horizontally, use clip.position.y for vertical (with safe margin)
+                const yPos = Math.min(
+                    Math.round((clip.position.y / 100) * timeline.height),
+                    timeline.height - safeMarginY - fontSize * 2
+                )
 
                 const outputName = `tmp_txt_${i}`
-                // Use Global Time 't' for visibility gating
+
+                // Clean, escaped text
+                const cleanText = escapeDrawtext(clip.content)
+
+                if (!cleanText || cleanText.length < 2) {
+                    // Skip empty or too-short captions
+                    return
+                }
+
+                // TikTok-style: centered, with box background for readability
                 filters.push(
                     `[${currentBase}]drawtext=` +
-                    `text='${escapeDrawtext(clip.content)}':` +
-                    `x=${x}:y=${y}:fontsize=${fontSize}:fontcolor=${fontColor}:` +
+                    `text='${cleanText}':` +
+                    `fontsize=${fontSize}:fontcolor=${fontColor}:` +
+                    `x=(w-text_w)/2:y=${yPos}:` +
+                    `box=1:boxcolor=${bgColor}:boxborderw=15:` +
                     `enable='between(t,${start},${end})'` +
                     `[${outputName}]`
                 )
@@ -204,28 +268,51 @@ export async function renderVideo(
 
             const finalOutput = currentBase
 
-            console.log('Filter Graph:', filters.join(';'))
-
             // --- STEP 6: Apply Filter Graph ---
+            // When audio is present, the final video stream must be named [v] for explicit mapping
             if (filters.length > 0) {
-                command = command.complexFilter(filters, finalOutput)
+                if (audioInputIndex !== -1) {
+                    // Rename the final filter output from [tmp_media_X] to [v]
+                    const lastFilter = filters[filters.length - 1]
+                    filters[filters.length - 1] = lastFilter.replace(`[${finalOutput}]`, '[v]')
+                    console.log('Modified last filter for [v] output')
+                    command = command.complexFilter(filters)
+                } else {
+                    command = command.complexFilter(filters, finalOutput)
+                }
             }
 
             onProgress(40)
 
             // Output settings - professional quality
-            const outputOptions = [
+            const outputOptions: string[] = []
+
+            // If audio exists, we need explicit stream mapping (maps MUST come first)
+            if (audioInputIndex !== -1) {
+                outputOptions.push('-map', '[v]')  // Video from filter graph
+                outputOptions.push('-map', `${audioInputIndex}:a`)  // Audio from input
+            }
+
+            outputOptions.push(
                 '-c:v', 'libx264',
-                '-preset', 'medium',     // Balance speed/quality
-                '-crf', '20',            // Good quality
+                '-preset', 'fast',
+                '-crf', '23',
                 '-pix_fmt', 'yuv420p',
-                '-movflags', '+faststart',
                 '-r', String(timeline.fps),
-                '-shortest',             // Stop encoding when shortest input (base canvas) ends
-                '-t', String(timeline.duration),
-                '-an',                   // No audio for now (simpler)
-                '-y',
-            ]
+                '-t', String(timeline.duration)
+            )
+
+            if (audioInputIndex === -1) {
+                outputOptions.push('-an') // No audio
+            } else {
+                outputOptions.push('-c:a', 'aac', '-b:a', '128k')
+            }
+
+            outputOptions.push('-y')
+
+            console.log('Output Options:', outputOptions.join(' '))
+            console.log('Output Path:', outputPath)
+            console.log('Audio Input Index:', audioInputIndex)
 
             command = command
                 .outputOptions(outputOptions)

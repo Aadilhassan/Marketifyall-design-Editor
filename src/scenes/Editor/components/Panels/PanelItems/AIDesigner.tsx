@@ -324,7 +324,7 @@ function AIDesigner() {
 
   // Canvas bounds helper to keep objects inside the frame
   const getCanvasBounds = useCallback(() => {
-    // @ts-ignore
+    // @ts-expect-error -- Scenify SDK internal canvas access
     const canvas = editor?.canvas?.canvas || editor?.canvas
     const width = (canvas?.width as number) || 1080
     const height = (canvas?.height as number) || 1080
@@ -358,7 +358,7 @@ function AIDesigner() {
       // Small delay to let canvas process
       await new Promise(resolve => setTimeout(resolve, 100))
     } catch (e) {
-      console.error('Canvas add error:', e)
+      // silently handled
     }
   }, [editor, canvas])
 
@@ -447,7 +447,7 @@ function AIDesigner() {
               return true
             }
           } catch (err) {
-            console.error('Failed to fetch image:', err)
+            // silently handled
           }
           return false
         }
@@ -495,20 +495,16 @@ function AIDesigner() {
                 },
               })
               return true
-            } else {
-              console.warn('Icon not found:', iconName, 'in category:', category)
             }
           } catch (err) {
-            console.error('Failed to add icon:', err)
+            // silently handled
           }
           return false
         }
 
         case 'setBackground': {
-          // Skip setBackground - it causes errors with this SDK version
-          // The SDK handles background differently
-          console.log('setBackground skipped - not supported in current SDK')
-          return true // Return true to not show error
+          // Skip setBackground - not supported in current SDK version
+          return true
         }
 
         case 'setFont': {
@@ -524,11 +520,9 @@ function AIDesigner() {
         }
 
         default:
-          console.warn('Unknown action type:', action.type)
           return false
       }
     } catch (error) {
-      console.error('Action execution error:', error)
       return false
     }
   }, [addToCanvas, getCanvasBounds, editor, generateShapeSvg])
@@ -622,13 +616,12 @@ function AIDesigner() {
       if (response.actions && response.actions.length > 0) {
         // Use setTimeout to ensure the UI has updated before executing
         setTimeout(() => {
-          executeActions(response.actions, assistantMessage.id).catch(err => {
-            console.error('Action execution error:', err)
+          executeActions(response.actions, assistantMessage.id).catch(() => {
+            // silently handled
           })
         }, 100)
       }
     } catch (error: any) {
-      console.error('Send error:', error)
       const errorMessage: UIMessage = {
         id: `msg-${Date.now()}-error`,
         role: 'assistant',

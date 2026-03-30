@@ -17,15 +17,13 @@ interface GoogleFont {
   files: Record<string, string>
 }
 
-// Global cache for loaded font stylesheets
-const loadedFontStylesheets = new Set<string>()
-const loadedFontFaces = new Set<string>()
+// Module-scoped caches (intentionally shared across mounts to avoid re-fetching)
+const fontStylesheetCache = new Set<string>()
+const fontFaceCache = new Set<string>()
 
-// Batch font loading queue
-let fontLoadQueue: GoogleFont[] = []
-let fontLoadTimeout: NodeJS.Timeout | null = null
 const BATCH_SIZE = 5
 const BATCH_DELAY = 100
+const MAX_GOOGLE_FONTS = 300
 
 function FontFamily() {
   const [searchValue, setSearchValue] = useState('')
@@ -37,49 +35,56 @@ function FontFamily() {
   const [activeFontFamily, setActiveFontFamily] = useState('Open Sans')
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 })
   const scrollRef = useRef<Scrollbars>(null)
-  
+  const fontLoadQueueRef = useRef<GoogleFont[]>([])
+  const fontLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   const apiKey = process.env.REACT_APP_GOOGLE_FONTS_API_KEY || ''
   const editorFonts = useSelector(selectFonts)
   const editor = useEditor()
   const activeObject = useActiveObject()
 
-  // Initialize and fetch all Google Fonts (metadata only, no loading)
+  // Initialize and fetch Google Fonts (limited to top popular ones)
   useEffect(() => {
     if (!apiKey) return
+    let cancelled = false
 
     const cached = localStorage.getItem('googleFonts')
     if (cached) {
       try {
-        const fonts = JSON.parse(cached)
+        const fonts = JSON.parse(cached) as GoogleFont[]
         setAllGoogleFonts(fonts)
         setLoadingFonts(false)
         return
-      } catch (e) {
+      } catch {
         localStorage.removeItem('googleFonts')
       }
     }
-    
+
     setLoadingFonts(true)
     fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${apiKey}&sort=popularity`)
       .then(res => res.json())
       .then(data => {
+        if (cancelled) return
         if (data.items) {
-          localStorage.setItem('googleFonts', JSON.stringify(data.items))
-          setAllGoogleFonts(data.items)
+          // Limit stored fonts to avoid localStorage bloat
+          const limitedFonts = data.items.slice(0, MAX_GOOGLE_FONTS)
+          localStorage.setItem('googleFonts', JSON.stringify(limitedFonts))
+          setAllGoogleFonts(limitedFonts)
         }
         setLoadingFonts(false)
       })
-      .catch(err => {
-        console.error('Failed to load Google Fonts:', err)
-        setLoadingFonts(false)
+      .catch(() => {
+        if (!cancelled) setLoadingFonts(false)
       })
+
+    return () => { cancelled = true }
   }, [apiKey])
 
   // Track document fonts (fonts used in current canvas)
   useEffect(() => {
     if (!editor) return
 
-    // @ts-ignore - accessing internal canvas
+    // @ts-expect-error -- Scenify SDK internal canvas access
     const canvas = editor.canvas?.canvas || editor.canvas
     if (!canvas) return
 
@@ -133,13 +138,13 @@ function FontFamily() {
 
   // Load font stylesheet lazily (only when needed for preview)
   const ensureGoogleFontStylesheet = useCallback((font: GoogleFont) => {
-    if (loadedFontStylesheets.has(font.family)) return
+    if (fontStylesheetCache.has(font.family)) return
     
     const formattedName = font.family.replace(/ /g, '+')
     const linkId = `font-preview-${formattedName}`
     
     if (document.getElementById(linkId)) {
-      loadedFontStylesheets.add(font.family)
+      fontStylesheetCache.add(font.family)
       return
     }
     
@@ -148,33 +153,33 @@ function FontFamily() {
     link.rel = 'stylesheet'
     link.href = `https://fonts.googleapis.com/css2?family=${formattedName}:wght@400&display=swap`
     document.head.appendChild(link)
-    loadedFontStylesheets.add(font.family)
+    fontStylesheetCache.add(font.family)
   }, [])
 
   // Batch load fonts in queue
   const processFontQueue = useCallback(() => {
-    if (fontLoadQueue.length === 0) return
+    if (fontLoadQueueRef.current.length === 0) return
     
-    const batch = fontLoadQueue.splice(0, BATCH_SIZE)
+    const batch = fontLoadQueueRef.current.splice(0, BATCH_SIZE)
     batch.forEach(font => {
       ensureGoogleFontStylesheet(font)
     })
     
     // Continue processing if more fonts in queue
-    if (fontLoadQueue.length > 0) {
-      fontLoadTimeout = setTimeout(processFontQueue, BATCH_DELAY)
+    if (fontLoadQueueRef.current.length > 0) {
+      fontLoadTimeoutRef.current = setTimeout(processFontQueue, BATCH_DELAY)
     }
   }, [ensureGoogleFontStylesheet])
 
   // Queue fonts for lazy loading
   const queueFontLoad = useCallback((fonts: GoogleFont[]) => {
-    const newFonts = fonts.filter(f => !loadedFontStylesheets.has(f.family))
+    const newFonts = fonts.filter(f => !fontStylesheetCache.has(f.family))
     if (newFonts.length === 0) return
     
-    fontLoadQueue.push(...newFonts)
+    fontLoadQueueRef.current.push(...newFonts)
     
-    if (!fontLoadTimeout) {
-      fontLoadTimeout = setTimeout(processFontQueue, BATCH_DELAY)
+    if (!fontLoadTimeoutRef.current) {
+      fontLoadTimeoutRef.current = setTimeout(processFontQueue, BATCH_DELAY)
     }
   }, [processFontQueue])
 
@@ -182,7 +187,7 @@ function FontFamily() {
   const loadFontFace = useCallback(
     async (fontFamily: string, fontUrl?: string) => {
       if (!fontUrl) return false
-      if (loadedFontFaces.has(fontFamily)) return true
+      if (fontFaceCache.has(fontFamily)) return true
       
       try {
         const fontFace = new FontFace(fontFamily, `url(${fontUrl})`, {
@@ -191,10 +196,10 @@ function FontFamily() {
         })
         const loaded = await fontFace.load()
         document.fonts.add(loaded)
-        loadedFontFaces.add(fontFamily)
+        fontFaceCache.add(fontFamily)
         return true
       } catch (error) {
-        console.error('Failed to load font face:', error)
+        // Font face load failed
         return false
       }
     },
@@ -238,7 +243,7 @@ function FontFamily() {
           },
         })
       } catch (err) {
-        console.error('Failed to load font:', err)
+        // Font change failed
       }
     },
     [editor, getGoogleFontUrl, loadFontFace, ensureGoogleFontStylesheet],

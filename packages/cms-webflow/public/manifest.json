@@ -1,0 +1,17 @@
+{
+  "name": "Marketifyall Design Editor",
+  "description": "AI-powered design editor inside Webflow. Create banners, graphics, and social media assets without leaving the Designer.",
+  "version": "0.1.0",
+  "icon": "icon.svg",
+  "categories": ["design", "content"],
+  "scopes": ["assets:read", "assets:write", "pages:read"],
+  "entrypoints": {
+    "designer": {
+      "panel": {
+        "title": "Marketifyall",
+        "icon": "icon.svg",
+        "url": "/index.html"
+      }
+    }
+  }
+}

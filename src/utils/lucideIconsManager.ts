@@ -115,7 +115,7 @@ export const getLucideSVG = async (iconName: string): Promise<string> => {
   const IconComponent = (LucideIcons as any)[pascalName]
 
   if (!IconComponent) {
-    console.warn(`Icon not found: ${iconName} (${pascalName})`)
+    // Icon not found, using fallback
     // Use Circle as fallback
     const Fallback = (LucideIcons as any).Circle || (LucideIcons as any).HelpCircle
     if (Fallback) {
@@ -130,7 +130,6 @@ export const getLucideSVG = async (iconName: string): Promise<string> => {
     svgCache[iconName] = svg
     return svg
   } catch (err) {
-    console.error(`Error rendering icon ${iconName}:`, err)
     return '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>'
 
   }
@@ -162,7 +161,6 @@ export const getIconsByCategory = async (categoryName: string): Promise<LucideIc
 
     return icons
   } catch (error) {
-    console.error(`Error getting category ${categoryName}:`, error)
     return []
   }
 }

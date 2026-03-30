@@ -3,6 +3,7 @@ import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
 import { exportVideoWithRecorder, exportAsGif, downloadBlob, VideoExportOptions } from '@/utils/videoExporter'
+import { marketifyallApi } from '@/services/marketifyall-api'
 
 const Overlay = styled('div', {
   position: 'fixed',
@@ -297,6 +298,16 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
   const [videoResolution, setVideoResolution] = useState<VideoResolution>('custom')
   const [qualityPreset, setQualityPreset] = useState<QualityPreset>('high')
 
+  // Submit as Template state
+  const [showTemplateForm, setShowTemplateForm] = useState(false)
+  const [templateName, setTemplateName] = useState(designName || 'Untitled Template')
+  const [templateDesc, setTemplateDesc] = useState('')
+  const [templateCategory, setTemplateCategory] = useState('general')
+  const [templateCmsContext, setTemplateCmsContext] = useState<string[]>([])
+  const [templateTags, setTemplateTags] = useState('')
+  const [isSubmittingTemplate, setIsSubmittingTemplate] = useState(false)
+  const [templateSubmitResult, setTemplateSubmitResult] = useState<string | null>(null)
+
   const hasVideo = clips.length > 0
   const FORMATS = hasVideo ? [...VIDEO_FORMATS, ...IMAGE_FORMATS] : IMAGE_FORMATS
 
@@ -337,8 +348,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
 
         setExportProgress(5)
 
-        // @ts-ignore
-        const fabricObjects = canvas?.getObjects?.() || []
+        const fabricObjects = (canvas as any)?.getObjects?.() || []
 
         // DETECT DESIGN AREA (The white background frame)
         let designWidth = 0, designHeight = 0, designLeft = 0, designTop = 0
@@ -478,8 +488,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
         const objectsToHide: any[] = []
 
         const originalRenderTopLayer = canvas.renderTopLayer
-        // @ts-ignore
-        const guidelinesHandler = editor.handlers?.guidelines || canvas.guidelines
+        const guidelinesHandler = (editor as any).handlers?.guidelines || (canvas as any).guidelines
         const originalGuidelinesEnabled = guidelinesHandler?.enabled
         const originalVpt = [...(canvas.viewportTransform || [1, 0, 0, 1, 0, 0])]
         const originalZoom = canvas.getZoom()
@@ -508,7 +517,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           try {
             canvas.renderAll()
           } catch (e) {
-            console.warn('Pre-capture renderAll suppressed:', e)
+            // silently handled
           }
 
           backgroundImage = canvas.toDataURL({
@@ -529,7 +538,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           try {
             canvas.renderAll()
           } catch (e) {
-            console.warn('Post-export renderAll suppressed:', e)
+            // silently handled
           }
         }
 
@@ -565,14 +574,13 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
 
       } else {
         // STATIC IMAGE EXPORT
-        // @ts-ignore
+        // @ts-ignore -- Scenify SDK internal canvas access
         const fabricCanvas = canvas || editor?.canvas
         
         // Handle JSON export separately (uses editor.exportToJSON)
         if (format === 'json') {
           try {
-            // @ts-ignore
-            const jsonData = editor.exportToJSON()
+            const jsonData = (editor as any).exportToJSON()
             const jsonString = JSON.stringify(jsonData, null, 2)
             const blob = new Blob([jsonString], { type: 'application/json' })
             const url = URL.createObjectURL(blob)
@@ -580,7 +588,6 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             URL.revokeObjectURL(url)
             setTimeout(() => { onClose(); setExportProgress(0) }, 500)
           } catch (error) {
-            console.error('JSON export error:', error)
             throw new Error('Failed to export JSON: ' + (error instanceof Error ? error.message : 'Unknown error'))
           }
           return
@@ -589,8 +596,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
         // Handle SVG export (requires special handling)
         if (format === 'svg') {
           try {
-            // @ts-ignore
-            const svgData = fabricCanvas?.toSVG?.()
+            const svgData = (fabricCanvas as any)?.toSVG?.()
             if (!svgData) {
               throw new Error('SVG export not supported')
             }
@@ -600,7 +606,6 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             URL.revokeObjectURL(url)
             setTimeout(() => { onClose(); setExportProgress(0) }, 500)
           } catch (error) {
-            console.error('SVG export error:', error)
             throw new Error('Failed to export SVG: ' + (error instanceof Error ? error.message : 'Unknown error'))
           }
           return
@@ -618,64 +623,46 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           throw new Error('Canvas element not found')
         }
 
-        // Detect the design area (frame/clipPath) - same logic as video export
-        // @ts-ignore
-        const fabricObjects = fabricCanvas.getObjects?.() || []
+        // Detect design area (same logic as video export)
+        const fabricObjects = (fabricCanvas as any)?.getObjects?.() || []
         let designWidth = 0, designHeight = 0, designLeft = 0, designTop = 0
 
-        // Try to find the frame/clip object
         const frameObject = fabricObjects.find((obj: any) =>
           obj.name === 'clip' ||
-          obj.id === 'clip' ||
           obj.id === 'frame' ||
           obj.metadata?.role === 'canvas' ||
           obj.metadata?.id === 'frame'
-        )
+        ) || fabricObjects.sort((a: any, b: any) => (b.width * b.scaleX * b.height * b.scaleY) - (a.width * a.scaleX * a.height * a.scaleY))[0]
 
         if (frameObject) {
-          designWidth = (frameObject.width || 900) * (frameObject.scaleX || 1)
-          designHeight = (frameObject.height || 1200) * (frameObject.scaleY || 1)
+          designWidth = (frameObject.width || 100) * (frameObject.scaleX || 1)
+          designHeight = (frameObject.height || 100) * (frameObject.scaleY || 1)
           designLeft = frameObject.left || 0
           designTop = frameObject.top || 0
 
           if (frameObject.originX === 'center') designLeft -= designWidth / 2
           if (frameObject.originY === 'center') designTop -= designHeight / 2
-        } else if (frameSize?.width && frameSize?.height) {
-          // Fallback to frameSize from context
+        } else if (frameSize?.width) {
           designWidth = frameSize.width
           designHeight = frameSize.height
-          // Center the frame on canvas
           designLeft = (canvasElement.width / 2) - (designWidth / 2)
           designTop = (canvasElement.height / 2) - (designHeight / 2)
         } else {
-          // Last resort: use clipPath dimensions
-          const clipPath = fabricCanvas.clipPath
-          if (clipPath) {
-            designWidth = (clipPath.width || 900) * (clipPath.scaleX || 1)
-            designHeight = (clipPath.height || 1200) * (clipPath.scaleY || 1)
-            designLeft = clipPath.left || 0
-            designTop = clipPath.top || 0
-          } else {
-            // Final fallback: use canvas dimensions
-            designWidth = canvasElement.width
-            designHeight = canvasElement.height
-            designLeft = 0
-            designTop = 0
-          }
+          designWidth = canvasElement.width
+          designHeight = canvasElement.height
+          designLeft = 0
+          designTop = 0
         }
 
         // Calculate export dimensions based on size multiplier
         const multiplier = parseInt(size) || 1
-        const exportWidth = Math.round(designWidth * multiplier)
-        const exportHeight = Math.round(designHeight * multiplier)
 
         // Save current canvas state
         const originalViewportTransform = [...(fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0])]
         const originalZoom = fabricCanvas.getZoom?.() || 1
         const originalSelection = fabricCanvas.selection
         const originalRenderTopLayer = fabricCanvas.renderTopLayer
-        // @ts-ignore
-        const guidelinesHandler = editor?.handlers?.guidelines || fabricCanvas.guidelines
+        const guidelinesHandler = (editor as any)?.handlers?.guidelines || (fabricCanvas as any).guidelines
         const originalGuidelinesEnabled = guidelinesHandler?.enabled
 
         try {
@@ -700,10 +687,10 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           try {
             fabricCanvas.renderAll?.()
           } catch (renderError) {
-            console.warn('Pre-export renderAll warning:', renderError)
+            // silently handled
           }
 
-          // Export only the frame area using toDataURL with specific bounds
+          // Export using toDataURL cropped to the design area
           let image: string
           try {
             image = fabricCanvas.toDataURL({
@@ -715,43 +702,8 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
               multiplier: multiplier
             })
           } catch (e) {
-            // Fallback: export entire canvas and crop manually
-            console.warn('Bounded export failed, using full canvas export:', e)
-            const fullImage = fabricCanvas.toDataURL({
-              format: 'png',
-              multiplier: multiplier
-            })
-            
-            // Crop to frame area
-            image = await new Promise<string>((resolve, reject) => {
-              const img = new Image()
-              img.onload = () => {
-                try {
-                  const c = document.createElement('canvas')
-                  c.width = exportWidth
-                  c.height = exportHeight
-                  const ctx = c.getContext('2d')
-                  if (ctx) {
-                    const sourceLeft = designLeft * multiplier
-                    const sourceTop = designTop * multiplier
-                    const sourceWidth = designWidth * multiplier
-                    const sourceHeight = designHeight * multiplier
-                    ctx.drawImage(
-                      img,
-                      sourceLeft, sourceTop, sourceWidth, sourceHeight,
-                      0, 0, exportWidth, exportHeight
-                    )
-                    resolve(c.toDataURL('image/png'))
-                  } else {
-                    reject(new Error('Failed to create crop canvas'))
-                  }
-                } catch (err) {
-                  reject(err)
-                }
-              }
-              img.onerror = () => reject(new Error('Failed to load full canvas image'))
-              img.src = fullImage
-            })
+            // Fallback to simple export if cropped export fails
+            image = canvasElement.toDataURL('image/png')
           }
 
           // Process image based on format
@@ -761,8 +713,8 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             const img = new Image()
             img.onload = () => {
               const c = document.createElement('canvas')
-              c.width = exportWidth
-              c.height = exportHeight
+              c.width = img.width
+              c.height = img.height
               const ctx = c.getContext('2d')
               if (ctx) {
                 // For JPG, fill with white background first
@@ -792,14 +744,13 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           try {
             fabricCanvas.renderAll?.()
           } catch (renderError) {
-            console.warn('Post-export renderAll warning:', renderError)
+            // silently handled
           }
         }
       }
 
       setTimeout(() => { onClose(); setExportProgress(0) }, 500)
     } catch (error) {
-      console.error('Export error:', error)
       alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     } finally {
       setIsExporting(false)
@@ -1021,6 +972,127 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
             </SizeSection>
           )}
         </ModalBody>
+
+        {/* ── Share with Community ─────────────────────── */}
+        <div style={{ borderTop: '1px solid #e5e7eb', margin: '16px 0 0', padding: '16px 0 0' }}>
+          {!showTemplateForm ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Share with Community</div>
+                <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>Submit this design as a free template for others</div>
+              </div>
+              <button
+                onClick={() => { setShowTemplateForm(true); setTemplateName(designName || 'Untitled Template') }}
+                style={{
+                  padding: '8px 16px', borderRadius: '8px', border: '1px solid #5A3FFF',
+                  background: '#fff', color: '#5A3FFF', fontSize: '13px', fontWeight: 600,
+                  cursor: 'pointer', transition: 'all 0.2s',
+                }}
+              >
+                Submit as Template
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: '#374151' }}>Submit as Template</div>
+              {templateSubmitResult && (
+                <div style={{
+                  padding: '8px 12px', borderRadius: '6px', fontSize: '13px',
+                  background: templateSubmitResult.startsWith('Error') ? '#FEF2F2' : '#F0FDF4',
+                  color: templateSubmitResult.startsWith('Error') ? '#DC2626' : '#16A34A',
+                }}>
+                  {templateSubmitResult}
+                </div>
+              )}
+              <input
+                type="text" placeholder="Template name" value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '13px', width: '100%', boxSizing: 'border-box' }}
+              />
+              <textarea
+                placeholder="Description (optional)" value={templateDesc}
+                onChange={(e) => setTemplateDesc(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '13px', minHeight: '60px', resize: 'vertical', width: '100%', boxSizing: 'border-box' }}
+              />
+              <select
+                value={templateCategory} onChange={(e) => setTemplateCategory(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '13px' }}
+              >
+                <option value="general">General</option>
+                <option value="social">Social Media</option>
+                <option value="ecommerce">E-commerce</option>
+                <option value="blog">Blog / Content</option>
+                <option value="marketing">Marketing</option>
+                <option value="presentation">Presentation</option>
+                <option value="print">Print</option>
+              </select>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {['webflow', 'shopify', 'wordpress'].map(cms => (
+                  <label key={cms} style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={templateCmsContext.includes(cms)}
+                      onChange={(e) => {
+                        if (e.target.checked) setTemplateCmsContext([...templateCmsContext, cms])
+                        else setTemplateCmsContext(templateCmsContext.filter(c => c !== cms))
+                      }}
+                    />
+                    {cms.charAt(0).toUpperCase() + cms.slice(1)}
+                  </label>
+                ))}
+              </div>
+              <input
+                type="text" placeholder="Tags (comma separated)" value={templateTags}
+                onChange={(e) => setTemplateTags(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #e5e7eb', fontSize: '13px', width: '100%', boxSizing: 'border-box' }}
+              />
+              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => { setShowTemplateForm(false); setTemplateSubmitResult(null) }}
+                  style={{ padding: '8px 16px', borderRadius: '6px', border: '1px solid #e5e7eb', background: '#fff', color: '#6b7280', fontSize: '13px', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={isSubmittingTemplate || !templateName.trim()}
+                  onClick={async () => {
+                    if (!canvas || !templateName.trim()) return
+                    setIsSubmittingTemplate(true)
+                    setTemplateSubmitResult(null)
+                    try {
+                      const canvasJSON = canvas.toJSON()
+                      const thumbnail = canvas.toDataURL({ format: 'png', quality: 0.6, multiplier: 0.3 })
+                      const frame = frameSize || { width: canvas.getWidth(), height: canvas.getHeight() }
+                      await marketifyallApi.submitTemplate({
+                        name: templateName.trim(),
+                        description: templateDesc,
+                        category: templateCategory,
+                        cms_context: templateCmsContext,
+                        tags: templateTags.split(',').map(t => t.trim()).filter(Boolean),
+                        canvas_data: canvasJSON,
+                        frame,
+                        thumbnail_url: thumbnail,
+                      })
+                      setTemplateSubmitResult('Template submitted for review!')
+                      setTimeout(() => setShowTemplateForm(false), 2000)
+                    } catch (err: any) {
+                      setTemplateSubmitResult(`Error: ${err.message || 'Submission failed'}`)
+                    } finally {
+                      setIsSubmittingTemplate(false)
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px', borderRadius: '6px', border: 'none',
+                    background: isSubmittingTemplate ? '#9CA3AF' : '#5A3FFF', color: '#fff',
+                    fontSize: '13px', fontWeight: 600, cursor: isSubmittingTemplate ? 'wait' : 'pointer',
+                  }}
+                >
+                  {isSubmittingTemplate ? 'Submitting...' : 'Submit Template'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <ModalFooter>
           <CancelButton onClick={onClose}>Cancel</CancelButton>

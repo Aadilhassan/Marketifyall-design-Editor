@@ -175,7 +175,6 @@ function Pexels() {
       imageCache.set(cacheKey, data)
       setImages(data)
     } catch (error) {
-      console.error('Failed to load images:', error)
       setImages([])
     } finally {
       setLoading(false)
@@ -241,8 +240,6 @@ function Pexels() {
         scaleX = scaleY = Math.min(widthRatio, heightRatio)
       }
 
-      console.log('Adding Pexels image:', { imageUrl, scaleX })
-
       // Use the helper to add the object
       addObjectToCanvas(editor, {
         type: 'StaticImage',
@@ -265,7 +262,7 @@ function Pexels() {
       }, 500)
 
     } catch (error) {
-      console.error('Failed to add image:', error)
+      // silently handled
     } finally {
       setAddingImage(null)
     }

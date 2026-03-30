@@ -1,0 +1,23 @@
+{
+  "name": "@marketifyall/quick-actions",
+  "version": "0.1.0",
+  "description": "Lightweight inline design widget for CMS dashboards - AI generation, templates, quick actions",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts --clean",
+    "dev": "tsup src/index.ts --format cjs,esm --dts --watch"
+  },
+  "keywords": ["design-widget", "cms", "ai-design", "quick-actions"],
+  "license": "MIT",
+  "peerDependencies": {
+    "@marketifyall/cms-sdk": ">=0.1.0"
+  },
+  "devDependencies": {
+    "@marketifyall/cms-sdk": "workspace:*",
+    "tsup": "^8.0.0",
+    "typescript": "^5.3.0"
+  }
+}

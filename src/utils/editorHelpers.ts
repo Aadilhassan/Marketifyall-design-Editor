@@ -5,7 +5,6 @@
  */
 export const addObjectToCanvas = (editor: any, options: any, width?: number, canvas?: any) => {
     if (!editor) {
-        console.error('addObjectToCanvas: Editor is not provided')
         return false
     }
 
@@ -15,7 +14,6 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
             objectOptions.width = width
         }
 
-        // @ts-ignore - Access fabric from window
         const fabric = (window as any).fabric
 
         // Get canvas from parameter, or try to access it from editor
@@ -27,16 +25,31 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
 
             // Get frame dimensions for positioning
             const clipPath = targetCanvas.clipPath
-            const frameWidth = clipPath?.width || 900
-            const frameHeight = clipPath?.height || 1200
-            const frameLeft = clipPath?.left || 175.5
-            const frameTop = clipPath?.top || -286.5
+            const frameWidth = (clipPath?.width || 900) * (clipPath?.scaleX || 1)
+            const frameHeight = (clipPath?.height || 1200) * (clipPath?.scaleY || 1)
+
+            // Get the actual bounding rect center of the clipPath
+            let frameCenterX: number
+            let frameCenterY: number
+            if (clipPath) {
+                const bound = clipPath.getBoundingRect ? clipPath.getBoundingRect() : null
+                if (bound) {
+                    frameCenterX = bound.left + bound.width / 2
+                    frameCenterY = bound.top + bound.height / 2
+                } else {
+                    frameCenterX = (clipPath.left || 0) + frameWidth / 2
+                    frameCenterY = (clipPath.top || 0) + frameHeight / 2
+                }
+            } else {
+                frameCenterX = targetCanvas.getWidth() / 2
+                frameCenterY = targetCanvas.getHeight() / 2
+            }
 
             // Calculate centered position
             const objWidth = (objectOptions.width || 200) * (objectOptions.scaleX || 1)
             const objHeight = (objectOptions.height || 200) * (objectOptions.scaleY || 1)
-            const centerLeft = frameLeft + (frameWidth - objWidth) / 2
-            const centerTop = frameTop + (frameHeight - objHeight) / 2
+            const centerLeft = frameCenterX - objWidth / 2
+            const centerTop = frameCenterY - objHeight / 2
 
             let fabricObject: any = null
 
@@ -64,7 +77,6 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                     hasControls: true,
                     editable: true,
                     opacity: objectOptions.opacity ?? 1,
-                    // @ts-ignore - Important for Scenify SDK
                     metadata: {
                         ...(objectOptions.metadata || {}),
                         text: text,
@@ -87,7 +99,6 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                     setTimeout(() => targetCanvas.requestRenderAll(), 50)
                     setTimeout(() => targetCanvas.requestRenderAll(), 200)
 
-                    console.log('✅ Text added and brought to front')
                     return true
                 }
             }
@@ -180,38 +191,62 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
             else if (type === 'StaticImage' || type === 'image') {
                 const src = objectOptions.metadata?.src || objectOptions.src
                 if (src) {
-                    const img = new Image()
-                    img.crossOrigin = 'anonymous'
-                    img.onload = () => {
-                        const fabricImage = new fabric.Image(img, {
-                            left: objectOptions.left ?? centerLeft,
-                            top: objectOptions.top ?? centerTop,
-                            scaleX: objectOptions.scaleX || 1,
-                            scaleY: objectOptions.scaleY || 1,
-                            opacity: objectOptions.opacity ?? 1,
-                            selectable: true,
-                            hasControls: true,
-                            hasBorders: true,
-                            // @ts-ignore
-                            metadata: objectOptions.metadata || {}
-                        })
+                    // Data URLs and blob URLs don't need CORS
+                    const isLocalUrl = src.startsWith('data:') || src.startsWith('blob:')
+                    const loadImage = (useCors: boolean) => {
+                        const img = new Image()
+                        if (useCors && !isLocalUrl) img.crossOrigin = 'anonymous'
+                        img.onload = () => {
+                            // Scale image to fit within 60% of frame
+                            const maxW = frameWidth * 0.6
+                            const maxH = frameHeight * 0.6
+                            const imgW = img.naturalWidth || img.width
+                            const imgH = img.naturalHeight || img.height
+                            let scale = Math.min(maxW / imgW, maxH / imgH, 1)
 
-                        // If it's a video, ensure we mark it as such in metadata
-                        if (objectOptions.metadata?.videoSrc) {
-                            fabricImage.set('isVideo', true)
+                            // If explicit scale was provided, use it
+                            if (objectOptions.scaleX && objectOptions.scaleY) {
+                                scale = objectOptions.scaleX
+                            }
+
+                            const finalW = imgW * scale
+                            const finalH = imgH * scale
+                            const imgLeft = objectOptions.left ?? (frameCenterX - finalW / 2)
+                            const imgTop = objectOptions.top ?? (frameCenterY - finalH / 2)
+
+                            const fabricImage = new fabric.Image(img, {
+                                left: imgLeft,
+                                top: imgTop,
+                                scaleX: scale,
+                                scaleY: scale,
+                                opacity: objectOptions.opacity ?? 1,
+                                selectable: true,
+                                hasControls: true,
+                                hasBorders: true,
+                                metadata: objectOptions.metadata || {}
+                            })
+
+                            if (objectOptions.metadata?.videoSrc) {
+                                fabricImage.set('isVideo', true)
+                            }
+
+                            targetCanvas.add(fabricImage)
+                            targetCanvas.setActiveObject(fabricImage)
+                            targetCanvas.requestRenderAll()
+                            setTimeout(() => targetCanvas.requestRenderAll(), 100)
                         }
-
-                        targetCanvas.add(fabricImage)
-                        targetCanvas.setActiveObject(fabricImage)
-                        targetCanvas.requestRenderAll()
-                        console.log('✅ Image added via FabricJS directly')
+                        img.onerror = () => {
+                            if (useCors) {
+                                // Retry without CORS — image won't be exportable but will be visible
+                                loadImage(false)
+                            } else {
+                                // Last resort fallback
+                                editor.add(objectOptions)
+                            }
+                        }
+                        img.src = src
                     }
-                    img.onerror = (err) => {
-                        console.error('Failed to load image in addObjectToCanvas:', err)
-                        // Fallback to editor.add if direct fabric fails
-                        editor.add(objectOptions)
-                    }
-                    img.src = src
+                    loadImage(true)
                     return true
                 }
             }
@@ -226,13 +261,11 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                 targetCanvas.add(fabricObject)
                 targetCanvas.setActiveObject(fabricObject)
                 targetCanvas.requestRenderAll()
-                console.log('✅ Object added via FabricJS:', type)
                 return true
             }
         }
 
         // Fallback: use editor.add() for unsupported types
-        console.log('Using editor.add() fallback for type:', objectOptions.type)
         editor.add(objectOptions)
 
         // Force canvas re-render
@@ -243,13 +276,12 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                     targetCanvas.requestRenderAll()
                 }
             } catch (e) {
-                console.warn('Could not force canvas re-render:', e)
+                // silently handled
             }
         }, 50)
 
         return true
     } catch (error) {
-        console.error('addObjectToCanvas: Error adding object to canvas:', error)
         return false
     }
 }
@@ -258,11 +290,9 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
  * Helper to add a shape to the canvas
  */
 export const addShapeToCanvas = (canvas: any, shapeType: string, options: any = {}) => {
-    // @ts-ignore
     const fabric = (window as any).fabric
 
     if (!fabric || !canvas) {
-        console.error('FabricJS or canvas not available')
         return false
     }
 
@@ -344,7 +374,6 @@ export const addShapeToCanvas = (canvas: any, shapeType: string, options: any = 
                 break
 
             default:
-                console.warn('Unknown shape type:', shapeType)
                 return false
         }
 
@@ -352,13 +381,11 @@ export const addShapeToCanvas = (canvas: any, shapeType: string, options: any = 
             canvas.add(shape)
             canvas.setActiveObject(shape)
             canvas.requestRenderAll()
-            console.log('✅ Shape added:', shapeType)
             return true
         }
 
         return false
     } catch (error) {
-        console.error('Error adding shape:', error)
         return false
     }
 }
@@ -367,11 +394,9 @@ export const addShapeToCanvas = (canvas: any, shapeType: string, options: any = 
  * Helper to add text to the canvas
  */
 export const addTextToCanvas = (canvas: any, text: string, options: any = {}) => {
-    // @ts-ignore
     const fabric = (window as any).fabric
 
     if (!fabric || !canvas) {
-        console.error('FabricJS or canvas not available')
         return false
     }
 
@@ -404,10 +429,8 @@ export const addTextToCanvas = (canvas: any, text: string, options: any = {}) =>
         canvas.add(textbox)
         canvas.setActiveObject(textbox)
         canvas.requestRenderAll()
-        console.log('✅ Text added:', text.substring(0, 20))
         return true
     } catch (error) {
-        console.error('Error adding text:', error)
         return false
     }
 }

@@ -9,8 +9,7 @@ import { useActiveObject } from '@nkyo/scenify-sdk'
 function Path() {
   const { setActiveSubMenu } = useAppContext()
   const activeObject = useActiveObject()
-  // @ts-ignore
-  const fill = activeObject ? (activeObject.fill || '#000000') : '#000000'
+  const fill = activeObject ? ((activeObject as any).fill || '#000000') : '#000000'
 
   return (
     <div

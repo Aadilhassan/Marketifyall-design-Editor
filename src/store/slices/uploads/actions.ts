@@ -2,20 +2,20 @@ import { IUpload, Uploading } from '@/interfaces/editor'
 import { uniqueFilename } from '@/utils/unique'
 import { createAsyncThunk, createAction } from '@reduxjs/toolkit'
 import api from '@services/api'
-import axios, { AxiosError } from 'axios'
+import axios from 'axios'
 
 export const setUploads = createAction<IUpload[]>('uploads/setUploads')
 export const setUploading = createAction<Uploading>('uploads/setUploading')
 export const closeUploading = createAction('uploads/closeUploading')
 
-export const getUploads = createAsyncThunk<void, never, { rejectValue: Record<string, string[]> }>(
+export const getUploads = createAsyncThunk(
   'uploads/getUploads',
-  async (_, { rejectWithValue, dispatch }) => {
+  async (_, { dispatch }) => {
     try {
       const uploads = await api.getUploads()
       dispatch(setUploads(uploads))
     } catch (err) {
-      return rejectWithValue((err as AxiosError).response?.data?.error.data || null)
+      // silently fail
     }
   }
 )
@@ -43,6 +43,6 @@ export const uploadFile = createAsyncThunk<void, { file: File }, any>(
     })
     const uploadedFile = await api.updateUploadFile({ name: updatedFileName })
     dispatch(closeUploading())
-    dispatch(setUploads([uploadedFile]))
+    dispatch(setUploads([uploadedFile as unknown as IUpload]))
   }
 )

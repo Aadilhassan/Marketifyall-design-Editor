@@ -1,29 +1,25 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import ResizeObserver from 'resize-observer-polyfill'
 import useAppContext from '@hooks/useAppContext'
 import Loading from './components/Loading'
 import { editorFonts } from './constants/fonts'
-import { useAppDispatch } from './store/store'
-import { getTemplates } from './store/slices/templates/actions'
-import { getUploads } from './store/slices/uploads/actions'
-import { getCreations } from './store/slices/creations/actions'
 
-function Container({ children }) {
-  const containerRef = useRef<HTMLDivElement>()
+function Container({ children }: { children: React.ReactNode }) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const { isMobile, setIsMobile } = useAppContext()
   const [loaded, setLoaded] = useState(false)
-  const dispatch = useAppDispatch()
-  const updateMediaQuery = (value: number) => {
-    if (!isMobile && value >= 800) {
-      setIsMobile(false)
-    } else if (!isMobile && value < 800) {
-      setIsMobile(true)
-    } else {
-      setIsMobile(false)
-    }
-  }
+
+  const updateMediaQuery = useCallback(
+    (value: number) => {
+      setIsMobile(value < 800)
+    },
+    [setIsMobile],
+  )
+
   useEffect(() => {
     const containerElement = containerRef.current
+    if (!containerElement) return undefined
+
     const containerWidth = containerElement.clientWidth
     updateMediaQuery(containerWidth)
     const resizeObserver = new ResizeObserver(entries => {
@@ -32,50 +28,39 @@ function Container({ children }) {
     })
     resizeObserver.observe(containerElement)
     return () => {
-      if (containerElement) {
-        resizeObserver.unobserve(containerElement)
-      }
+      resizeObserver.unobserve(containerElement)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [updateMediaQuery])
 
   useEffect(() => {
-    let timeoutId: number | undefined
+    let cancelled = false
 
-    loadFonts()
-    timeoutId = window.setTimeout(() => {
-      setLoaded(true)
-    }, 1000)
+    const loadFonts = async () => {
+      const promisesList = editorFonts.map(font => {
+        return new FontFace(font.name, `url(${font.url})`, font.options as unknown as FontFaceDescriptors)
+          .load()
+          .catch(() => null)
+      })
 
-    return () => {
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId)
-      }
-    }
-  }, [])
-
-  const loadFonts = () => {
-    const promisesList = editorFonts.map(font => {
-      // @ts-ignore
-      return new FontFace(font.name, `url(${font.url})`, font.options).load().catch(err => err)
-    })
-    Promise.all(promisesList)
-      .then(res => {
-        res.forEach(uniqueFont => {
+      try {
+        const results = await Promise.all(promisesList)
+        results.forEach(uniqueFont => {
           if (uniqueFont && uniqueFont.family) {
             document.fonts.add(uniqueFont)
           }
         })
-      })
-      .catch(err => console.log({ err }))
-  }
+      } finally {
+        if (!cancelled) {
+          setLoaded(true)
+        }
+      }
+    }
 
-  useEffect(() => {
-    // Disable API calls - app will work without backend
-    // dispatch(getTemplates())
-    // dispatch(getUploads())
-    // dispatch(getCreations())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    loadFonts()
+
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   return (
@@ -83,18 +68,10 @@ function Container({ children }) {
       ref={containerRef}
       style={{
         flex: 1,
-        // display: 'flex',
         height: '100vh',
-        // width: '100vw',
       }}
     >
-      {loaded ? (
-        <>
-          {children}
-        </>
-      ) : (
-        <Loading />
-      )}
+      {loaded ? children : <Loading />}
     </div>
   )
 }

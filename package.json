@@ -7,7 +7,7 @@
   ],
   "dependencies": {
     "@nkyo/scenify-sdk": "^0.3.4",
-    "@reduxjs/toolkit": "^1.6.2",
+    "@reduxjs/toolkit": "^1.9.7",
     "@samuelmeuli/font-manager": "^1.4.0",
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/auth-ui-react": "^0.4.7",
@@ -18,9 +18,9 @@
     "@types/styletron-engine-atomic": "^1.1.1",
     "@types/styletron-react": "^5.0.3",
     "@types/styletron-standard": "^2.0.2",
-    "axios": "^0.21.1",
+    "axios": "^1.7.9",
     "baseui": "^10.1.1",
-    "craco": "^0.0.3",
+    "@craco/craco": "^6.4.5",
     "fabric": "^4.5.1",
     "highlight.js": "^11.11.1",
     "lucide-react": "^0.555.0",
@@ -41,8 +41,8 @@
     "web-vitals": "^1.0.1"
   },
   "scripts": {
-    "start": "cross-env NODE_OPTIONS=--openssl-legacy-provider craco start",
-    "build": "cross-env NODE_OPTIONS=--openssl-legacy-provider craco build",
+    "start": "BROWSER=none NODE_OPTIONS=--openssl-legacy-provider craco start",
+    "build": "craco build",
     "test": "craco test",
     "eject": "craco eject",
     "format": "prettier --write src"

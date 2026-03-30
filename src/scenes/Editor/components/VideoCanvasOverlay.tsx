@@ -162,20 +162,16 @@ const VideoCanvasOverlay: React.FC = () => {
             const containerRect = containerRef.current.getBoundingClientRect()
 
             // Try to find the clip object in the canvas
-            // @ts-ignore - canvas.getObjects is from fabric.js
-            const objects = canvas.getObjects?.() || []
-            // @ts-ignore
+            const objects = (canvas as any).getObjects?.() || []
             const clipObject = objects.find((obj: any) => obj.name === 'clip' || obj.id === 'clip')
 
             if (clipObject) {
                 // Get the clip object's bounding rect in screen coordinates
-                // @ts-ignore
                 const clipBoundingRect = clipObject.getBoundingRect?.(true, true)
 
                 if (clipBoundingRect) {
                     // Get the canvas element's position
-                    // @ts-ignore
-                    const canvasEl = canvas.lowerCanvasEl || document.querySelector('.canvas-container canvas')
+                    const canvasEl = (canvas as any).lowerCanvasEl || document.querySelector('.canvas-container canvas')
                     if (canvasEl) {
                         const canvasRect = canvasEl.getBoundingClientRect()
 
@@ -208,8 +204,7 @@ const VideoCanvasOverlay: React.FC = () => {
                     const frameHeight = 1200
 
                     // Get the zoom level from canvas
-                    // @ts-ignore
-                    const zoom = canvas.getZoom?.() || 1
+                    const zoom = (canvas as any).getZoom?.() || 1
 
                     const scaledWidth = frameWidth * zoom
                     const scaledHeight = frameHeight * zoom
@@ -229,7 +224,7 @@ const VideoCanvasOverlay: React.FC = () => {
                 }
             }
         } catch (error) {
-            console.error('Error getting canvas frame bounds:', error)
+            // silently handled
         }
 
         return null
@@ -274,7 +269,6 @@ const VideoCanvasOverlay: React.FC = () => {
                 const aspectRatio = videoWidth / videoHeight
                 const isPortrait = videoHeight > videoWidth
 
-                console.log(`Video ${clip.id} dimensions: ${videoWidth}x${videoHeight}, isPortrait: ${isPortrait}`)
 
                 // Get frame bounds
                 const frameBounds = canvasFrameBounds || getCanvasFrameBounds()
@@ -333,7 +327,6 @@ const VideoCanvasOverlay: React.FC = () => {
             video.onloadedmetadata = handleLoad
 
             video.onerror = () => {
-                console.warn(`Failed to load video metadata for ${clip.id}`)
                 video.src = ''
                 resolve({
                     x: 100 + (index * 20),
@@ -370,7 +363,7 @@ const VideoCanvasOverlay: React.FC = () => {
                     newStates[clip.id] = state
                     initializedClipsRef.current.add(clip.id)
                 } catch (error) {
-                    console.error(`Failed to initialize clip ${clip.id}:`, error)
+                    // silently handled
                 }
             }
 
@@ -533,7 +526,7 @@ const VideoCanvasOverlay: React.FC = () => {
         if (overlayStates[clipId]?.isPlaying) {
             video.pause()
         } else {
-            video.play().catch(console.error)
+            video.play().catch(() => { /* silently handled */ })
         }
 
         setOverlayStates(prev => ({

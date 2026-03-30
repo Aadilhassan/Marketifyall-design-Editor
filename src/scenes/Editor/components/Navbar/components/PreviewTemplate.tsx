@@ -33,7 +33,7 @@ function PreviewTemplate() {
           try {
             localStorage.setItem('canva_clone_temp_state', JSON.stringify(template));
           } catch (err) {
-            console.error('Failed to save template state:', err);
+            // silently handled
           }
         }
 
@@ -52,7 +52,6 @@ function PreviewTemplate() {
           handleBuildImage()
         }
       } catch (err) {
-        console.error('Error exporting template:', err)
         // Still try to build the image preview
         handleBuildImage()
       }
@@ -66,7 +65,7 @@ function PreviewTemplate() {
       // Skip restoration - the canvas state is already intact
       // The objects we added directly via FabricJS are already on the canvas
       // and don't need to be re-imported
-      console.log('Preview closed - canvas state preserved')
+      // Canvas state preserved
     }
   }, [isOpen, editor]);
 
@@ -75,11 +74,10 @@ function PreviewTemplate() {
 
     try {
       setIsProcessing(true);
-      // @ts-ignore
-      const image = await editor.toPNG(options);
+      const image = await (editor as any).toPNG(options);
       setPreviewImage(image);
     } catch (err) {
-      console.error('Error generating preview:', err);
+      // silently handled
     } finally {
       setIsProcessing(false);
     }
@@ -150,7 +148,6 @@ function PreviewTemplate() {
         alert('No saved state found to recover.');
       }
     } catch (err) {
-      console.error('Recovery failed:', err);
       alert('Failed to recover canvas state. The saved state may be corrupted.');
     } finally {
       setIsProcessing(false);

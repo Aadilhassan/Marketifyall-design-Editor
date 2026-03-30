@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useHistory } from 'react-router-dom'
 import useAppContext from '@/hooks/useAppContext'
 import { useEmbedMode } from '@/contexts/EmbedContext'
+import { useCredits } from '@/contexts/CreditsContext'
 import Resize from './components/Resize'
 import PreviewTemplate from './components/PreviewTemplate'
 import History from './components/History'
@@ -131,6 +132,26 @@ const SecondaryButton = styled('button', {
   },
 })
 
+const CreditBadge = styled('button', {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '6px',
+  padding: '6px 12px',
+  borderRadius: '20px',
+  border: '1px solid #e5e7eb',
+  background: '#f9fafb',
+  color: '#374151',
+  fontSize: '13px',
+  fontWeight: 500,
+  cursor: 'pointer',
+  transition: 'all 0.2s',
+  ':hover': {
+    background: '#f3f0ff',
+    borderColor: '#5A3FFF',
+    color: '#5A3FFF',
+  },
+})
+
 const PrimaryButton = styled('button', {
   padding: '8px 20px',
   borderRadius: '8px',
@@ -197,6 +218,7 @@ function NavbarEditor() {
   const history = useHistory()
   const { currentTemplate } = useAppContext()
   const { config, sendImageToParent, notifyCancel } = useEmbedMode()
+  const { balance } = useCredits()
   const [name, setName] = useState('Untitled design')
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -218,19 +240,16 @@ function NavbarEditor() {
     setIsExporting(true)
     try {
       // Export canvas as data URL using the SDK's toPNG method
-      // @ts-ignore - SDK method
-      const dataUrl = await editor.toPNG({})
+      const dataUrl = await (editor as any).toPNG({})
 
       // Send image to parent window
       sendImageToParent(dataUrl, {
         name: name,
-        // @ts-ignore
-        width: editor.frame?.width,
-        // @ts-ignore
-        height: editor.frame?.height,
+        width: (editor as any).frame?.width,
+        height: (editor as any).frame?.height,
       })
     } catch (error) {
-      console.error('Failed to export image:', error)
+      // silently handled
     } finally {
       setIsExporting(false)
     }
@@ -325,13 +344,14 @@ function NavbarEditor() {
       </CenterSection>
 
       <RightSection>
-        {/* <IconButton title="Help">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-            <path d="M12 17h.01" />
-          </svg>
-        </IconButton> */}
+        {balance && (
+          <CreditBadge title={`Subscription: ${balance.subscription_credits} | Top-up: ${balance.topup_credits} | Plan: ${balance.plan}`}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            {balance.total} credits
+          </CreditBadge>
+        )}
         <SecondaryButton onClick={() => setIsExportModalOpen(true)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
