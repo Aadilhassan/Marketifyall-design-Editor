@@ -38,7 +38,7 @@ function ExportTest() {
   useEffect(() => {
     const loadPexelsVideo = async () => {
       if (!isApiKeyConfigured()) {
-        console.warn('Pexels API key not configured')
+        // Pexels API key not configured
         return
       }
 
@@ -49,7 +49,7 @@ function ExportTest() {
           setPexelsVideo(videos[0])
         }
       } catch (error) {
-        console.error('Failed to load Pexels video:', error)
+        // silently handled
       } finally {
         setLoadingVideo(false)
       }
@@ -60,21 +60,15 @@ function ExportTest() {
 
   // Add video to canvas when clicked
   const handleVideoClick = useCallback(async () => {
-    console.log('🎬 handleVideoClick called', { hasPexelsVideo: !!pexelsVideo, hasEditor: !!editor, addingVideo, frameSize })
-    
     if (!pexelsVideo || !editor || addingVideo) {
-      console.warn('⚠️ Early return:', { pexelsVideo: !!pexelsVideo, editor: !!editor, addingVideo })
             return
     }
 
     setAddingVideo(true)
     try {
-      console.log('🔍 Getting video file from Pexels video:', pexelsVideo)
       const videoFile = getBestVideoFile(pexelsVideo)
-      console.log('📹 Video file retrieved:', videoFile)
-      
+
       if (!videoFile) {
-        console.error('❌ No suitable video file found')
                 setAddingVideo(false)
         return
       }
@@ -113,7 +107,6 @@ function ExportTest() {
       // Get canvas frame dimensions from editor context
       const frameWidth = frameSize?.width || 1920
       const frameHeight = frameSize?.height || 1080
-      console.log('📐 Frame dimensions:', { frameSize, frameWidth, frameHeight })
 
       // STANDARD SIZE for all videos (Canva-like behavior)
       const STANDARD_WIDTH = 720
@@ -165,12 +158,9 @@ function ExportTest() {
             0, 0, targetWidth, targetHeight // Destination size
           )
           posterUrl = posterCanvas.toDataURL('image/png')
-          console.log('🖼️ Poster extracted, length:', posterUrl.length)
                   } catch (drawError) {
-          console.error('❌ Poster extraction failed:', drawError)
+          // silently handled
                   }
-      } else {
-        console.warn('⚠️ No canvas context for poster extraction, using fallback')
       }
 
       const addOptions = {
@@ -201,18 +191,8 @@ function ExportTest() {
         opacity: 1,
         visible: true,
       }
-      console.log('📤 About to call editor.add() with options:', {
-        type: addOptions.type,
-        hasPosterUrl: !!posterUrl,
-        posterUrlLength: posterUrl?.length || 0,
-        fallbackImage: pexelsVideo.image,
-        position: { left, top },
-        dimensions: { width: targetWidth, height: targetHeight }
-      })
-      
       try {
         editor.add(addOptions)
-        console.log('✅ editor.add() called successfully')
         
         // Deselect the object to remove blue border/selection handles
         setTimeout(() => {
@@ -220,19 +200,16 @@ function ExportTest() {
             // Method 1: Use editor.deselect (preferred)
             if (editor && typeof editor.deselect === 'function') {
               editor.deselect()
-              console.log('✅ Object deselected via editor.deselect()')
             }
             // Method 2: Use canvas methods as fallback
             if (canvas) {
               if (canvas.discardActiveObject) {
                 canvas.discardActiveObject()
                 canvas.renderAll()
-                console.log('✅ Object deselected via canvas.discardActiveObject()')
               }
               if (canvas.deactivateAll) {
                 canvas.deactivateAll()
                 canvas.renderAll()
-                console.log('✅ All objects deselected via canvas.deactivateAll()')
               }
               // Method 3: Click on canvas background to deselect
               const canvasElement = canvas.getElement?.() || canvas.lowerCanvasEl
@@ -247,16 +224,14 @@ function ExportTest() {
                 })
                 canvasElement.dispatchEvent(clickEvent)
                 canvas.renderAll()
-                console.log('✅ Simulated click to deselect')
               }
             }
           } catch (e) {
-            console.warn('Could not deselect object:', e)
+            // silently handled
           }
         }, 200)
         
               } catch (addError) {
-        console.error('❌ editor.add() threw error:', addError)
                 throw addError
       }
 
@@ -279,7 +254,6 @@ function ExportTest() {
 
       // Verify all required fields are present
       if (!clipData.id || !clipData.src || !clipData.duration || clipData.duration <= 0) {
-        console.error('Invalid clip data:', clipData)
         throw new Error('Invalid clip data')
       }
 
@@ -289,11 +263,11 @@ function ExportTest() {
       // Open timeline automatically when video is added
       setTimelineOpen(true)
           } catch (error) {
-      console.error('Failed to add video:', error)
+      // silently handled
           } finally {
       setAddingVideo(false)
           }
-  }, [pexelsVideo, editor, addingVideo, frameSize, getNextVideoStartTime, addClip, setActiveClip, setTimelineOpen])
+  }, [pexelsVideo, editor, addingVideo, frameSize, getNextVideoStartTime, addClip, setActiveClip, setTimelineOpen, canvas])
 
   return (
     <div
@@ -561,8 +535,6 @@ function ExportTest() {
 }
 
 export default ExportTest
-
-
 
 
 

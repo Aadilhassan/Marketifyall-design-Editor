@@ -677,7 +677,6 @@ const VideoTimeline: React.FC = () => {
   const {
     clips,
     audioClips,
-    layers,
     activeClipId,
     selectedClipIds,
     isTimelineOpen,
@@ -691,13 +690,11 @@ const VideoTimeline: React.FC = () => {
     addClip,
     removeClip,
     updateClip,
-    reorderClips,
     isPlaying,
     currentTime,
     setCurrentTime,
     togglePlayback,
     seek,
-    pause,
     setIsPlaying,
   } = useVideoContext()
 
@@ -715,7 +712,7 @@ const VideoTimeline: React.FC = () => {
   const tracksAreaRef = useRef<HTMLDivElement>(null)
   const audioInputRef = useRef<HTMLInputElement>(null)
   const audioRefs = useRef<Record<string, HTMLAudioElement>>({})
-  const [hoveredClipId, setHoveredClipId] = useState<string | null>(null)
+  const [, setHoveredClipId] = useState<string | null>(null)
   // Local state for drag/resize preview (doesn't affect main tracks calculation)
   const [dragPreview, setDragPreview] = useState<Record<string, { start?: number; duration?: number }>>({})
   // Refs for timeline video elements (mini players in clips)
@@ -728,7 +725,7 @@ const VideoTimeline: React.FC = () => {
 
   // Master video element for sequential playback (Canva-style)
   const masterVideoRef = useRef<HTMLVideoElement | null>(null)
-  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [, setIsTransitioning] = useState(false)
 
   // Context menu state for right-click on clips
   const [contextMenu, setContextMenu] = useState<{
@@ -766,7 +763,7 @@ const VideoTimeline: React.FC = () => {
   const pixelsPerSecond = zoom
 
   // Track canvas object changes to force timeline updates
-  const [canvasObjectVersion, setCanvasObjectVersion] = useState(0)
+  const [, setCanvasObjectVersion] = useState(0)
 
   // Listen to canvas object changes to update timeline
   useEffect(() => {
@@ -826,20 +823,15 @@ const VideoTimeline: React.FC = () => {
       updateVersion()
     }
 
-    // @ts-ignore
-    canvas.on?.('object:added', onObjectAdded)
-    // @ts-ignore
-    canvas.on?.('object:removed', updateVersion)
-    // @ts-ignore
-    canvas.on?.('object:modified', updateVersion)
+    const c = canvas as any
+    c.on?.('object:added', onObjectAdded)
+    c.on?.('object:removed', updateVersion)
+    c.on?.('object:modified', updateVersion)
 
     return () => {
-      // @ts-ignore
-      canvas.off?.('object:added', onObjectAdded)
-      // @ts-ignore
-      canvas.off?.('object:removed', updateVersion)
-      // @ts-ignore
-      canvas.off?.('object:modified', updateVersion)
+      c.off?.('object:added', onObjectAdded)
+      c.off?.('object:removed', updateVersion)
+      c.off?.('object:modified', updateVersion)
     }
   }, [canvas])
 
@@ -861,8 +853,7 @@ const VideoTimeline: React.FC = () => {
 
     // Check canvas objects for text/image/shape timeline end times
     if (canvas) {
-      // @ts-ignore
-      const objects = canvas.getObjects?.() || []
+      const objects = (canvas as any).getObjects?.() || []
       objects.forEach((obj: any) => {
         if (obj.metadata?.timelineStart !== undefined) {
           const objEnd = (obj.metadata.timelineStart || 0) + (obj.metadata.timelineDuration || 5)
@@ -873,7 +864,7 @@ const VideoTimeline: React.FC = () => {
 
     // Add 5 seconds padding for breathing room, minimum 15 seconds for usability
     return Math.max(15, maxEndTime + 5)
-  }, [clips, audioClips, canvas, canvasObjectVersion])
+  }, [clips, audioClips, canvas])
 
   const totalDuration = calculateTotalDuration
   const timelineWidth = totalDuration * pixelsPerSecond
@@ -922,8 +913,7 @@ const VideoTimeline: React.FC = () => {
     })
 
     // Get canvas objects
-    // @ts-ignore
-    const objects = canvas.getObjects?.() || []
+    const objects = (canvas as any).getObjects?.() || []
 
     const textClips: TimelineClip[] = []
     const imageClips: TimelineClip[] = []
@@ -1007,11 +997,8 @@ const VideoTimeline: React.FC = () => {
 
     // Text tracks - each text element gets its own track for better visibility (Canva-style)
     // Different colors for visual distinction
-    const textColors = ['#10b981', '#059669', '#047857', '#065f46', '#064e3b']
-
     if (textClips.length > 0) {
       textClips.forEach((clip, idx) => {
-        const color = textColors[idx % textColors.length]
         newTracks.push({
           id: `track-text-${clip.id}`,
           name: idx === 0 ? 'Text' : `Text ${idx + 1}`,
@@ -1069,7 +1056,7 @@ const VideoTimeline: React.FC = () => {
     }
 
     return newTracks
-  }, [canvas, clips, audioClips, totalDuration, canvasObjectVersion])
+  }, [canvas, clips, audioClips, totalDuration])
 
   // Track which audio clips are ready to play
   const audioReadyRef = useRef<Record<string, boolean>>({})
@@ -1079,7 +1066,6 @@ const VideoTimeline: React.FC = () => {
     // Create new audio elements for new clips
     audioClips.forEach(clip => {
       if (!audioRefs.current[clip.id]) {
-        console.log(`Creating audio element for: ${clip.name} (${clip.id})`)
 
         const audio = new Audio()
         audio.preload = 'auto'
@@ -1091,11 +1077,9 @@ const VideoTimeline: React.FC = () => {
         // Set up ready state tracking
         const onCanPlay = () => {
           audioReadyRef.current[clip.id] = true
-          console.log(`Audio ready to play: ${clip.name} (${clip.id})`)
         }
 
         const onError = (e: Event) => {
-          console.error(`Audio load error for ${clip.name}:`, e)
           audioReadyRef.current[clip.id] = false
         }
 
@@ -1128,7 +1112,6 @@ const VideoTimeline: React.FC = () => {
       if (!currentIds.includes(id)) {
         const audio = audioRefs.current[id]
         if (audio) {
-          console.log(`Removing audio element: ${id}`)
             // Call cleanup handlers
             ; (audio as any)._cleanup?.()
           audio.pause()
@@ -1173,19 +1156,12 @@ const VideoTimeline: React.FC = () => {
               const playPromise = audio.play()
               if (playPromise !== undefined) {
                 playPromise
-                  .then(() => {
-                    console.log(`Playing audio: ${clip.name}`)
-                  })
                   .catch(err => {
-                    // Ignore AbortError as it's expected when rapidly seeking
-                    if (err.name !== 'AbortError') {
-                      console.error(`Audio play error for ${clip.name}:`, err)
-                    }
+                    // silently handled (AbortError expected during seeking)
                   })
               }
             } else {
               // Audio not ready yet, will try again on next update
-              console.log(`Audio not ready yet: ${clip.name}, readyState: ${audio.readyState}`)
             }
           }
         }
@@ -1293,8 +1269,7 @@ const VideoTimeline: React.FC = () => {
 
       // Fade out canvas
       if (canvas) {
-        // @ts-ignore
-        const upperCanvas = canvas.upperCanvasEl
+        const upperCanvas = (canvas as any).upperCanvasEl
         if (upperCanvas) {
           upperCanvas.style.transition = 'opacity 0.25s ease'
           upperCanvas.style.opacity = '0'
@@ -1316,7 +1291,7 @@ const VideoTimeline: React.FC = () => {
           if (isPlaying) {
             masterVideo.play().catch(err => {
               if (err.name !== 'AbortError') {
-                console.error('Video play error:', err)
+                // silently handled
               }
             })
           }
@@ -1325,8 +1300,7 @@ const VideoTimeline: React.FC = () => {
         // Fade in canvas
         setTimeout(() => {
           if (canvas) {
-            // @ts-ignore
-            const upperCanvas = canvas.upperCanvasEl
+            const upperCanvas = (canvas as any).upperCanvasEl
             if (upperCanvas) {
               upperCanvas.style.opacity = '1'
             }
@@ -1340,9 +1314,7 @@ const VideoTimeline: React.FC = () => {
       const videoTime = Math.max(0, currentTime - clipStart)
       masterVideo.currentTime = Math.min(videoTime, masterVideo.duration || activeClip.duration)
       masterVideo.play().catch(err => {
-        if (err.name !== 'AbortError') {
-          console.error('Video play error:', err)
-        }
+        // silently handled (AbortError expected during seeking)
       })
     }
   }, [getActiveClip, isPlaying, currentTime, canvas])
@@ -1454,9 +1426,7 @@ const VideoTimeline: React.FC = () => {
 
         if (masterVideo.paused) {
           masterVideo.play().catch(err => {
-            if (err.name !== 'AbortError') {
-              console.error('Video play error:', err)
-            }
+            // silently handled (AbortError expected during seeking)
           })
         }
         lastSyncTime = now
@@ -1495,6 +1465,7 @@ const VideoTimeline: React.FC = () => {
     return () => {
       cancelAnimationFrame(animationId)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isPlaying, activeClip])
 
   // Update canvas to show/hide video objects based on timeline currentTime
@@ -1504,8 +1475,7 @@ const VideoTimeline: React.FC = () => {
   useEffect(() => {
     if (!canvas) return
 
-    // @ts-ignore
-    const objects = canvas.getObjects?.() || []
+    const objects = (canvas as any).getObjects?.() || []
     let needsRender = false
 
     objects.forEach((obj: any) => {
@@ -1579,8 +1549,7 @@ const VideoTimeline: React.FC = () => {
   useEffect(() => {
     if (!canvas) return
 
-    // @ts-ignore
-    const objects = canvas.getObjects?.() || []
+    const objects = (canvas as any).getObjects?.() || []
     let needsRender = false
 
     objects.forEach((obj: any) => {
@@ -1671,6 +1640,7 @@ const VideoTimeline: React.FC = () => {
     if (needsRender) {
       canvas.renderAll()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvas, currentTime, totalDuration])
 
   // NOTE: We intentionally do NOT restore opacity when paused
@@ -1756,14 +1726,11 @@ const VideoTimeline: React.FC = () => {
     const clip = track?.clips.find(c => c.id === clipId)
 
     if (clip?.canvasObjectId && canvas) {
-      // @ts-ignore
-      const objects = canvas.getObjects?.() || []
+      const objects = (canvas as any).getObjects?.() || []
       const obj = objects.find((o: any) => o.id === clip.canvasObjectId)
       if (obj) {
-        // @ts-ignore
-        canvas.setActiveObject?.(obj)
-        // @ts-ignore
-        canvas.requestRenderAll?.()
+        ;(canvas as any).setActiveObject?.(obj)
+        ;(canvas as any).requestRenderAll?.()
       }
     }
   }
@@ -1813,26 +1780,20 @@ const VideoTimeline: React.FC = () => {
       removeClip(clip.id)
       // Also remove from canvas if it exists
       if (canvas) {
-        // @ts-ignore
-        const objects = canvas.getObjects?.() || []
+        const objects = (canvas as any).getObjects?.() || []
         const obj = objects.find((o: any) => o.id === clip.id || o.metadata?.id === clip.id)
         if (obj) {
-          // @ts-ignore
-          canvas.remove?.(obj)
-          // @ts-ignore
-          canvas.requestRenderAll?.()
+          ;(canvas as any).remove?.(obj)
+          ;(canvas as any).requestRenderAll?.()
         }
       }
     } else if (clip.canvasObjectId && canvas) {
       // Remove canvas object (image/text)
-      // @ts-ignore
-      const objects = canvas.getObjects?.() || []
+      const objects = (canvas as any).getObjects?.() || []
       const obj = objects.find((o: any) => o.id === clip.canvasObjectId)
       if (obj) {
-        // @ts-ignore
-        canvas.remove?.(obj)
-        // @ts-ignore
-        canvas.requestRenderAll?.()
+        ;(canvas as any).remove?.(obj)
+        ;(canvas as any).requestRenderAll?.()
       }
     }
 
@@ -1921,22 +1882,18 @@ const VideoTimeline: React.FC = () => {
           updateClip(clip.id, { start: newStart, end: newStart + clip.duration })
         } else if (track?.type === 'text' && clip.canvasObjectId && canvas) {
           // Update text track position in canvas metadata
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
+          const objects = (canvas as any).getObjects?.() || []
           const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
           if (obj && obj.metadata) {
             obj.metadata.timelineStart = newStart
             obj.dirty = true
-            // @ts-ignore
-            canvas.requestRenderAll?.()
+            ;(canvas as any).requestRenderAll?.()
             // Trigger object:modified event to force tracks recalculation
-            // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+            ;(canvas as any).fire?.('object:modified', { target: obj })
           }
         } else if (track?.type === 'image' && clip.canvasObjectId && canvas) {
           // Update image track position in canvas metadata
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
+          const objects = (canvas as any).getObjects?.() || []
           const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
           if (obj) {
             // Initialize metadata if not exists
@@ -1947,15 +1904,12 @@ const VideoTimeline: React.FC = () => {
               obj.metadata.timelineDuration = clip.duration
             }
             obj.dirty = true
-            // @ts-ignore
-            canvas.requestRenderAll?.()
-            // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+            ;(canvas as any).requestRenderAll?.()
+            ;(canvas as any).fire?.('object:modified', { target: obj })
           }
         } else if (track?.type === 'shape' && clip.canvasObjectId && canvas) {
           // Update shape track position in canvas metadata
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
+          const objects = (canvas as any).getObjects?.() || []
           const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
           if (obj) {
             // Initialize metadata if not exists
@@ -1966,10 +1920,8 @@ const VideoTimeline: React.FC = () => {
               obj.metadata.timelineDuration = clip.duration
             }
             obj.dirty = true
-            // @ts-ignore
-            canvas.requestRenderAll?.()
-            // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+            ;(canvas as any).requestRenderAll?.()
+            ;(canvas as any).fire?.('object:modified', { target: obj })
           }
         }
       }
@@ -2037,23 +1989,19 @@ const VideoTimeline: React.FC = () => {
           updateClip(clip.id, { start: newStart, duration: newDuration, end: newStart + newDuration })
         } else if (track?.type === 'text' && clip.canvasObjectId && canvas) {
           // Update text track duration in canvas metadata
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
+          const objects = (canvas as any).getObjects?.() || []
           const obj = objects.find((o: any) => o.id === clip.canvasObjectId) as any
           if (obj && obj.metadata) {
             obj.metadata.timelineStart = newStart
             obj.metadata.timelineDuration = newDuration
             obj.dirty = true
-            // @ts-ignore
-            canvas.requestRenderAll?.()
+            ;(canvas as any).requestRenderAll?.()
             // Trigger object:modified event to force tracks recalculation
-            // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+            ;(canvas as any).fire?.('object:modified', { target: obj })
           }
         } else if (track?.type === 'image' && clip.canvasObjectId && canvas) {
           // Update image track duration in canvas metadata
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
+          const objects = (canvas as any).getObjects?.() || []
           const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
           if (obj) {
             // Initialize metadata if not exists
@@ -2061,15 +2009,12 @@ const VideoTimeline: React.FC = () => {
             obj.metadata.timelineStart = newStart
             obj.metadata.timelineDuration = newDuration
             obj.dirty = true
-            // @ts-ignore
-            canvas.requestRenderAll?.()
-            // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+            ;(canvas as any).requestRenderAll?.()
+            ;(canvas as any).fire?.('object:modified', { target: obj })
           }
         } else if (track?.type === 'shape' && clip.canvasObjectId && canvas) {
           // Update shape track duration in canvas metadata
-          // @ts-ignore
-          const objects = canvas.getObjects?.() || []
+          const objects = (canvas as any).getObjects?.() || []
           const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
           if (obj) {
             // Initialize metadata if not exists
@@ -2077,10 +2022,8 @@ const VideoTimeline: React.FC = () => {
             obj.metadata.timelineStart = newStart
             obj.metadata.timelineDuration = newDuration
             obj.dirty = true
-            // @ts-ignore
-            canvas.requestRenderAll?.()
-            // @ts-ignore
-            canvas.fire?.('object:modified', { target: obj })
+            ;(canvas as any).requestRenderAll?.()
+            ;(canvas as any).fire?.('object:modified', { target: obj })
           }
         }
       }
@@ -2326,7 +2269,6 @@ const VideoTimeline: React.FC = () => {
     } else if (action === 'blank') {
       // Add blank canvas element
       if (editor) {
-        const clipId = `blank-${Date.now()}`
         editor.add({
           type: 'rect',
           fill: '#ffffff',
@@ -2538,27 +2480,21 @@ const VideoTimeline: React.FC = () => {
               removeClip(clipId)
               // Also remove from canvas if it exists
               if (canvas) {
-                // @ts-ignore
-                const objects = canvas.getObjects?.() || []
+                const objects = (canvas as any).getObjects?.() || []
                 const obj = objects.find((o: any) => o.id === clipId || o.metadata?.id === clipId)
                 if (obj) {
-                  // @ts-ignore
-                  canvas.remove?.(obj)
-                  // @ts-ignore
-                  canvas.requestRenderAll?.()
+                  ;(canvas as any).remove?.(obj)
+                  ;(canvas as any).requestRenderAll?.()
                 }
               }
             } else {
               // Check if it's a canvas object (image/text)
               if (canvas) {
-                // @ts-ignore
-                const objects = canvas.getObjects?.() || []
+                const objects = (canvas as any).getObjects?.() || []
                 const obj = objects.find((o: any) => o.id === clipId)
                 if (obj) {
-                  // @ts-ignore
-                  canvas.remove?.(obj)
-                  // @ts-ignore
-                  canvas.requestRenderAll?.()
+                  ;(canvas as any).remove?.(obj)
+                  ;(canvas as any).requestRenderAll?.()
                 }
               }
             }
@@ -2579,14 +2515,13 @@ const VideoTimeline: React.FC = () => {
   // Also check canvas for video objects (in case clips aren't synced)
   const hasCanvasVideoContent = useMemo(() => {
     if (!canvas) return false
-    // @ts-ignore
-    const objects = canvas.getObjects?.() || []
+    const objects = (canvas as any).getObjects?.() || []
     return objects.some((obj: any) =>
       obj.metadata?.isVideo ||
       obj.metadata?.videoSrc ||
       (obj.metadata?.animation && obj.metadata.animation !== 'none')
     )
-  }, [canvas, clips.length]) // Re-check when clips change
+  }, [canvas]) // Re-check when clips change
 
   // Only show timeline if there's video/animation content
   const shouldShowTimeline = hasVideoContent || hasCanvasVideoContent
@@ -2822,9 +2757,6 @@ const VideoTimeline: React.FC = () => {
                   const displayStart = preview?.start ?? clip.start
                   const displayDuration = preview?.duration ?? clip.duration
 
-                  // Check if this clip is currently playing
-                  const isClipPlaying = isPlaying && clip.id === activeClipId && clip.type === 'video'
-
                   return (
                     <TrackClip
                       key={clip.id}
@@ -2943,17 +2875,14 @@ const VideoTimeline: React.FC = () => {
                           e.stopPropagation()
                           // Extend duration by 5 seconds for text/image/shape
                           if ((track.type === 'text' || track.type === 'image' || track.type === 'shape') && clip.canvasObjectId && canvas) {
-                            // @ts-ignore
-                            const objects = canvas.getObjects?.() || []
+                            const objects = (canvas as any).getObjects?.() || []
                             const obj = objects.find((o: any) => o.id === clip.canvasObjectId || o.metadata?.id === clip.canvasObjectId) as any
                             if (obj && obj.metadata) {
                               const currentDuration = obj.metadata.timelineDuration || 5
                               obj.metadata.timelineDuration = currentDuration + 5
                               obj.dirty = true
-                              // @ts-ignore
-                              canvas.requestRenderAll?.()
-                              // @ts-ignore
-                              canvas.fire?.('object:modified', { target: obj })
+                              ;(canvas as any).requestRenderAll?.()
+                              ;(canvas as any).fire?.('object:modified', { target: obj })
                             }
                           } else if (track.type === 'audio') {
                             // For audio, extend by duration (loop)
