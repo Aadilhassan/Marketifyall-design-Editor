@@ -15,11 +15,8 @@ const DEV_ORIGINS = [
 export function isAllowedOrigin(origin: string | null): boolean {
   if (!origin) return false
 
-  const isDev = Deno.env.get('ENVIRONMENT') === 'development'
-  const patterns = isDev
-    ? [...ALLOWED_ORIGIN_PATTERNS, ...DEV_ORIGINS]
-    : ALLOWED_ORIGIN_PATTERNS
-
+  // Always allow localhost -- auth (JWT/API key) is the security boundary, not CORS
+  const patterns = [...ALLOWED_ORIGIN_PATTERNS, ...DEV_ORIGINS]
   return patterns.some(p => p.test(origin))
 }
 

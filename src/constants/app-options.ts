@@ -48,4 +48,5 @@ export const panelListItems = [
 export enum PanelType {
   TEMPLATES = 'Templates',
   BACKGROUND = 'Background',
+  AI_STUDIO = 'AI Studio',
 }

@@ -47,17 +47,21 @@ serve(async (req) => {
       })
     }
 
-    // 3. Rate limit check
-    const rateResult = await checkRateLimit(user.id, user.plan || 'free', 'ai_actions')
-    if (!rateResult.allowed) {
-      return new Response(JSON.stringify({ error: 'rate_limited', retry_after: rateResult.retryAfter }), {
-        status: 429,
-        headers: { ...headers, 'Content-Type': 'application/json', 'Retry-After': String(rateResult.retryAfter || 60) },
-      })
+    const isAnonymous = user.id === 'anonymous'
+
+    // 3. Rate limit check (skip for anonymous)
+    if (!isAnonymous) {
+      const rateResult = await checkRateLimit(user.id, user.plan || 'free', 'ai_actions')
+      if (!rateResult.allowed) {
+        return new Response(JSON.stringify({ error: 'rate_limited', retry_after: rateResult.retryAfter }), {
+          status: 429,
+          headers: { ...headers, 'Content-Type': 'application/json', 'Retry-After': String(rateResult.retryAfter || 60) },
+        })
+      }
     }
 
     // 4. Get credit cost
-    let cost: number
+    let cost = 0
     try {
       cost = getCreditCost(action)
     } catch {
@@ -67,41 +71,46 @@ serve(async (req) => {
       })
     }
 
-    // 5. Deduct credits (hold phase)
-    const db = getServiceClient()
-    const { data: deductResult, error: deductError } = await db.rpc('deduct_credits', {
-      p_user_id: user.id,
-      p_cost: cost,
-      p_action: action,
-      p_provider: 'openrouter',
-      p_model: model || 'default',
-    })
+    // 5. Deduct credits (skip for anonymous — just proxy through)
+    let transactionId: string | null = null
+    let remainingCredits = 0
 
-    if (deductError) {
-      if (deductError.message?.includes('insufficient_credits')) {
-        const parts = deductError.message.split(':')
-        const balance = parseInt(parts[1]) || 0
-        return new Response(JSON.stringify({
-          error: 'insufficient_credits',
-          balance,
-          cost,
-          upgrade_url: 'https://marketifyall.com/pricing',
-        }), {
-          status: 402,
-          headers: { ...headers, 'Content-Type': 'application/json' },
-        })
+    if (!isAnonymous) {
+      const db = getServiceClient()
+      const { data: deductResult, error: deductError } = await db.rpc('deduct_credits', {
+        p_user_id: user.id,
+        p_cost: cost,
+        p_action: action,
+        p_provider: 'openrouter',
+        p_model: model || 'default',
+      })
+
+      if (deductError) {
+        if (deductError.message?.includes('insufficient_credits')) {
+          const parts = deductError.message.split(':')
+          const balance = parseInt(parts[1]) || 0
+          return new Response(JSON.stringify({
+            error: 'insufficient_credits',
+            balance,
+            cost,
+            upgrade_url: 'https://marketifyall.com/pricing',
+          }), {
+            status: 402,
+            headers: { ...headers, 'Content-Type': 'application/json' },
+          })
+        }
+        throw deductError
       }
-      throw deductError
-    }
 
-    const transactionId = deductResult?.[0]?.transaction_id
-    const remainingCredits = deductResult?.[0]?.remaining_credits ?? 0
+      transactionId = deductResult?.[0]?.transaction_id
+      remainingCredits = deductResult?.[0]?.remaining_credits ?? 0
+    }
 
     // 6. Proxy to OpenRouter
     let aiResponse: Response
     try {
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 60000) // 60s timeout
+      const timeout = setTimeout(() => controller.abort(), 90000)
 
       aiResponse = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
         method: 'POST',
@@ -123,6 +132,7 @@ serve(async (req) => {
     } catch (fetchError) {
       // 7b. Provider failed -- refund credits
       if (transactionId) {
+        const db = getServiceClient()
         await db.rpc('refund_credit_transaction', { p_transaction_id: transactionId })
       }
       return new Response(JSON.stringify({
@@ -137,8 +147,8 @@ serve(async (req) => {
 
     // Check if provider returned an error
     if (!aiResponse.ok) {
-      // Refund on provider error
       if (transactionId) {
+        const db = getServiceClient()
         await db.rpc('refund_credit_transaction', { p_transaction_id: transactionId })
       }
       const errorBody = await aiResponse.text().catch(() => 'Unknown error')
@@ -155,18 +165,16 @@ serve(async (req) => {
 
     // 7a. Success -- confirm transaction
     if (transactionId) {
+      const db = getServiceClient()
       await db.rpc('confirm_credit_transaction', { p_transaction_id: transactionId })
     }
 
-    // 8. Return AI response with credit info
+    // 8. Return AI response
     const aiData = await aiResponse.json()
 
     return new Response(JSON.stringify({
       ...aiData,
-      _credits: {
-        cost,
-        remaining: remainingCredits,
-      },
+      _credits: { cost, remaining: remainingCredits },
     }), {
       status: 200,
       headers: { ...headers, 'Content-Type': 'application/json' },

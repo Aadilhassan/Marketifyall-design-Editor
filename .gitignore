@@ -20,3 +20,8 @@ npm-debug.log*
 .vscode/
 *.swp
 *.swo
+# Build output & local artifacts
+/build
+/supabase/.temp
+/video-processor/test_output.mp4
+test.http

@@ -3,6 +3,7 @@ import { useEditor } from '@nkyo/scenify-sdk'
 import { useEffect, useState } from 'react'
 import { useHistory } from 'react-router-dom'
 import useAppContext from '@/hooks/useAppContext'
+import { PanelType } from '@/constants/app-options'
 import { useEmbedMode } from '@/contexts/EmbedContext'
 import { useCredits } from '@/contexts/CreditsContext'
 import Resize from './components/Resize'
@@ -216,7 +217,7 @@ const CancelButton = styled('button', {
 function NavbarEditor() {
   const editor = useEditor()
   const history = useHistory()
-  const { currentTemplate } = useAppContext()
+  const { currentTemplate, setActivePanel } = useAppContext()
   const { config, sendImageToParent, notifyCancel } = useEmbedMode()
   const { balance } = useCredits()
   const [name, setName] = useState('Untitled design')
@@ -352,6 +353,12 @@ function NavbarEditor() {
             {balance.total} credits
           </CreditBadge>
         )}
+        <PrimaryButton onClick={() => setActivePanel(PanelType.AI_STUDIO)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
+          </svg>
+          AI Studio
+        </PrimaryButton>
         <SecondaryButton onClick={() => setIsExportModalOpen(true)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

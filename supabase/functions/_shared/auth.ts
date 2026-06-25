@@ -99,6 +99,12 @@ export async function authenticate(req: Request): Promise<AuthUser> {
   const apiKeyUser = await authenticateApiKey(req)
   if (apiKeyUser) return apiKeyUser
 
+  // Dev/anonymous fallback — skip auth, treat as free-tier guest
+  const skipAuth = Deno.env.get('SKIP_AUTH') === 'true'
+  if (skipAuth) {
+    return { id: 'anonymous', plan: 'free', authMethod: 'jwt' }
+  }
+
   throw new Error('Unauthorized')
 }
 

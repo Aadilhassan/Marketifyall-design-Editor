@@ -12,6 +12,8 @@ import {
 import { searchPexelsImages } from '@/services/pexels'
 import { getIconsByCategory, svgToBase64 } from '@/utils/lucideIconsManager'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
+import { useCredits } from '@/contexts/CreditsContext'
+import { CREDIT_COSTS } from '@/services/marketifyall-api'
 
 // Styled Components
 const Container = styled('div', {
@@ -240,6 +242,13 @@ const QuickActionButton = styled('button', {
   },
 })
 
+const CostHint = styled('div', {
+  fontSize: '11px',
+  color: '#999',
+  marginTop: '6px',
+  textAlign: 'right',
+})
+
 const LoadingDots = styled('div', {
   display: 'flex',
   gap: '4px',
@@ -321,6 +330,7 @@ function AIDesigner() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const editor = useEditor()
   const { canvas } = useEditorContext() as any
+  const { canAfford, refresh } = useCredits()
 
   // Canvas bounds helper to keep objects inside the frame
   const getCanvasBounds = useCallback(() => {
@@ -569,6 +579,7 @@ function AIDesigner() {
   // Send message
   const handleSend = useCallback(async () => {
     if (!inputValue.trim() || isLoading) return
+    if (!canAfford('ai_full_design')) return
 
     const userMessage: UIMessage = {
       id: `msg-${Date.now()}`,
@@ -611,6 +622,7 @@ function AIDesigner() {
 
       setMessages(prev => [...prev, assistantMessage])
       setIsLoading(false) // Reset loading BEFORE executing actions
+      refresh()
 
       // Execute actions asynchronously (don't block UI)
       if (response.actions && response.actions.length > 0) {
@@ -643,6 +655,7 @@ function AIDesigner() {
   // Improve prompt
   const handleImprove = useCallback(async () => {
     if (!inputValue.trim() || isImproving) return
+    if (!canAfford('ai_text_generation')) return
     setIsImproving(true)
     try {
       const improved = await improvePrompt(inputValue)
@@ -783,6 +796,9 @@ function AIDesigner() {
             </svg>
           </SendButton>
         </InputWrapper>
+        <CostHint>
+          {CREDIT_COSTS.ai_full_design} credits per design · {CREDIT_COSTS.ai_text_generation} credit to improve
+        </CostHint>
       </InputArea>
     </Container>
   )

@@ -160,20 +160,37 @@ export const marketifyallApi = {
     messages: Array<{ role: string; content: string }>,
     params: Record<string, any> = {}
   ): Promise<AIProxyResponse> {
-    const headers = await getAuthHeaders()
-    const { data } = await client.post('/ai-proxy', {
-      action,
-      model,
-      messages,
-      ...params,
-    }, { headers })
+    // Try backend proxy first
+    try {
+      const headers = await getAuthHeaders()
+      const { data } = await client.post('/ai-proxy', {
+        action,
+        model,
+        messages,
+        ...params,
+      }, { headers })
 
-    // Emit credit update event
-    if (data._credits) {
-      emit('credits:updated', data._credits)
+      if (data._credits) {
+        emit('credits:updated', data._credits)
+      }
+      return data
+    } catch (backendErr: any) {
+      // If backend is unreachable (network error, not deployed yet),
+      // fall back to direct OpenRouter call for local development
+      const isNetworkError = !backendErr.response
+      const openRouterKey = process.env.REACT_APP_OPENROUTER_API_KEY
+      if (isNetworkError && openRouterKey) {
+        console.warn('[marketifyall-api] Backend unreachable, falling back to direct OpenRouter call')
+        const { data } = await axios.post(
+          'https://openrouter.ai/api/v1/chat/completions',
+          { model, messages, ...params },
+          { headers: { Authorization: `Bearer ${openRouterKey}`, 'Content-Type': 'application/json' }, timeout: 90000 },
+        )
+        return data
+      }
+      // Backend responded with an error (402, 429, etc.) — re-throw as normal
+      throw backendErr
     }
-
-    return data
   },
 
   // ── Credits ───────────────────────────────────────────────
