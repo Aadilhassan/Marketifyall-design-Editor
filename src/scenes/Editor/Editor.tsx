@@ -14,6 +14,7 @@ import ContextMenu from './components/ContextMenu'
 import VideoTimeline from './components/VideoTimeline'
 import VideoCanvasPlayer from './components/VideoCanvasPlayer'
 import AnimationDriver from './components/AnimationDriver'
+import { ToasterContainer, PLACEMENT } from 'baseui/toast'
 import ErrorBoundary from '@/components/ErrorBoundary/ErrorBoundary'
 import InsufficientCreditsModal from '@/components/InsufficientCreditsModal'
 import { useCredits } from '@/contexts/CreditsContext'
@@ -369,6 +370,7 @@ function App() {
             ) : (
               <Editor config={editorConfig} />
             )}
+            <ToasterContainer placement={PLACEMENT.bottomRight} autoHideDuration={4500} />
             <AnimationDriver />
             <VideoCanvasPlayer />
             <ErrorBoundary fallback={null}>
