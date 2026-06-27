@@ -68,6 +68,83 @@ function pickMime(format: 'mp4' | 'webm' | 'gif'): { mime: string; ext: string }
   return { mime: '', ext: 'webm' }
 }
 
+export interface FrameRenderParams {
+  ctx: CanvasRenderingContext2D
+  exportCanvas: HTMLCanvasElement
+  fabricCanvas: any
+  designRect: DesignRect
+  outWidth: number
+  outHeight: number
+  backgroundColor: string
+  videoTargets: VideoTarget[]
+  mult: number
+  t: number
+}
+
+/** Renders ONE composited frame (animations + design crop + live video
+ *  overlays) into the given 2D context. Shared by the video recorder and the
+ *  GIF encoder so both produce identical output. */
+export function renderDesignFrame(p: FrameRenderParams): void {
+  const { ctx, exportCanvas, fabricCanvas, designRect, outWidth, outHeight, backgroundColor, videoTargets, mult, t } = p
+  try {
+    applyAnimationsToCanvas(fabricCanvas, t, true)
+    fabricCanvas.renderAll()
+  } catch {
+    /* ignore a bad animation frame */
+  }
+  ctx.fillStyle = backgroundColor
+  ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
+  try {
+    const cropped = fabricCanvas.toCanvasElement(mult, {
+      left: designRect.left,
+      top: designRect.top,
+      width: designRect.width,
+      height: designRect.height,
+    })
+    if (cropped) ctx.drawImage(cropped, 0, 0, exportCanvas.width, exportCanvas.height)
+  } catch {
+    /* ignore a bad crop frame */
+  }
+  for (const v of videoTargets) {
+    if (t < v.start || t >= v.start + v.duration) continue
+    if (v.el.readyState < 2) continue
+    let rect = v.rect
+    let opacity = 1
+    let angle = 0
+    if (v.obj) {
+      const o = v.obj
+      const w0 = (o.width || rect.width) * (o.scaleX || 1)
+      const h0 = (o.height || rect.height) * (o.scaleY || 1)
+      let l0 = o.left != null ? o.left : rect.left
+      let tp0 = o.top != null ? o.top : rect.top
+      if (o.originX === 'center') l0 -= w0 / 2
+      if (o.originY === 'center') tp0 -= h0 / 2
+      rect = { left: l0, top: tp0, width: w0, height: h0 }
+      opacity = getAnimOpacity(o) ?? (o.opacity == null ? 1 : o.opacity)
+      angle = o.angle || 0
+    }
+    if (opacity <= 0.001) continue
+    const x = ((rect.left - designRect.left) / designRect.width) * outWidth
+    const y = ((rect.top - designRect.top) / designRect.height) * outHeight
+    const w = (rect.width / designRect.width) * outWidth
+    const h = (rect.height / designRect.height) * outHeight
+    try {
+      ctx.save()
+      ctx.globalAlpha = Math.max(0, Math.min(1, opacity))
+      if (angle) {
+        ctx.translate(x + w / 2, y + h / 2)
+        ctx.rotate((angle * Math.PI) / 180)
+        ctx.drawImage(v.el, -w / 2, -h / 2, w, h)
+      } else {
+        ctx.drawImage(v.el, x, y, w, h)
+      }
+      ctx.restore()
+    } catch {
+      ctx.restore()
+    }
+  }
+}
+
 export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordResult> {
   const {
     fabricCanvas,
@@ -237,67 +314,18 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
     let frameIndex = 0
 
     const renderAt = (t: number) => {
-      try {
-        applyAnimationsToCanvas(fabricCanvas, t, true)
-        fabricCanvas.renderAll()
-      } catch {
-        /* ignore a bad animation frame */
-      }
-      ctx.fillStyle = backgroundColor
-      ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
-      try {
-        const cropped = fabricCanvas.toCanvasElement(mult, {
-          left: designRect.left,
-          top: designRect.top,
-          width: designRect.width,
-          height: designRect.height,
-        })
-        if (cropped) ctx.drawImage(cropped, 0, 0, exportCanvas.width, exportCanvas.height)
-      } catch {
-        /* ignore a bad crop frame */
-      }
-      for (const v of videoTargets) {
-        if (t < v.start || t >= v.start + v.duration) continue
-        if (v.el.readyState < 2) continue
-
-        // Read the clip's LIVE transform/opacity so transitions bake in.
-        let rect = v.rect
-        let opacity = 1
-        let angle = 0
-        if (v.obj) {
-          const o = v.obj
-          const w0 = (o.width || rect.width) * (o.scaleX || 1)
-          const h0 = (o.height || rect.height) * (o.scaleY || 1)
-          let l0 = o.left != null ? o.left : rect.left
-          let tp0 = o.top != null ? o.top : rect.top
-          if (o.originX === 'center') l0 -= w0 / 2
-          if (o.originY === 'center') tp0 -= h0 / 2
-          rect = { left: l0, top: tp0, width: w0, height: h0 }
-          opacity = getAnimOpacity(o) ?? (o.opacity == null ? 1 : o.opacity)
-          angle = o.angle || 0
-        }
-        if (opacity <= 0.001) continue
-
-        const x = ((rect.left - designRect.left) / designRect.width) * outWidth
-        const y = ((rect.top - designRect.top) / designRect.height) * outHeight
-        const w = (rect.width / designRect.width) * outWidth
-        const h = (rect.height / designRect.height) * outHeight
-        try {
-          ctx.save()
-          ctx.globalAlpha = Math.max(0, Math.min(1, opacity))
-          if (angle) {
-            ctx.translate(x + w / 2, y + h / 2)
-            ctx.rotate((angle * Math.PI) / 180)
-            ctx.drawImage(v.el, -w / 2, -h / 2, w, h)
-          } else {
-            ctx.drawImage(v.el, x, y, w, h)
-          }
-          ctx.restore()
-        } catch {
-          ctx.restore()
-        }
-      }
-      // Push this exact frame into the recording.
+      renderDesignFrame({
+        ctx,
+        exportCanvas,
+        fabricCanvas,
+        designRect,
+        outWidth,
+        outHeight,
+        backgroundColor,
+        videoTargets,
+        mult,
+        t,
+      })
       if (captureTrack) {
         try {
           captureTrack.requestFrame()

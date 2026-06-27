@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@craco/craco": "^6.4.5",
     "@nkyo/scenify-sdk": "^0.3.4",
     "@reduxjs/toolkit": "^1.9.7",
     "@samuelmeuli/font-manager": "^1.4.0",
@@ -17,8 +18,8 @@
     "@types/styletron-standard": "^2.0.2",
     "axios": "^1.7.9",
     "baseui": "^10.1.1",
-    "@craco/craco": "^6.4.5",
     "fabric": "^4.5.1",
+    "gifenc": "^1.0.3",
     "highlight.js": "^11.11.1",
     "lucide-react": "^0.555.0",
     "nanoid": "^3.1.22",

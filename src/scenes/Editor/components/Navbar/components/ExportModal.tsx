@@ -3,6 +3,9 @@ import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
 import { recordAnimatedVideo, downloadVideoBlob, VideoTarget } from '@/utils/animation/exporter'
+import { recordAnimatedGif } from '@/utils/animation/gifEncoder'
+import { mp4FallbackMessage } from '@/utils/animation/exportHelpers'
+import { notify } from '@/lib/notify'
 import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
 import { marketifyallApi } from '@/services/marketifyall-api'
 
@@ -448,19 +451,35 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
 
         setExportProgress(2)
 
-        const result = await recordAnimatedVideo({
-          fabricCanvas: canvas,
-          designRect: { left: designLeft, top: designTop, width: designWidth, height: designHeight },
-          outWidth: finalExportWidth,
-          outHeight: finalExportHeight,
-          fps: videoFPS,
-          durationSec: videoDuration,
-          bitrate: qualityConfigVid.bitrate * 1000000,
-          format: format as 'mp4' | 'webm' | 'gif',
-          backgroundColor: '#ffffff',
-          videoTargets,
-          onProgress: (p: number) => setExportProgress(Math.max(2, Math.min(100, p))),
-        })
+        let result
+        if (format === 'gif') {
+          result = await recordAnimatedGif({
+            fabricCanvas: canvas,
+            designRect: { left: designLeft, top: designTop, width: designWidth, height: designHeight },
+            outWidth: finalExportWidth,
+            outHeight: finalExportHeight,
+            durationSec: videoDuration,
+            backgroundColor: '#ffffff',
+            videoTargets,
+            onProgress: (p: number) => setExportProgress(Math.max(2, Math.min(100, p))),
+          })
+        } else {
+          result = await recordAnimatedVideo({
+            fabricCanvas: canvas,
+            designRect: { left: designLeft, top: designTop, width: designWidth, height: designHeight },
+            outWidth: finalExportWidth,
+            outHeight: finalExportHeight,
+            fps: videoFPS,
+            durationSec: videoDuration,
+            bitrate: qualityConfigVid.bitrate * 1000000,
+            format: format as 'mp4' | 'webm',
+            backgroundColor: '#ffffff',
+            videoTargets,
+            onProgress: (p: number) => setExportProgress(Math.max(2, Math.min(100, p))),
+          })
+          const fallback = mp4FallbackMessage(format, result.ext)
+          if (fallback) notify(fallback, 'warning')
+        }
 
         downloadVideoBlob(result.blob, `${designName}.${result.ext}`)
         setExportProgress(100)
