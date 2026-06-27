@@ -24,6 +24,11 @@ describe('notify', () => {
     expect((toaster as any).positive).toHaveBeenCalledWith('yay', {})
   })
 
+  it('routes warning to toaster.warning', () => {
+    notify('careful', 'warning')
+    expect((toaster as any).warning).toHaveBeenCalledWith('careful', {})
+  })
+
   it('defaults to info', () => {
     notify('hello')
     expect((toaster as any).info).toHaveBeenCalledWith('hello', {})

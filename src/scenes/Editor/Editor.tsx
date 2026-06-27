@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
+import { ToasterContainer, PLACEMENT } from 'baseui/toast'
 import useAppContext from '@/hooks/useAppContext'
 import { useLocation } from 'react-router'
 import { getElements } from '@store/slices/elements/actions'
@@ -14,7 +15,6 @@ import ContextMenu from './components/ContextMenu'
 import VideoTimeline from './components/VideoTimeline'
 import VideoCanvasPlayer from './components/VideoCanvasPlayer'
 import AnimationDriver from './components/AnimationDriver'
-import { ToasterContainer, PLACEMENT } from 'baseui/toast'
 import ErrorBoundary from '@/components/ErrorBoundary/ErrorBoundary'
 import InsufficientCreditsModal from '@/components/InsufficientCreditsModal'
 import { useCredits } from '@/contexts/CreditsContext'
@@ -317,6 +317,7 @@ function App() {
         fontFamily: "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
       }}
     >
+      <ToasterContainer placement={PLACEMENT.bottomRight} autoHideDuration={4500} />
       <div style={{ position: 'relative', zIndex: 100 }}>
         <Navbar />
       </div>
@@ -370,7 +371,6 @@ function App() {
             ) : (
               <Editor config={editorConfig} />
             )}
-            <ToasterContainer placement={PLACEMENT.bottomRight} autoHideDuration={4500} />
             <AnimationDriver />
             <VideoCanvasPlayer />
             <ErrorBoundary fallback={null}>
