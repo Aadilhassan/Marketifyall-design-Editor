@@ -365,9 +365,14 @@ const VideoCanvasPlayer: React.FC = () => {
         }
     }, [canvas, clips, getCanvasFrameBounds])
 
-    // Update positions continuously
+    // Update overlay positions continuously — but ONLY when there are video
+    // clips to position. Previously this rAF loop ran ~60fps for the entire
+    // session even on an empty design (no video), calling setOverlayItems every
+    // frame and forcing a re-render 60x/second. That permanent loop was the main
+    // cause of the editor feeling stuck/laggy. With no clips there are no DOM
+    // overlays to position, so we skip the loop entirely.
     useEffect(() => {
-        if (!canvas) return
+        if (!canvas || clips.length === 0) return
         let animId: number
         let running = true
         const loop = () => {
@@ -381,7 +386,7 @@ const VideoCanvasPlayer: React.FC = () => {
             clearTimeout(timer)
             cancelAnimationFrame(animId)
         }
-    }, [canvas, updateVideoPositions])
+    }, [canvas, updateVideoPositions, clips.length])
 
     const handlePlayPause = useCallback((videoId: string, e: React.MouseEvent) => {
         e.stopPropagation()
