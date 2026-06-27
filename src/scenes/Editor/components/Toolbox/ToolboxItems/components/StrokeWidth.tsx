@@ -32,7 +32,8 @@ function StrokeWidth() {
 
   const applyStrokeWidth = (val: number[]) => {
     editor.update({ strokeWidth: val[0], strokeUniform: true })
-    canvas.requestRenderAll()
+    if (canvas) canvas.requestRenderAll()
+    setValue(val)
   }
 
   return (

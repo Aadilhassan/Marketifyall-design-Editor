@@ -33,11 +33,11 @@ function CornerRadius() {
   const applyCornerRadius = (val: number[]) => {
     const rv = val[0]
     // Apply directly to the fabric object for immediate visual feedback
-    const obj = canvas.getActiveObject()
+    const obj = canvas ? canvas.getActiveObject() : null
     if (obj) {
       obj.set({ rx: rv, ry: rv })
       obj.dirty = true
-      canvas.requestRenderAll()
+      if (canvas) canvas.requestRenderAll()
     }
     // Sync to SDK state so the value persists in history
     editor.update({ rx: rv, ry: rv })
