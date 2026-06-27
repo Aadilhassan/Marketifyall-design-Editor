@@ -1,5 +1,5 @@
 /** @jest-environment node */
-import { resolveToolboxKey, getContextMenuType } from './toolboxMap'
+import { resolveToolboxKey, getContextMenuType, shapeControlsFor } from './toolboxMap'
 
 describe('resolveToolboxKey', () => {
   it('maps native fabric image type to the StaticImage toolbox', () => {
@@ -22,5 +22,30 @@ describe('getContextMenuType', () => {
   })
   it('returns the single selected type', () => {
     expect(getContextMenuType({ type: 'image' })).toBe('image')
+  })
+})
+
+describe('shape routing', () => {
+  it('routes fabric shape types to the Shape toolbar', () => {
+    for (const t of ['rect', 'circle', 'triangle', 'ellipse', 'line', 'polygon']) {
+      expect(resolveToolboxKey(t)).toBe('Shape')
+    }
+  })
+})
+
+describe('shapeControlsFor', () => {
+  it('rect gets a corner-radius control', () => {
+    expect(shapeControlsFor('rect').cornerRadius).toBe(true)
+  })
+  it('circle/ellipse/triangle have no corner radius', () => {
+    expect(shapeControlsFor('circle').cornerRadius).toBe(false)
+    expect(shapeControlsFor('ellipse').cornerRadius).toBe(false)
+  })
+  it('lines have no fill but do have stroke', () => {
+    expect(shapeControlsFor('line').fill).toBe(false)
+    expect(shapeControlsFor('line').stroke).toBe(true)
+  })
+  it('all shapes expose stroke width', () => {
+    expect(shapeControlsFor('triangle').strokeWidth).toBe(true)
   })
 })

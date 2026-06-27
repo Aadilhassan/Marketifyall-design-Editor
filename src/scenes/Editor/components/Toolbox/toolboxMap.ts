@@ -13,6 +13,13 @@ export const toolboxOptions: Record<string, string> = {
   text: 'StaticText',
   image: 'StaticImage',
   Video: 'StaticImage',
+  rect: 'Shape',
+  circle: 'Shape',
+  triangle: 'Shape',
+  ellipse: 'Shape',
+  line: 'Shape',
+  polygon: 'Shape',
+  polyline: 'Shape',
 }
 
 export const getContextMenuType = (selection: any): string | string[] => {
@@ -46,4 +53,22 @@ export function resolveToolboxKey(activeObjectType: string | string[]): string {
     return toolboxOptions['MultiElement']
   }
   return toolboxOptions[activeObjectType] || toolboxOptions['Default']
+}
+
+export interface ShapeControls {
+  fill: boolean
+  stroke: boolean
+  strokeWidth: boolean
+  cornerRadius: boolean
+}
+
+/** Which styling controls apply to a given fabric shape type. */
+export function shapeControlsFor(type: string): ShapeControls {
+  const isLine = type === 'line' || type === 'polyline'
+  return {
+    fill: !isLine, // lines have no fill area
+    stroke: true,
+    strokeWidth: true,
+    cornerRadius: type === 'rect', // only meaningful for rectangles
+  }
 }
