@@ -282,6 +282,7 @@ function StockVideos() {
         try {
             const videoFile = getBestVideoFile(video)
             if (!videoFile) {
+                notify('No playable video file found for this clip.', 'negative')
                 return
             }
 

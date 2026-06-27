@@ -367,7 +367,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
       if (format === 'mp4' || format === 'webm' || format === 'gif') {
         const canvasElement = canvas?.getElement?.() || document.querySelector('canvas')
         if (!canvasElement) {
-          alert('Canvas not found. Please try again.')
+          notify('Canvas not found. Please try again.', 'negative')
           setIsExporting(false)
           return
         }
@@ -454,6 +454,12 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
 
         let result
         if (format === 'gif') {
+          if (videoTargets.length > 0) {
+            notify(
+              'GIF saves embedded video clips as a still frame — use MP4 or WebM for full video. Animations are captured normally.',
+              'warning'
+            )
+          }
           result = await recordAnimatedGif({
             fabricCanvas: canvas,
             designRect: { left: designLeft, top: designTop, width: designWidth, height: designHeight },
@@ -507,17 +513,6 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           } catch (error) {
             throw new Error('Failed to export JSON: ' + (error instanceof Error ? error.message : 'Unknown error'))
           }
-          return
-        }
-
-        if (format === 'pdf') {
-          const fabricCanvas = canvas || (editor as any)?.canvas
-          const multiplier = parseInt(size, 10) || 1
-          const dataUrl = fabricCanvas.toDataURL({ format: 'png', multiplier })
-          const w = (frameSize?.width || fabricCanvas.width || 0) * multiplier
-          const h = (frameSize?.height || fabricCanvas.height || 0) * multiplier
-          await exportCanvasToPdf({ dataUrl, widthPx: w, heightPx: h, filename: `${designName}.pdf` })
-          setTimeout(() => { onClose(); setExportProgress(0) }, 500)
           return
         }
 
@@ -635,7 +630,14 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           }
 
           // Process image based on format
-          if (format === 'png') {
+          if (format === 'pdf') {
+            await exportCanvasToPdf({
+              dataUrl: image,
+              widthPx: designWidth * multiplier,
+              heightPx: designHeight * multiplier,
+              filename: `${designName}.pdf`,
+            })
+          } else if (format === 'png') {
             downloadFile(image, `${designName}.png`)
           } else {
             const img = new Image()
@@ -679,7 +681,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
 
       setTimeout(() => { onClose(); setExportProgress(0) }, 500)
     } catch (error) {
-      alert(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      notify(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'negative')
     } finally {
       setIsExporting(false)
     }
