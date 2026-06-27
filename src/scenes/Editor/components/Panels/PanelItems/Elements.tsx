@@ -12,6 +12,7 @@ import {
 } from '@/constants/elementLibrary'
 import type { ElementItem } from '@/constants/elementLibrary'
 import { searchIcons } from '@/utils/lucideIconsManager'
+import { selectObject } from '@/utils/selectObject'
 import type { LucideIcon } from '@/utils/lucideIconsManager'
 import { useDebounce } from 'use-debounce'
 import {
@@ -529,8 +530,7 @@ function Panel() {
           metadata: { category: 'elements', id, name, ...meta },
         })
         canvas.add(svgGroup)
-        canvas.setActiveObject(svgGroup)
-        canvas.requestRenderAll()
+        selectObject(canvas, svgGroup)
       }
       setAddingId(null)
     })

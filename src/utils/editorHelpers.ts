@@ -3,6 +3,8 @@
  * This bypasses the Scenify SDK's editor.add() which doesn't properly 
  * initialize object content.
  */
+import { selectObject } from './selectObject'
+
 export const addObjectToCanvas = (editor: any, options: any, width?: number, canvas?: any) => {
     if (!editor) {
         return false
@@ -91,7 +93,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                 if (fabricObject) {
                     fabricObject.setCoords()
                     targetCanvas.add(fabricObject)
-                    targetCanvas.setActiveObject(fabricObject)
+                    selectObject(targetCanvas, fabricObject)
                     targetCanvas.bringToFront(fabricObject)
 
                     // Force render multiple times to ensure visibility
@@ -181,7 +183,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                             hasControls: true,
                         })
                         targetCanvas.add(group)
-                        targetCanvas.setActiveObject(group)
+                        selectObject(targetCanvas, group)
                         targetCanvas.requestRenderAll()
                     })
                     return true
@@ -231,7 +233,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                             }
 
                             targetCanvas.add(fabricImage)
-                            targetCanvas.setActiveObject(fabricImage)
+                            selectObject(targetCanvas, fabricImage)
                             targetCanvas.requestRenderAll()
                             setTimeout(() => targetCanvas.requestRenderAll(), 100)
                         }
@@ -259,7 +261,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                 }
 
                 targetCanvas.add(fabricObject)
-                targetCanvas.setActiveObject(fabricObject)
+                selectObject(targetCanvas, fabricObject)
                 targetCanvas.requestRenderAll()
                 return true
             }
@@ -379,7 +381,7 @@ export const addShapeToCanvas = (canvas: any, shapeType: string, options: any = 
 
         if (shape) {
             canvas.add(shape)
-            canvas.setActiveObject(shape)
+            selectObject(canvas, shape)
             canvas.requestRenderAll()
             return true
         }
@@ -427,7 +429,7 @@ export const addTextToCanvas = (canvas: any, text: string, options: any = {}) =>
         })
 
         canvas.add(textbox)
-        canvas.setActiveObject(textbox)
+        selectObject(canvas, textbox)
         canvas.requestRenderAll()
         return true
     } catch (error) {
