@@ -10,6 +10,7 @@ import Illustrations from './Illustrations'
 import Pexels from './Pexels'
 import Uploads from './Uploads'
 import Animations from './Animations'
+import Adjustments from './Adjustments'
 import AiStudio from './AiStudio'
 import AIDesigner from './AIDesigner'
 import Video from './Video'
@@ -30,6 +31,7 @@ class PanelItems {
   static ['Stock Photos'] = Pexels
   static Uploads = Uploads
   static Animations = Animations
+  static Adjust = Adjustments
   static AiStudio = AiStudio
   static ['AI Studio'] = AiStudio
   static AIDesigner = AIDesigner

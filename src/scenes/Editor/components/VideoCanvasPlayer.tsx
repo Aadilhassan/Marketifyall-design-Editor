@@ -2,6 +2,9 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { styled } from 'baseui'
 import useVideoContext from '@/hooks/useVideoContext'
 import { useEditorContext } from '@nkyo/scenify-sdk'
+import { hasActiveAnimation, getObjectAnimation, getAnimOpacity } from '@/utils/animation'
+
+const isAnimatedObject = (obj: any): boolean => hasActiveAnimation(getObjectAnimation(obj))
 
 const OverlayContainer = styled('div', {
     position: 'absolute',
@@ -69,6 +72,7 @@ interface VideoInfo {
     originY: string
     src: string
     poster?: string
+    opacity?: number
     videoCrop?: {
         sourceX: number
         sourceY: number
@@ -280,7 +284,7 @@ const VideoCanvasPlayer: React.FC = () => {
                 const left = screenX + (canvasRect.left - overlayRect.left)
                 const top = screenY + (canvasRect.top - overlayRect.top)
 
-                const actualOpacity = obj._originalOpacity ?? obj.opacity ?? 1
+                const actualOpacity = getAnimOpacity(obj) ?? obj._originalOpacity ?? obj.opacity ?? 1
 
                 if (isVideo) {
                     const videoSrc = obj.metadata?.videoSrc || obj.metadata?.src
@@ -296,6 +300,7 @@ const VideoCanvasPlayer: React.FC = () => {
                             left, top, width: objWidth * zoom, height: objHeight * zoom,
                             angle: obj.angle || 0, originX: obj.originX || 'left', originY: obj.originY || 'top',
                             src: clip?.src || videoSrc || '', poster: clip?.poster || obj.metadata?.src,
+                            opacity: isAnimatedObject(obj) ? (getAnimOpacity(obj) ?? 1) : 1,
                             videoCrop: obj.metadata?.videoCrop,
                         }
                     })
@@ -440,6 +445,10 @@ const VideoCanvasPlayer: React.FC = () => {
         objects.forEach((obj: any, idx: number) => {
             const item = overlayItems.find(it => it.index === idx || it.data.id === (obj.id || obj.metadata?.id))
 
+            // Keyframe-animated objects that aren't mirrored into the DOM overlay are
+            // owned entirely by AnimationDriver (opacity + transform). Leave them alone.
+            if (isAnimatedObject(obj) && !item) return
+
             // Check timeline visibility for ALL objects (canvas and overlay)
             const hasTimeline = obj.metadata?.timelineStart !== undefined || (item?.type === 'video' && clips.find(c => c.id === item.data.id))
             let isWithinTimeRange = true
@@ -554,6 +563,7 @@ const VideoCanvasPlayer: React.FC = () => {
                                     width: videoData.width, height: videoData.height,
                                     transform: `translate(${videoData.originX === 'center' ? '-50%' : '0'}, ${videoData.originY === 'center' ? '-50%' : '0'}) rotate(${videoData.angle}deg)`,
                                     transformOrigin: 'top left', display: 'block', visibility: 'visible',
+                                    opacity: videoData.opacity ?? 1,
                                     zIndex: zIndexValue,
                                 }}
                             >

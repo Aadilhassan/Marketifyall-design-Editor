@@ -4,6 +4,7 @@ import useAppContext from '@/hooks/useAppContext'
 import { SubMenuType } from '@/constants/editor'
 import Common from './components/Common'
 import Animate from './components/Animate'
+import Adjust from './components/Adjust'
 
 function Image() {
   const { setActiveSubMenu } = useAppContext()
@@ -27,6 +28,7 @@ function Image() {
         >
           <Icons.FillColor size={24} color="#000000" />
         </Button>
+        <Adjust />
         <Animate />
       </div>
       <Common />

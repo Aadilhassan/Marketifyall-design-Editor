@@ -3,6 +3,11 @@ import { styled } from 'baseui'
 import useVideoContext from '@/hooks/useVideoContext'
 import { useEditorContext, useEditor } from '@nkyo/scenify-sdk'
 import useAppContext from '@/hooks/useAppContext'
+import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
+
+// True when an object is driven by the keyframe AnimationDriver (so other
+// time-based opacity effects must leave it alone).
+const isAnimatedObject = (obj: any): boolean => hasActiveAnimation(getObjectAnimation(obj))
 
 // ============ CANVA-STYLE TIMELINE STYLES ============
 
@@ -763,7 +768,7 @@ const VideoTimeline: React.FC = () => {
   const pixelsPerSecond = zoom
 
   // Track canvas object changes to force timeline updates
-  const [, setCanvasObjectVersion] = useState(0)
+  const [canvasObjectVersion, setCanvasObjectVersion] = useState(0)
 
   // Listen to canvas object changes to update timeline
   useEffect(() => {
@@ -1508,20 +1513,23 @@ const VideoTimeline: React.FC = () => {
         const clipStart = clip.start || 0
         const clipEnd = clipStart + (clip.duration || 0)
 
-        // Check if video should be visible at current time (no fade during scrubbing, instant show/hide)
-        let targetOpacity = 0
+        // Check if video should be visible at current time (no fade during scrubbing, instant show/hide).
+        // Skip when the clip has a keyframe transition — AnimationDriver owns its opacity.
+        if (!isAnimatedObject(obj)) {
+          let targetOpacity = 0
 
-        if (currentTime >= clipStart && currentTime < clipEnd) {
-          targetOpacity = obj._originalOpacity
-        } else {
-          targetOpacity = 0
-        }
+          if (currentTime >= clipStart && currentTime < clipEnd) {
+            targetOpacity = obj._originalOpacity
+          } else {
+            targetOpacity = 0
+          }
 
-        const currentOpacity = obj.opacity ?? 1
-        if (Math.abs(currentOpacity - targetOpacity) > 0.01) {
-          obj.set('opacity', targetOpacity)
-          obj.dirty = true
-          needsRender = true
+          const currentOpacity = obj.opacity ?? 1
+          if (Math.abs(currentOpacity - targetOpacity) > 0.01) {
+            obj.set('opacity', targetOpacity)
+            obj.dirty = true
+            needsRender = true
+          }
         }
 
         // Update active clip based on current time (for video playback)
@@ -1557,6 +1565,8 @@ const VideoTimeline: React.FC = () => {
       if (obj.metadata?.isVideo || obj.metadata?.videoSrc) return
       // Skip clip placeholder
       if (obj.name === 'clip') return
+      // Skip keyframe-animated objects — AnimationDriver owns their opacity + motion
+      if (isAnimatedObject(obj)) return
 
       // Check if this is a timeline-enabled object (text, image, shape)
       const isTimelineObject =
@@ -2516,12 +2526,21 @@ const VideoTimeline: React.FC = () => {
   const hasCanvasVideoContent = useMemo(() => {
     if (!canvas) return false
     const objects = (canvas as any).getObjects?.() || []
-    return objects.some((obj: any) =>
-      obj.metadata?.isVideo ||
-      obj.metadata?.videoSrc ||
-      (obj.metadata?.animation && obj.metadata.animation !== 'none')
-    )
-  }, [canvas]) // Re-check when clips change
+    return objects.some((obj: any) => {
+      const md = obj.metadata
+      if (!md) return false
+      if (md.isVideo || md.videoSrc) return true
+      if (md.animation && md.animation !== 'none') return true
+      // New keyframe animation model (metadata.anim)
+      const a = md.anim
+      if (a) {
+        const live = (p: any) => p && p.preset && p.preset !== 'none'
+        if (live(a.in) || live(a.out) || live(a.emphasis) || (a.tracks && a.tracks.length)) return true
+      }
+      return false
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvas, canvasObjectVersion]) // Re-check when objects/animations change
 
   // Only show timeline if there's video/animation content
   const shouldShowTimeline = hasVideoContent || hasCanvasVideoContent

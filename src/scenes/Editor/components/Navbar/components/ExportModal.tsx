@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react'
 import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
-import { exportVideoWithRecorder, exportAsGif, downloadBlob, VideoExportOptions } from '@/utils/videoExporter'
+import { recordAnimatedVideo, downloadVideoBlob, VideoTarget } from '@/utils/animation/exporter'
+import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
 import { marketifyallApi } from '@/services/marketifyall-api'
 
 const Overlay = styled('div', {
@@ -286,7 +287,7 @@ const VIDEO_FORMATS: { id: ExportFormat; name: string; desc: string; color: stri
 function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
   const editor = useEditor()
   const { canvas, frameSize } = useEditorContext() as any
-  const { clips, play, pause, seek, isPlaying } = useVideoContext()
+  const { clips, play, pause, seek, setCurrentTime, isPlaying, getVideoRef } = useVideoContext()
   const [format, setFormat] = useState<ExportFormat>('png')
   const [quality, setQuality] = useState(90)
   const [size, setSize] = useState<ExportSize>('1x')
@@ -308,18 +309,43 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
   const [isSubmittingTemplate, setIsSubmittingTemplate] = useState(false)
   const [templateSubmitResult, setTemplateSubmitResult] = useState<string | null>(null)
 
-  const hasVideo = clips.length > 0
-  const FORMATS = hasVideo ? [...VIDEO_FORMATS, ...IMAGE_FORMATS] : IMAGE_FORMATS
-
-  // Automatically update video duration based on the latest clip's end time
-  useEffect(() => {
-    if (clips.length > 0) {
-      const maxEnd = Math.max(...clips.map(c => (c.start || 0) + (c.duration || 0)))
-      if (maxEnd > 0 && maxEnd !== videoDuration) {
-        setVideoDuration(Math.ceil(maxEnd))
-      }
+  // Animated design elements (not just video clips) should also offer video export.
+  const hasAnimatedObjects = (() => {
+    try {
+      const objs = (canvas as any)?.getObjects?.() || []
+      return objs.some((o: any) => hasActiveAnimation(getObjectAnimation(o)))
+    } catch {
+      return false
     }
-  }, [clips, videoDuration])
+  })()
+  const hasVideo = clips.length > 0
+  const hasMotion = hasVideo || hasAnimatedObjects
+  const FORMATS = hasMotion ? [...VIDEO_FORMATS, ...IMAGE_FORMATS] : IMAGE_FORMATS
+
+  // Automatically update video duration from the latest clip OR animated element window.
+  useEffect(() => {
+    let maxEnd = 0
+    clips.forEach(c => {
+      maxEnd = Math.max(maxEnd, (c.start || 0) + (c.duration || 0))
+    })
+    try {
+      const objs = (canvas as any)?.getObjects?.() || []
+      objs.forEach((o: any) => {
+        if (hasActiveAnimation(getObjectAnimation(o))) {
+          const start = o.metadata?.timelineStart || 0
+          const dur = o.metadata?.timelineDuration || 5
+          maxEnd = Math.max(maxEnd, start + dur)
+        }
+      })
+    } catch {
+      /* ignore */
+    }
+    if (maxEnd > 0) {
+      const next = Math.ceil(maxEnd)
+      setVideoDuration(prev => (prev === next ? prev : next))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clips, isOpen])
 
   const handleExport = async () => {
     if (!editor) return
@@ -388,189 +414,60 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
         finalExportWidth = Math.round(finalExportWidth) + (Math.round(finalExportWidth) % 2)
         finalExportHeight = Math.round(finalExportHeight) + (Math.round(finalExportHeight) % 2)
 
-        const designLogicalRect = { left: designLeft, top: designTop, width: designWidth, height: designHeight }
-        const captureMultiplier = finalExportWidth / designWidth
+        // Reset the playhead so the recorder renders the timeline from the start.
+        try {
+          seek(0)
+          setCurrentTime(0)
+        } catch { /* ignore */ }
 
-        // Helper for backend communication
-        const toBase64 = async (url: string): Promise<string> => {
-          try {
-            const res = await fetch(url)
-            const blob = await res.blob()
-            return new Promise((resolve, reject) => {
-              const r = new FileReader()
-              r.onloadend = () => resolve(r.result as string)
-              r.onerror = reject
-              r.readAsDataURL(blob)
-            })
-          } catch (e) { return url }
-        }
+        // Build live video targets (clips -> <video> element + design-space rect).
+        const videoTargets: VideoTarget[] = clips
+          .map(clip => {
+            const obj = fabricObjects.find(
+              (o: any) => o.metadata?.id === clip.id || o.id === clip.id || o.metadata?.videoSrc === clip.src
+            )
+            const el = getVideoRef(clip.id)
+            if (!el) return null
+            let l = (obj?.left as number) || designLeft
+            let t = (obj?.top as number) || designTop
+            const w = ((obj?.width as number) || designWidth) * ((obj?.scaleX as number) || 1)
+            const h = ((obj?.height as number) || designHeight) * ((obj?.scaleY as number) || 1)
+            if (obj?.originX === 'center') l -= w / 2
+            if (obj?.originY === 'center') t -= h / 2
+            return {
+              el,
+              rect: { left: l, top: t, width: w, height: h },
+              start: clip.start || 0,
+              duration: clip.duration || videoDuration,
+              obj,
+            } as VideoTarget
+          })
+          .filter(Boolean) as VideoTarget[]
 
-        // 2. EXTRACT DESIGN ELEMENTS (Videos, Images, Text)
-        const videoClipsWithPositions = clips.map(clip => {
-          const obj = fabricObjects.find((o: any) => o.metadata?.id === clip.id || o.id === clip.id || o.metadata?.videoSrc === clip.src)
-          let position = { x: 0, y: 0 }, size = { width: 100, height: 100 }
+        const qualityConfigVid = QUALITY_PRESETS.find(q => q.id === qualityPreset) || QUALITY_PRESETS[1]
 
-          if (obj) {
-            const w = (obj.width || 100) * (obj.scaleX || 1)
-            const h = (obj.height || 100) * (obj.scaleY || 1)
-            let l = obj.left || 0, t = obj.top || 0
-            if (obj.originX === 'center') l -= w / 2
-            if (obj.originY === 'center') t -= h / 2
-            position = {
-              x: Number(((l - designLeft) / designWidth * 100).toFixed(2)),
-              y: Number(((t - designTop) / designHeight * 100).toFixed(2))
-            }
-            size = {
-              width: Number((w / designWidth * 100).toFixed(2)),
-              height: Number((h / designHeight * 100).toFixed(2))
-            }
-          }
-          return {
-            id: clip.id,
-            type: 'video' as const,
-            src: clip.src,
-            start: clip.start || 0,
-            duration: clip.duration || videoDuration,
-            position,
-            size,
-            videoCrop: obj?.metadata?.videoCrop
-          }
+        setExportProgress(2)
+
+        const result = await recordAnimatedVideo({
+          fabricCanvas: canvas,
+          designRect: { left: designLeft, top: designTop, width: designWidth, height: designHeight },
+          outWidth: finalExportWidth,
+          outHeight: finalExportHeight,
+          fps: videoFPS,
+          durationSec: videoDuration,
+          bitrate: qualityConfigVid.bitrate * 1000000,
+          format: format as 'mp4' | 'webm' | 'gif',
+          backgroundColor: '#ffffff',
+          videoTargets,
+          onProgress: (p: number) => setExportProgress(Math.max(2, Math.min(100, p))),
         })
 
-        const canvasOverlays = await Promise.all(fabricObjects.map(async (obj: any) => {
-          const meta = obj.metadata || {}
-          if (obj === frameObject || meta.isVideo || meta.videoSrc) return null
-
-          const w = (obj.width || 100) * (obj.scaleX || 1), h = (obj.height || 100) * (obj.scaleY || 1)
-          let l = obj.left || 0, t = obj.top || 0
-          if (obj.originX === 'center') l -= w / 2
-          if (obj.originY === 'center') t -= h / 2
-
-          const pos = {
-            x: Number(((l - designLeft) / designWidth * 100).toFixed(2)),
-            y: Number(((t - designTop) / designHeight * 100).toFixed(2))
-          }
-          const sz = {
-            width: Number((w / designWidth * 100).toFixed(2)),
-            height: Number((h / designHeight * 100).toFixed(2))
-          }
-          const start = Number(meta.timelineStart || 0)
-          const dur = Number(meta.timelineDuration || meta.duration || videoDuration)
-
-          if (obj.type?.toLowerCase().includes('image')) {
-            let src = obj.src || obj._element?.src || obj.getSrc?.() || ''
-            if (src.startsWith('blob:')) src = await toBase64(src)
-            return src ? { id: obj.id || Math.random().toString(), type: 'image' as const, src, start, duration: dur, position: pos, size: sz } : null
-          } else if (obj.type?.toLowerCase().includes('text')) {
-            return {
-              id: obj.id || Math.random().toString(),
-              type: 'text' as const,
-              content: obj.text || '',
-              start,
-              duration: dur,
-              position: pos,
-              style: {
-                fontSize: Math.round((obj.fontSize || 24) * (obj.scaleX || 1)),
-                fontFamily: obj.fontFamily || 'Arial',
-                color: obj.fill || '#000000',
-                fontWeight: obj.fontWeight || 400,
-                textAlign: obj.textAlign || 'left',
-                opacity: obj.opacity ?? 1
-              }
-            }
-          }
-          return null
-        }))
-        const overlays = canvasOverlays.filter(Boolean)
-
-        // 3. CAPTURE BACKGROUND PNG
-        let backgroundImage: string | undefined
-        const objectsToHide: any[] = []
-
-        const originalRenderTopLayer = canvas.renderTopLayer
-        const guidelinesHandler = (editor as any).handlers?.guidelines || (canvas as any).guidelines
-        const originalGuidelinesEnabled = guidelinesHandler?.enabled
-        const originalVpt = [...(canvas.viewportTransform || [1, 0, 0, 1, 0, 0])]
-        const originalZoom = canvas.getZoom()
-
+        downloadVideoBlob(result.blob, `${designName}.${result.ext}`)
+        setExportProgress(100)
         try {
-          canvas.selection = false
-          canvas.discardActiveObject()
-          if (guidelinesHandler) guidelinesHandler.enabled = false
-
-          // Defensive instance patch for null context crash
-          canvas.renderTopLayer = function (ctx: CanvasRenderingContext2D) {
-            if (!ctx || !this.contextTop) return this
-            return originalRenderTopLayer.call(this, ctx)
-          }
-
-          fabricObjects.forEach((obj: any) => {
-            if (obj.metadata?.isVideo || obj.metadata?.videoSrc || overlays.find((ov: any) => ov.id === obj.id)) {
-              objectsToHide.push({ obj, visible: obj.visible })
-              obj.set('visible', false)
-            }
-          })
-          // TEMPORARILY RESET VIEWPORT FOR CAPTURE
-          canvas.setViewportTransform([1, 0, 0, 1, 0, 0])
-          canvas.setZoom(1)
-
-          try {
-            canvas.renderAll()
-          } catch (e) {
-            // silently handled
-          }
-
-          backgroundImage = canvas.toDataURL({
-            format: 'png',
-            left: designLeft,
-            top: designTop,
-            width: designWidth,
-            height: designHeight,
-            multiplier: captureMultiplier
-          })
-        } finally {
-          // RESTORE VIEWPORT
-          canvas.setViewportTransform(originalVpt)
-          canvas.setZoom(originalZoom)
-          canvas.renderTopLayer = originalRenderTopLayer
-          if (guidelinesHandler) guidelinesHandler.enabled = originalGuidelinesEnabled
-          objectsToHide.forEach(({ obj, visible }) => obj.set('visible', visible))
-          try {
-            canvas.renderAll()
-          } catch (e) {
-            // silently handled
-          }
-        }
-
-        // 4. CALL BACKEND
-        const timelineData = {
-          timeline: { duration: videoDuration, fps: videoFPS, width: finalExportWidth, height: finalExportHeight, backgroundColor: 'white', backgroundImage },
-          clips: [...videoClipsWithPositions, ...overlays]
-        }
-
-        const VIDEO_PROCESSOR_URL = 'http://localhost:3001'
-        const startRes = await fetch(`${VIDEO_PROCESSOR_URL}/api/render`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(timelineData) })
-        if (!startRes.ok) throw new Error('Render failed to start')
-
-        const { id: jobId } = await startRes.json()
-        let status = 'processing'
-        while (status === 'processing' || status === 'queued') {
-          await new Promise(r => setTimeout(r, 1000))
-          const stRes = await fetch(`${VIDEO_PROCESSOR_URL}/api/render/${jobId}/status`)
-          const stData = await stRes.json()
-          status = stData.status
-          setExportProgress(Math.max(15, Math.min(stData.progress || 15, 95)))
-          if (stData.error) throw new Error(stData.error)
-        }
-
-        if (status === 'done') {
-          const downloadUrl = `${VIDEO_PROCESSOR_URL}/api/render/${jobId}/download`
-          const link = document.createElement('a')
-          link.href = downloadUrl
-          link.download = `${designName}.mp4`
-          link.click()
-          setExportProgress(100)
-        } else throw new Error('Export failed')
+          seek(0)
+          setCurrentTime(0)
+        } catch { /* ignore */ }
 
       } else {
         // STATIC IMAGE EXPORT
@@ -772,7 +669,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
     <Overlay onClick={onClose}>
       <Modal onClick={(e) => e.stopPropagation()}>
         <ModalHeader>
-          <ModalTitle>Export {hasVideo ? 'Video' : 'Design'}</ModalTitle>
+          <ModalTitle>Export {hasMotion ? 'Video' : 'Design'}</ModalTitle>
           <CloseButton onClick={onClose}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" />

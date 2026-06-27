@@ -6,6 +6,7 @@ export enum SubMenuType {
   BACKGROUND = 'Background',
   COLOR = 'Color',
   ANIMATIONS = 'Animations',
+  ADJUST = 'Adjust',
 }
 
 export const editorFonts = [
