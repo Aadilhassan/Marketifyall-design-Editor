@@ -37,9 +37,18 @@ export async function recordAnimatedGif(opts: GifRecordOptions): Promise<GifResu
   const mult = plan.width / Math.max(1, opts.designRect.width)
   const gif = GIFEncoder()
 
+  const fabricCanvas = opts.fabricCanvas
+  const savedVpt = [...(fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0])]
+  const savedZoom = fabricCanvas.getZoom ? fabricCanvas.getZoom() : 1
+  const safe = (fn: () => void) => { try { fn() } catch { /* ignore */ } }
+  // Render GIF frames in design space (identity viewport), matching the video
+  // exporter, so a zoomed/panned editor canvas still exports the full design.
+  safe(() => fabricCanvas.setViewportTransform && fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]))
+  safe(() => fabricCanvas.setZoom && fabricCanvas.setZoom(1))
+
   try {
     for (let i = 0; i < plan.frameCount; i++) {
-      const t = (i / plan.frameCount) * opts.durationSec
+      const t = plan.frameCount > 1 ? (i / (plan.frameCount - 1)) * opts.durationSec : 0
       renderDesignFrame({
         ctx,
         exportCanvas,
@@ -64,20 +73,10 @@ export async function recordAnimatedGif(opts: GifRecordOptions): Promise<GifResu
     const bytes = gif.bytes()
     return { blob: new Blob([bytes], { type: 'image/gif' }), ext: 'gif', mime: 'image/gif' }
   } finally {
-    try {
-      restoreAllBases(opts.fabricCanvas)
-    } catch {
-      /* ignore */
-    }
-    try {
-      opts.fabricCanvas?.renderAll?.()
-    } catch {
-      /* ignore */
-    }
-    try {
-      exportCanvas.remove()
-    } catch {
-      /* ignore */
-    }
+    safe(() => fabricCanvas.setViewportTransform && fabricCanvas.setViewportTransform(savedVpt))
+    safe(() => fabricCanvas.setZoom && fabricCanvas.setZoom(savedZoom))
+    safe(() => restoreAllBases(fabricCanvas))
+    safe(() => fabricCanvas.renderAll && fabricCanvas.renderAll())
+    safe(() => exportCanvas.remove())
   }
 }

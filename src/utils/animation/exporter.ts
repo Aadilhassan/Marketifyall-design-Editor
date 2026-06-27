@@ -38,7 +38,7 @@ export interface RecordOptions {
   fps: number
   durationSec: number
   bitrate: number
-  format: 'mp4' | 'webm' | 'gif'
+  format: 'mp4' | 'webm'
   backgroundColor?: string
   videoTargets?: VideoTarget[]
   onProgress?: (p: number, phase?: string) => void
@@ -50,7 +50,7 @@ export interface RecordResult {
   mime: string
 }
 
-function pickMime(format: 'mp4' | 'webm' | 'gif'): { mime: string; ext: string } {
+function pickMime(format: 'mp4' | 'webm'): { mime: string; ext: string } {
   const supported = (t: string) => {
     try {
       return typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)
