@@ -31,7 +31,19 @@ function StrokeWidth() {
   }
 
   const applyStrokeWidth = (val: number[]) => {
-    editor.update({ strokeWidth: val[0], strokeUniform: true })
+    const obj = canvas ? canvas.getActiveObject() : null
+    const update: { strokeWidth: number; strokeUniform: boolean; stroke?: string } = {
+      strokeWidth: val[0],
+      strokeUniform: true,
+    }
+    if (val[0] > 0 && obj) {
+      const hasStroke =
+        obj.stroke && obj.stroke !== 'none' && obj.stroke !== 'transparent'
+      if (!hasStroke) {
+        update.stroke = '#000000'
+      }
+    }
+    editor.update(update)
     if (canvas) canvas.requestRenderAll()
     setValue(val)
   }
