@@ -1,5 +1,5 @@
 import React from 'react'
-import ReactDOMServer from 'react-dom/server'
+import ReactDOM from 'react-dom'
 import * as LucideIcons from 'lucide-react'
 
 /**
@@ -102,6 +102,31 @@ const ICONS_BY_CATEGORY: Record<string, string[]> = {
 const svgCache: Record<string, string> = {}
 
 /**
+ * Render a Lucide React icon element to an SVG string WITHOUT react-dom/server.
+ * react-dom/server pulls in a build that references `process` and throws
+ * "process is not defined" in the browser (it loads as a separate chunk the
+ * page's process polyfill can't reach), which froze the editor. We instead
+ * render into a detached node with the regular, browser-safe react-dom (already
+ * loaded) and read back the SVG markup.
+ */
+const renderIconToSvg = (element: React.ReactElement): string => {
+  const host = document.createElement('div')
+  try {
+    ReactDOM.render(element, host)
+    const svg = host.querySelector('svg')
+    return svg ? svg.outerHTML : ''
+  } catch {
+    return ''
+  } finally {
+    try {
+      ReactDOM.unmountComponentAtNode(host)
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
  * Get SVG content for a specific icon
  * @param iconName - Icon name (e.g., 'heart', 'star', 'arrow-right')
  * @returns SVG string
@@ -119,14 +144,14 @@ export const getLucideSVG = async (iconName: string): Promise<string> => {
     // Use Circle as fallback
     const Fallback = (LucideIcons as any).Circle || (LucideIcons as any).HelpCircle
     if (Fallback) {
-      const fallbackSvg = ReactDOMServer.renderToStaticMarkup(React.createElement(Fallback, { size: 24 }))
+      const fallbackSvg = renderIconToSvg(React.createElement(Fallback, { size: 24 }))
       return fallbackSvg
     }
     return '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg>'
   }
 
   try {
-    const svg = ReactDOMServer.renderToStaticMarkup(React.createElement(IconComponent, { size: 24 }))
+    const svg = renderIconToSvg(React.createElement(IconComponent, { size: 24 }))
     svgCache[iconName] = svg
     return svg
   } catch (err) {
