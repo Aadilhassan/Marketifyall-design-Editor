@@ -4,6 +4,7 @@ import useVideoContext from '@/hooks/useVideoContext'
 import { useEditorContext, useEditor } from '@nkyo/scenify-sdk'
 import useAppContext from '@/hooks/useAppContext'
 import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
+import { notify } from '@/lib/notify'
 
 // True when an object is driven by the keyframe AnimationDriver (so other
 // time-based opacity effects must leave it alone).
@@ -143,6 +144,24 @@ const CloseButton = styled('button', {
   ':hover': {
     background: '#f3f4f6',
     color: '#111827',
+  },
+})
+
+const AddAudioButton = styled('button', {
+  background: 'transparent',
+  border: '1px solid #d1d5db',
+  color: '#6b7280',
+  cursor: 'pointer',
+  padding: '4px 10px',
+  borderRadius: '4px',
+  fontSize: '12px',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '4px',
+  ':hover': {
+    background: '#f3f4f6',
+    color: '#111827',
+    borderColor: '#9ca3af',
   },
 })
 
@@ -2073,6 +2092,8 @@ const VideoTimeline: React.FC = () => {
     const url = URL.createObjectURL(file)
     const audio = new Audio(url)
 
+    audio.onerror = () => notify('Could not load that audio file.', 'negative')
+
     audio.addEventListener('loadedmetadata', () => {
       addAudioClip({
         id: `audio-${Date.now()}`,
@@ -2628,6 +2649,18 @@ const VideoTimeline: React.FC = () => {
               <line x1="8" y1="11" x2="14" y2="11" />
             </svg>
           </ZoomControl>
+
+          <AddAudioButton
+            onClick={() => audioInputRef.current?.click()}
+            title="Add audio track"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 18V5l12-2v13" />
+              <circle cx="6" cy="18" r="3" />
+              <circle cx="18" cy="16" r="3" />
+            </svg>
+            + Audio
+          </AddAudioButton>
 
           <CloseButton onClick={() => setTimelineOpen(false)}>
             ✕ Close
