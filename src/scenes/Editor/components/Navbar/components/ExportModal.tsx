@@ -8,6 +8,7 @@ import { mp4FallbackMessage } from '@/utils/animation/exportHelpers'
 import { notify } from '@/lib/notify'
 import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
 import { marketifyallApi } from '@/services/marketifyall-api'
+import { exportCanvasToPdf } from '@/utils/pdfExport'
 
 const Overlay = styled('div', {
   position: 'fixed',
@@ -508,7 +509,18 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           }
           return
         }
-        
+
+        if (format === 'pdf') {
+          const fabricCanvas = canvas || (editor as any)?.canvas
+          const multiplier = parseInt(size, 10) || 1
+          const dataUrl = fabricCanvas.toDataURL({ format: 'png', multiplier })
+          const w = (frameSize?.width || fabricCanvas.width || 0) * multiplier
+          const h = (frameSize?.height || fabricCanvas.height || 0) * multiplier
+          await exportCanvasToPdf({ dataUrl, widthPx: w, heightPx: h, filename: `${designName}.pdf` })
+          setTimeout(() => { onClose(); setExportProgress(0) }, 500)
+          return
+        }
+
         // Handle SVG export (requires special handling)
         if (format === 'svg') {
           try {
