@@ -3,7 +3,7 @@ import { styled } from 'baseui'
 import { useEffect, useState } from 'react'
 import ToolboxItems from './ToolboxItems'
 import Locked from './ToolboxItems/Locked'
-import isArray from 'lodash/isArray'
+import { getContextMenuType, resolveToolboxKey } from './toolboxMap'
 
 const Container = styled('div', props => ({
   height: '60px',
@@ -16,47 +16,6 @@ const Container = styled('div', props => ({
   gap: '8px',
 }))
 
-export const getContextMenuType = (selection: any) => {
-  const types = new Set()
-  if (!selection) {
-    return 'Default'
-  }
-  if (selection._objects) {
-    for (const object of selection._objects) {
-      types.add(object.type)
-    }
-  } else {
-    types.add(selection.type)
-  }
-
-  const typesArray = Array.from(types)
-
-  if (typesArray.length === 1) {
-    if (typesArray[0] === 'Background') {
-      return 'Default'
-    } else {
-      return typesArray[0]
-    }
-  } else {
-    return typesArray
-  }
-}
-
-const toolboxOptions = {
-  Default: 'Default',
-  StaticText: 'StaticText',
-  DynamicText: 'DynamicText',
-  StaticPath: 'StaticPath',
-  StaticVector: 'StaticVector',
-  StaticImage: 'StaticImage',
-  MultiElement: 'MultiElement',
-  DynamicImage: 'DynamicImage',
-  // fabric.js internal types that map to our toolbox items
-  textbox: 'StaticText',
-  'i-text': 'StaticText',
-  text: 'StaticText',
-}
-
 function EditorToolbox() {
   const [activeToolbox, setActiveToolbox] = useState('Default')
   const [locked, setLocked] = useState(false)
@@ -67,11 +26,7 @@ function EditorToolbox() {
     if (activeObject) {
       setLocked((activeObject as any).locked)
       const activeObjectType = getContextMenuType(activeObject)
-      if (isArray(activeObjectType)) {
-        setActiveToolbox(toolboxOptions['MultiElement'])
-      } else {
-        setActiveToolbox((toolboxOptions as any)[activeObjectType as any])
-      }
+      setActiveToolbox(resolveToolboxKey(activeObjectType))
     } else {
       setLocked(false)
       setActiveToolbox(null)
