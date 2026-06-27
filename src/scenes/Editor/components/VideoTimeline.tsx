@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { styled } from 'baseui'
+import { StatefulPopover, PLACEMENT } from 'baseui/popover'
+import { Slider } from 'baseui/slider'
 import useVideoContext from '@/hooks/useVideoContext'
 import { useEditorContext, useEditor } from '@nkyo/scenify-sdk'
 import useAppContext from '@/hooks/useAppContext'
@@ -695,6 +697,106 @@ interface TimelineTrack {
   locked?: boolean
 }
 
+// ============ AUDIO VOLUME BUTTON ============
+
+interface AudioVolumeButtonProps {
+  clipId: string
+  volume: number
+  updateAudioClip: (id: string, patch: Partial<{ volume: number }>) => void
+}
+
+const AudioVolumeButton: React.FC<AudioVolumeButtonProps> = ({ clipId, volume, updateAudioClip }) => {
+  const [sliderValue, setSliderValue] = useState([Math.round((volume ?? 1) * 100)])
+
+  useEffect(() => {
+    setSliderValue([Math.round((volume ?? 1) * 100)])
+  }, [volume])
+
+  const isMuted = volume === 0
+
+  return (
+    <StatefulPopover
+      focusLock
+      placement={PLACEMENT.top}
+      content={() => (
+        <div
+          style={{
+            width: '200px',
+            background: '#ffffff',
+            padding: '12px',
+            fontFamily: "'Inter', sans-serif",
+          }}
+        >
+          <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px', color: '#374151' }}>
+            Volume
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ flex: 1 }}>
+              <Slider
+                overrides={{
+                  InnerThumb: () => null,
+                  ThumbValue: () => null,
+                  TickBar: () => null,
+                  Thumb: {
+                    style: { height: '12px', width: '12px' },
+                  },
+                }}
+                min={0}
+                max={100}
+                marks={false}
+                value={sliderValue}
+                onChange={({ value }) => {
+                  setSliderValue(value)
+                  updateAudioClip(clipId, { volume: value[0] / 100 })
+                }}
+              />
+            </div>
+            <span style={{ fontSize: '11px', minWidth: '28px', color: '#6b7280' }}>
+              {sliderValue[0]}%
+            </span>
+          </div>
+        </div>
+      )}
+    >
+      <button
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+        title={isMuted ? 'Volume (muted)' : 'Volume'}
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          padding: '2px 3px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          color: isMuted ? '#ef4444' : 'rgba(255,255,255,0.9)',
+          borderRadius: '3px',
+          flexShrink: 0,
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11 5L6 9H2v6h4l5 4V5z" />
+          {!isMuted && (
+            <path
+              d="M15.54 8.46a5 5 0 0 1 0 7.07"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              fill="none"
+            />
+          )}
+          {isMuted && (
+            <>
+              <line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" strokeWidth="2" />
+              <line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" strokeWidth="2" />
+            </>
+          )}
+        </svg>
+      </button>
+    </StatefulPopover>
+  )
+}
+
 // ============ MAIN COMPONENT ============
 
 const VideoTimeline: React.FC = () => {
@@ -765,6 +867,11 @@ const VideoTimeline: React.FC = () => {
     x: 0,
     y: 0,
   })
+
+  // Derived: the audio clip currently shown in the context menu (null for non-audio clips)
+  const ctxAudioClip = contextMenu.clipId
+    ? audioClips.find(a => a.id === contextMenu.clipId) ?? null
+    : null
 
   // Drag state
   const [dragging, setDragging] = useState<{
@@ -1160,6 +1267,9 @@ const VideoTimeline: React.FC = () => {
       const isClipActive = currentTime >= clipStart && currentTime < clipEnd
 
       if (isPlaying && isClipActive) {
+        // Apply current volume every frame so live slider changes take effect immediately
+        audio.volume = clip.volume ?? 1
+
         // Calculate audio time relative to clip start
         const audioTime = Math.max(0, currentTime - clipStart)
 
@@ -2908,6 +3018,14 @@ const VideoTimeline: React.FC = () => {
                             )}
                           </ClipThumbnail>
                           <ClipName>{clip.name}</ClipName>
+                          {/* Volume control — only shown on audio clips */}
+                          {clip.type === 'audio' && (
+                            <AudioVolumeButton
+                              clipId={clip.id}
+                              volume={audioClips.find(a => a.id === clip.id)?.volume ?? 1}
+                              updateAudioClip={updateAudioClip}
+                            />
+                          )}
                         </>
                       )}
 
@@ -2999,6 +3117,28 @@ const VideoTimeline: React.FC = () => {
               $left={contextMenu.x}
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Mute / Unmute — only visible when right-clicking an audio clip */}
+              {ctxAudioClip && (
+                <ContextMenuItem
+                  onClick={() => {
+                    updateAudioClip(ctxAudioClip.id, { volume: (ctxAudioClip.volume ?? 1) === 0 ? 1 : 0 })
+                    setContextMenu({ visible: false, clipId: null, trackId: null, x: 0, y: 0 })
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                    {(ctxAudioClip.volume ?? 1) === 0 ? (
+                      <>
+                        <line x1="23" y1="9" x2="17" y2="15" />
+                        <line x1="17" y1="9" x2="23" y2="15" />
+                      </>
+                    ) : (
+                      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                    )}
+                  </svg>
+                  <span>{(ctxAudioClip.volume ?? 1) === 0 ? 'Unmute' : 'Mute'}</span>
+                </ContextMenuItem>
+              )}
               <ContextMenuItem onClick={handleContextMenuDelete}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
