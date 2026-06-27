@@ -27,7 +27,7 @@ describe('getContextMenuType', () => {
 
 describe('shape routing', () => {
   it('routes fabric shape types to the Shape toolbar', () => {
-    for (const t of ['rect', 'circle', 'triangle', 'ellipse', 'line', 'polygon']) {
+    for (const t of ['rect', 'circle', 'triangle', 'ellipse', 'line', 'polygon', 'polyline']) {
       expect(resolveToolboxKey(t)).toBe('Shape')
     }
   })
@@ -40,6 +40,7 @@ describe('shapeControlsFor', () => {
   it('circle/ellipse/triangle have no corner radius', () => {
     expect(shapeControlsFor('circle').cornerRadius).toBe(false)
     expect(shapeControlsFor('ellipse').cornerRadius).toBe(false)
+    expect(shapeControlsFor('triangle').cornerRadius).toBe(false)
   })
   it('lines have no fill but do have stroke', () => {
     expect(shapeControlsFor('line').fill).toBe(false)
