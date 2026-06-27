@@ -7,6 +7,8 @@ import { searchPexelsVideos, getPopularVideos, isApiKeyConfigured, PexelsVideo, 
 import { useDebounce } from 'use-debounce'
 import { styled } from 'baseui'
 import useVideoContext from '@/hooks/useVideoContext'
+import { promiseWithTimeout } from '@/utils/promiseWithTimeout'
+import { notify } from '@/lib/notify'
 
 const Container = styled('div', {
     display: 'flex',
@@ -292,18 +294,27 @@ function StockVideos() {
             videoElement.crossOrigin = 'anonymous'
             videoElement.preload = 'metadata'
 
-            await new Promise<void>((resolve, reject) => {
-                videoElement.onloadedmetadata = () => {
-                    videoElement.currentTime = 0.1 // Seek to get a frame
-                    resolve()
-                }
-                videoElement.onerror = reject
-            })
+            await promiseWithTimeout(
+                new Promise<void>((resolve, reject) => {
+                    videoElement.onloadedmetadata = () => {
+                        videoElement.currentTime = 0.1 // Seek to get a frame
+                        resolve()
+                    }
+                    videoElement.onerror = () => reject(new Error('Video failed to load'))
+                }),
+                15000,
+                'Video metadata timed out'
+            )
 
-            // Wait for video to seek to frame
-            await new Promise<void>((resolve) => {
-                videoElement.onseeked = () => resolve()
-            })
+            // Wait for video to seek to frame (guarded so a stuck seek can't hang forever)
+            await promiseWithTimeout(
+                new Promise<void>((resolve, reject) => {
+                    videoElement.onseeked = () => resolve()
+                    videoElement.onerror = () => reject(new Error('Video failed to seek'))
+                }),
+                15000,
+                'Video seek timed out'
+            )
 
             // Get actual video dimensions
             const videoWidth = videoElement.videoWidth || videoFile.width || 1920
@@ -370,7 +381,7 @@ function StockVideos() {
 
             // Add to Canvas with standard dimensions
             // All videos use the same size (STANDARD_WIDTH x STANDARD_HEIGHT)
-            editor.add({
+            await editor.add({
                 type: 'StaticImage',
                 metadata: {
                     src: posterUrl || video.image, // Use extracted frame or fallback to thumbnail
@@ -425,7 +436,8 @@ function StockVideos() {
             addClip(clipData)
             setActiveClip(clipId)
         } catch (error) {
-            // silently handled
+            console.error('Failed to add stock video:', error)
+            notify('Could not add that video. Please try another clip.', 'negative')
         } finally {
             setAddingVideo(null)
         }
