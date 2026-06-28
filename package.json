@@ -18,6 +18,8 @@
     "@types/styletron-standard": "^2.0.2",
     "axios": "^1.7.9",
     "baseui": "^10.1.1",
+    "canvg": "^3.0.11",
+    "dompurify": "^2.5.9",
     "fabric": "^4.5.1",
     "gifenc": "^1.0.3",
     "highlight.js": "^11.11.1",

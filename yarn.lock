@@ -3798,7 +3798,7 @@ canvas@^2.6.1:
     nan "^2.17.0"
     simple-get "^3.0.3"
 
-canvg@^3.0.6:
+canvg@^3.0.11, canvg@^3.0.6:
   version "3.0.11"
   resolved "https://registry.npmjs.org/canvg/-/canvg-3.0.11.tgz"
   integrity sha512-5ON+q7jCTgMp9cjpu4Jo6XbvfYwSB2Ow3kzHKfIyJfaCAOHLbdKPQqGKgfED/R5B+3TFFfe8pegYA+b423SRyA==
@@ -5438,7 +5438,7 @@ domhandler@^4.0.0, domhandler@^4.2.0, domhandler@^4.3.1:
   dependencies:
     domelementtype "^2.2.0"
 
-dompurify@^2.5.4:
+dompurify@^2.5.4, dompurify@^2.5.9:
   version "2.5.9"
   resolved "https://registry.npmjs.org/dompurify/-/dompurify-2.5.9.tgz"
   integrity sha512-i6mvVmWN4xo9LrhCOZrDgSs9noW6nOahbrmzjRbPF36YPyj5Ue5lgok0MHDWkG7xzpWFO2OYttXdzM7rJxHvNA==
