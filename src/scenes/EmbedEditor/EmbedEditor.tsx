@@ -247,16 +247,33 @@ function EmbedEditorApp() {
             (obj.type === 'Rect' && (obj.fill === '#ffffff' || obj.fill === 'white') && (obj.width || 0) >= 400),
         )
 
-        if (clipObj) {
-          const w = (clipObj.width || 0) * (clipObj.scaleX || 1)
-          const h = (clipObj.height || 0) * (clipObj.scaleY || 1)
-          let l = clipObj.left || 0
-          let t = clipObj.top || 0
+        if (!clipObj) return
 
-          if (clipObj.originX === 'center') l -= w / 2
-          if (clipObj.originY === 'center') t -= h / 2
+        const w = (clipObj.width || 0) * (clipObj.scaleX || 1)
+        const h = (clipObj.height || 0) * (clipObj.scaleY || 1)
+        let l = clipObj.left || 0
+        let t = clipObj.top || 0
+        if (clipObj.originX === 'center') l -= w / 2
+        if (clipObj.originY === 'center') t -= h / 2
 
-          const clipPath = new fabric.Rect({
+        // Reuse the existing clip rect and bail when frame geometry is unchanged
+        // (and the after:render render loop is removed below). See Editor.tsx.
+        const existing = (canvas as any).clipPath as fabric.Rect | undefined
+        if (
+          existing &&
+          Math.abs((existing.left || 0) - l) < 0.5 &&
+          Math.abs((existing.top || 0) - t) < 0.5 &&
+          Math.abs((existing.width || 0) - w) < 0.5 &&
+          Math.abs((existing.height || 0) - h) < 0.5
+        ) {
+          return
+        }
+
+        if (existing && typeof existing.set === 'function') {
+          existing.set({ left: l, top: t, width: w, height: h })
+          existing.setCoords?.()
+        } else {
+          ;(canvas as any).clipPath = new fabric.Rect({
             left: l,
             top: t,
             width: w,
@@ -266,11 +283,9 @@ function EmbedEditorApp() {
             evented: false,
             fill: 'transparent',
           })
-
-          ;(canvas as any).clipPath = clipPath
-          ;(canvas as any).controlsAboveOverlay = true
-          canvas.requestRenderAll?.()
         }
+        ;(canvas as any).controlsAboveOverlay = true
+        canvas.requestRenderAll?.()
       } catch {
         // Clipping setup failed
       }
@@ -285,7 +300,6 @@ function EmbedEditorApp() {
     canvas.on?.('object:moving', onMoving)
     canvas.on?.('object:modified', setupClipping)
     canvas.on?.('object:scaling', setupClipping)
-    canvas.on?.('after:render', setupClipping)
     canvas.on?.('object:added', setupClipping)
     canvas.on?.('object:removed', setupClipping)
 
@@ -295,7 +309,6 @@ function EmbedEditorApp() {
       canvas.off?.('object:moving', onMoving)
       canvas.off?.('object:modified', setupClipping)
       canvas.off?.('object:scaling', setupClipping)
-      canvas.off?.('after:render', setupClipping)
       canvas.off?.('object:added', setupClipping)
       canvas.off?.('object:removed', setupClipping)
     }
