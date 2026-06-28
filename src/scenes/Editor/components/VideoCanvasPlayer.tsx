@@ -492,9 +492,13 @@ const VideoCanvasPlayer: React.FC = () => {
                         targetOpacity = 1
                     }
                 } else {
-                    // For text and images: if they're in the overlay, they're above videos
-                    // Always hide them on canvas and show in overlay to maintain proper layer order
-                    targetOpacity = 0
+                    // Text/images are mirrored into the DOM overlay only so they can layer
+                    // ABOVE a video that is playing in the overlay. Hide the canvas copy ONLY
+                    // while a video is actually playing; otherwise keep it visible on the canvas
+                    // so text/images never silently vanish while paused/editing (the overlay
+                    // mirror can be empty or mispositioned, leaving an invisible-but-selectable
+                    // object).
+                    targetOpacity = isPlaying && activeClipId ? 0 : (obj._originalOpacity ?? 1)
                 }
             }
 
@@ -600,9 +604,11 @@ const VideoCanvasPlayer: React.FC = () => {
                             currentTime < ((textData.timelineStart || 0) + (textData.timelineDuration || 99999))
 
                         if (!isWithinTimeline) return null
+                        // Only mirror text into the DOM overlay while a video is playing (the
+                        // canvas copy is hidden then). When paused/editing the canvas renders it,
+                        // so skip the overlay to avoid a duplicate or mispositioned copy.
+                        if (!(isPlaying && activeClipId)) return null
 
-                        // Always show text overlay if it's in the overlay (meaning it's above videos)
-                        // Canvas object is hidden, so overlay must show it to maintain layer order
                         return (
                             <TextOverlayElement
                                 key={textData.id}
@@ -630,9 +636,10 @@ const VideoCanvasPlayer: React.FC = () => {
                             currentTime < ((genericData.timelineStart || 0) + (genericData.timelineDuration || 99999))
 
                         if (!isWithinTimeline) return null
+                        // Only needed while a video is playing (see text overlay above); the
+                        // canvas renders it otherwise.
+                        if (!(isPlaying && activeClipId)) return null
 
-                        // Always show image overlay if it's in the overlay (meaning it's above videos)
-                        // Canvas object is hidden, so overlay must show it to maintain layer order
                         return (
                             <GenericOverlayElement
                                 key={genericData.id}
