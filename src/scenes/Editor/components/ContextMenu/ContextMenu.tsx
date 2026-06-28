@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { selectObject } from '@/utils/selectObject'
+import { sendToBackSafe, sendBackwardsSafe } from '@/utils/layering'
 import {
   Copy,
   Clipboard,
@@ -189,13 +190,13 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
         editor.bringToFront()
         handled = true
       } else if (ctrlKey && e.shiftKey && e.key === '[' && activeObject) {
-        editor.sendToBack()
+        sendToBackSafe((editor as any)?.canvas?.canvas || (editor as any)?.canvas, activeObject)
         handled = true
       } else if (ctrlKey && e.key === ']' && activeObject) {
         editor.bringForward()
         handled = true
       } else if (ctrlKey && e.key === '[' && activeObject) {
-        editor.sendBackwards()
+        sendBackwardsSafe((editor as any)?.canvas?.canvas || (editor as any)?.canvas, activeObject)
         handled = true
       }
 
@@ -290,23 +291,9 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
 
   const handleSendBackward = () => {
     if (activeObject && editor) {
-      try {
-        editor.sendBackwards()
-        // Force canvas re-render
-        // @ts-expect-error -- Scenify SDK internal canvas access
-        const canvas = editor.canvas?.canvas || editor.canvas
-        if (canvas && canvas.requestRenderAll) {
-          canvas.requestRenderAll()
-        }
-      } catch (error) {
-        // Fallback: use canvas directly
-        // @ts-expect-error -- Scenify SDK internal canvas access
-        const canvas = editor.canvas?.canvas || editor.canvas
-        if (canvas && activeObject) {
-          canvas.sendBackwards(activeObject)
-          canvas.requestRenderAll()
-        }
-      }
+      // @ts-expect-error -- Scenify SDK internal canvas access
+      const canvas = editor.canvas?.canvas || editor.canvas
+      sendBackwardsSafe(canvas, activeObject)
     }
     setVisible(false)
   }
@@ -336,23 +323,9 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
 
   const handleSendToBack = () => {
     if (activeObject && editor) {
-      try {
-        editor.sendToBack()
-        // Force canvas re-render
-        // @ts-expect-error -- Scenify SDK internal canvas access
-        const canvas = editor.canvas?.canvas || editor.canvas
-        if (canvas && canvas.requestRenderAll) {
-          canvas.requestRenderAll()
-        }
-      } catch (error) {
-        // Fallback: use canvas directly
-        // @ts-expect-error -- Scenify SDK internal canvas access
-        const canvas = editor.canvas?.canvas || editor.canvas
-        if (canvas && activeObject) {
-          canvas.sendToBack(activeObject)
-          canvas.requestRenderAll()
-        }
-      }
+      // @ts-expect-error -- Scenify SDK internal canvas access
+      const canvas = editor.canvas?.canvas || editor.canvas
+      sendToBackSafe(canvas, activeObject)
     }
     setVisible(false)
   }

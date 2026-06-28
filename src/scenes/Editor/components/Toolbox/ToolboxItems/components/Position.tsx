@@ -3,6 +3,7 @@ import { Button, KIND, SIZE } from 'baseui/button'
 import { StatefulPopover, PLACEMENT } from 'baseui/popover'
 import { useStyletron } from 'baseui'
 import { useEditor } from '@nkyo/scenify-sdk'
+import { sendToBackSafe, sendBackwardsSafe, getFabricCanvas } from '@/utils/layering'
 
 function Position() {
   const editor = useEditor()
@@ -28,8 +29,22 @@ function Position() {
               <PositionItem onClick={editor.bringToFront} icon="ToFront" label="To Front" />
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <PositionItem onClick={editor.sendBackwards} icon="Backward" label="Backward" />
-              <PositionItem onClick={editor.sendToBack} icon="ToBack" label="To Back" />
+              <PositionItem
+                onClick={() => {
+                  const c = getFabricCanvas(editor)
+                  sendBackwardsSafe(c, c?.getActiveObject?.())
+                }}
+                icon="Backward"
+                label="Backward"
+              />
+              <PositionItem
+                onClick={() => {
+                  const c = getFabricCanvas(editor)
+                  sendToBackSafe(c, c?.getActiveObject?.())
+                }}
+                icon="ToBack"
+                label="To Back"
+              />
             </div>
           </div>
         </div>
