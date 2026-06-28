@@ -57,7 +57,9 @@ export default function Resize() {
     const width = Number(customSize.width)
     const height = Number(customSize.height)
     if (width > 0 && height > 0) {
-      editor.frame.update({ width, height })
+      // setSize resizes the frame AND its background; update() leaves the
+      // background behind (stacking a mismatched rectangle).
+      editor.frame.setSize({ width, height })
     }
   }
   useEffect(() => {

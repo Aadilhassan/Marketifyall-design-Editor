@@ -42,6 +42,7 @@ function EditorialShell({ folio, children }: Props) {
             <a style={{ cursor: 'pointer' }} onClick={() => history.push('/features')}>Features</a>
             <a style={{ cursor: 'pointer' }} onClick={() => history.push('/about')}>About</a>
             <a style={{ cursor: 'pointer' }} onClick={() => history.push('/contact')}>Contact</a>
+            <a href="https://github.com/Aadilhassan/Marketifyall-design-Editor" target="_blank" rel="noreferrer">GitHub</a>
           </nav>
           <span className="folio">{folio || `MARKETIFYALL · ${year}`}</span>
           <span className="cta" onClick={go}>
@@ -56,13 +57,14 @@ function EditorialShell({ folio, children }: Props) {
         <div className="wrap inner">
           <div className="c">
             <span className="big">Marketifyall</span>
-            A free, open-source design editor — templates, AI, video and animation, with your work saved automatically.
+            A free, open-source Canva alternative — templates, video and animation — that you can embed in any website.
             Built by <b>QuickShift Labs</b>. Set in <b>Fraunces</b>, <b>Space Grotesk</b> &amp; <b>Space Mono</b>.
           </div>
           <nav>
             <a style={{ cursor: 'pointer' }} onClick={() => history.push('/features')}>Features</a>
             <a style={{ cursor: 'pointer' }} onClick={() => history.push('/about')}>About</a>
             <a style={{ cursor: 'pointer' }} onClick={() => history.push('/contact')}>Contact</a>
+            <a href="https://github.com/Aadilhassan/Marketifyall-design-Editor" target="_blank" rel="noreferrer">GitHub ↗</a>
             <span style={{ cursor: 'pointer' }} onClick={go}>
               Open editor <span className="ar">↗</span>
             </span>

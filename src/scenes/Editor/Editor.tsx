@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { ToasterContainer, PLACEMENT } from 'baseui/toast'
 import useAppContext from '@/hooks/useAppContext'
 import { useLocation, useParams, useHistory } from 'react-router'
@@ -100,6 +100,7 @@ function App() {
   const location = useLocation()
   const { id: routeId } = useParams<{ id?: string }>()
   const history = useHistory()
+  const frameReadyRef = useRef(true)
   const dispatch = useAppDispatch()
   const [hasInitialized, setHasInitialized] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -215,11 +216,46 @@ function App() {
     } else if (imgUrl) {
       handleLoadImageTemplate(imgUrl)
     } else if (routeId) {
-      // Restore a previously saved design from local storage (IndexedDB) using
-      // fabric's native deserialization (round-trips every object type).
+      // Restore a saved design from local storage (IndexedDB). Pause auto-save
+      // (frameReadyRef) until the frame is settled, so it can't persist the
+      // editor's default 1280x720 frame before the chosen format is applied.
+      frameReadyRef.current = false
       getProject(routeId)
         .then(project => {
           const restoreCanvas = getFabricCanvas(editor)
+          // Apply the chosen format size with setSize() (resizes BOTH frame and
+          // background — update() leaves the background, stacking a 2nd rect).
+          // Only while the design is still blank, so real content / a user resize wins.
+          const applyFormatIfBlank = () => {
+            const frame = project?.frame
+            if (!frame) {
+              frameReadyRef.current = true
+              return
+            }
+            let tries = 0
+            const tryApply = () => {
+              const ed = editor as any
+              const objs = getFabricCanvas(editor)?.getObjects?.() || []
+              const hasFrame = objs.some((o: any) => o && o.type === 'Frame')
+              const userObjs = objs.filter((o: any) => o && o.type !== 'Frame' && o.type !== 'Background').length
+              if (hasFrame && ed?.frame?.setSize) {
+                if (userObjs === 0) {
+                  try {
+                    ed.frame.setSize(frame)
+                  } catch {
+                    /* ignore */
+                  }
+                }
+                frameReadyRef.current = true
+              } else if (tries++ < 40) {
+                setTimeout(tryApply, 100)
+              } else {
+                frameReadyRef.current = true
+              }
+            }
+            tryApply()
+          }
+
           if (project?.json && restoreCanvas?.loadFromJSON) {
             restoreCanvas.loadFromJSON(project.json, () => {
               restoreCanvas.renderAll?.()
@@ -228,18 +264,14 @@ function App() {
               } catch {
                 /* ignore */
               }
+              applyFormatIfBlank()
             })
-          } else if (project?.frame && (editor as any).frame?.update) {
-            // New project created from the dashboard with a chosen format size.
-            try {
-              ;(editor as any).frame.update(project.frame)
-            } catch {
-              /* ignore */
-            }
+          } else {
+            applyFormatIfBlank()
           }
         })
         .catch(() => {
-          /* nothing saved yet — start blank */
+          frameReadyRef.current = true
         })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -254,7 +286,7 @@ function App() {
     let lastSig = ''
 
     const save = () => {
-      if (cancelled) return
+      if (cancelled || !frameReadyRef.current) return
       try {
         const cv = getFabricCanvas(editor)
         if (!cv?.toJSON) return

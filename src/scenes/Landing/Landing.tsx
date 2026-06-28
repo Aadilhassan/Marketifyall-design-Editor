@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { useHistory } from 'react-router-dom'
 import '../../styles/editorial.css'
 
+const GITHUB = 'https://github.com/Aadilhassan/Marketifyall-design-Editor'
+
 function Landing() {
   const history = useHistory()
   const go = () => history.push('/dashboard')
@@ -41,10 +43,10 @@ function Landing() {
           </span>
           <nav>
             <a href="#contents">Tools</a>
-            <a href="#manifesto">Manifesto</a>
-            <a href="#terms">Pricing</a>
+            <a href="#embed">Embed</a>
+            <a href={GITHUB} target="_blank" rel="noreferrer">GitHub</a>
           </nav>
-          <span className="folio">DESIGN STUDIO № 01 · {year}</span>
+          <span className="folio">OPEN-SOURCE DESIGN EDITOR · {year}</span>
           <span className="cta" onClick={go}>
             Open editor <span className="ar">↗</span>
           </span>
@@ -53,37 +55,39 @@ function Landing() {
 
       {/* COVER */}
       <section className="cover" id="top">
-        <span className="runhead" aria-hidden="true">Marketifyall · The Design Editor</span>
+        <span className="runhead" aria-hidden="true">Marketifyall · Open-Source Design Editor</span>
         <div className="wrap">
           <div className="cover-grid">
             <div className="cover-left">
               <p className="kick reveal">
-                <span className="n">№ 01</span> · <b>The free design editor</b> for everything you publish
+                <span className="n">№ 01</span> · <b>The open-source Canva alternative</b> you can embed in any website
               </p>
               <h1 className="headline reveal">
                 Design <em>anything,</em> in your browser.
               </h1>
               <p className="deck reveal">
-                <span className="dropcap">A</span> full design studio with hundreds of templates, AI image generation,
-                stock photos and video, real motion and animation, and one-click export — all free, with nothing to
-                install.<sup>1</sup>
+                <span className="dropcap">A</span> free, open-source design studio — templates, photos, stock video and
+                real animation, with one-click export. And you can drop the whole editor into your own product with a
+                single embed.<sup>1</sup>
               </p>
               <div className="cover-actions reveal">
                 <span className="btn" onClick={go}>
                   Start designing <span className="ar">↗</span>
                 </span>
-                <span className="tiny">Free · No account required<sup>2</sup></span>
+                <a href={GITHUB} target="_blank" rel="noreferrer" className="cta" style={{ textDecoration: 'none' }}>
+                  View on GitHub <span className="ar">↗</span>
+                </a>
               </div>
               <ol className="footnotes reveal">
-                <li><b>1.</b> Runs entirely in the browser. Your work auto-saves to this device.</li>
-                <li><b>2.</b> No paywall, no watermark, no trial timer.</li>
+                <li><b>1.</b> Free &amp; open-source — the full source is on GitHub, MIT-friendly to fork and self-host.</li>
+                <li><b>2.</b> Embed the editor in any site via an iframe or the built-in <code>/embed</code> route.</li>
               </ol>
             </div>
 
             {/* RIGHT RAIL */}
             <aside className="cover-right reveal">
               <div className="seal-wrap">
-                <svg className="seal spin" viewBox="0 0 160 160" role="img" aria-label="Marketifyall design studio seal">
+                <svg className="seal spin" viewBox="0 0 160 160" role="img" aria-label="Marketifyall open-source seal">
                   <defs>
                     <path id="sealArc" d="M80,80 m-60,0 a60,60 0 1,1 120,0 a60,60 0 1,1 -120,0" />
                   </defs>
@@ -91,7 +95,7 @@ function Landing() {
                   <circle className="ring" cx="80" cy="80" r="50" />
                   <text className="arc">
                     <textPath href="#sealArc" startOffset="0">
-                      MARKETIFYALL · DESIGN STUDIO · EST. 2026 ·
+                      MARKETIFYALL · OPEN SOURCE · EST. 2026 ·
                     </textPath>
                   </text>
                   <text className="mono-mark" x="80" y="92" textAnchor="middle">
@@ -103,18 +107,18 @@ function Landing() {
               <div className="inside">
                 <h4>Inside this issue</h4>
                 <ul>
-                  <li data-n="P.01">Hundreds of <b>templates</b></li>
-                  <li data-n="P.02"><b>AI Studio</b> — generate on canvas</li>
-                  <li data-n="P.03">Video, timeline &amp; <b>animation</b></li>
-                  <li data-n="P.04">Export anywhere — free</li>
+                  <li data-n="P.01"><b>Open-source</b> on GitHub</li>
+                  <li data-n="P.02"><b>Embed</b> in any website</li>
+                  <li data-n="P.03">Templates &amp; elements</li>
+                  <li data-n="P.04">Video, timeline &amp; animation</li>
                 </ul>
               </div>
               <div className="epigraph">
-                <q>Open a tab. Make something worth publishing.</q>
+                <q>A design editor that&rsquo;s yours to use, fork and embed.</q>
                 <span className="by">— The thesis</span>
               </div>
               <div className="cover-foot">
-                <div className="issue">Issue 01 — {year} · Price: Free</div>
+                <div className="issue">Issue 01 — {year} · Price: Free · License: Open</div>
                 <svg className="barcode" viewBox="0 0 170 46" role="img" aria-label="barcode">
                   <g>
                     {[2, 4, 7, 12, 15, 19, 22, 26, 31, 35, 38, 42, 47, 50, 53, 57, 62, 65, 69, 72, 77, 80, 84, 87, 91, 96, 99, 102, 107, 111, 114, 118, 121, 126, 129, 133, 138, 141, 145, 148].map((x, i) => (
@@ -132,37 +136,38 @@ function Landing() {
       {/* MARQUEE */}
       <div className="marquee" aria-hidden="true">
         <div className="track">
-          Templates<span>✳</span>AI generation<span>✳</span>Video &amp; animation<span>✳</span>Export anywhere<span>✳</span>Free
-          forever<span>✳</span>Templates<span>✳</span>AI generation<span>✳</span>Video &amp; animation<span>✳</span>Export
-          anywhere<span>✳</span>Free forever<span>✳</span>
+          Open source<span>✳</span>Canva alternative<span>✳</span>Embed anywhere<span>✳</span>Free forever<span>✳</span>Video
+          &amp; animation<span>✳</span>Open source<span>✳</span>Canva alternative<span>✳</span>Embed anywhere<span>✳</span>Free
+          forever<span>✳</span>Video &amp; animation<span>✳</span>
         </div>
       </div>
 
       <main className="wrap">
-        {/* LEAD DISPATCH */}
-        <article className="dispatch reveal">
-          <p className="overline ov">№ 01 · The lead story &mdash; <b>AI Studio</b></p>
+        {/* LEAD DISPATCH — EMBED */}
+        <article className="dispatch reveal" id="embed">
+          <p className="overline ov">№ 01 · The lead story &mdash; <b>Embeddable</b></p>
           <div className="top">
             <div className="lead-no">01</div>
             <h3>
-              Describe it, and watch it appear on the <em>canvas.</em>
+              Drop the whole editor into <em>your</em> own website.
             </h3>
           </div>
           <div className="body">
             <p>
-              Generate images from a prompt, drop in stock photos and video, set type, and arrange it all on an infinite,
-              snappy canvas — no design degree required.
+              Marketifyall isn&rsquo;t just a standalone app — it&rsquo;s a design editor you can embed in your own
+              product. Add it with an iframe or the built-in <code>/embed</code> route and your users get a full design
+              surface without leaving your site.
             </p>
             <p>
-              Every element is editable: recolor, resize, layer, mask, filter and animate. The editor keeps up with you,
-              auto-saving as you go so a refresh never costs you work.
+              Because it&rsquo;s open-source, nothing is locked away. Read the code, fork it, theme it, self-host it, and
+              wire it into your own save and asset pipelines — designs import and export as plain JSON.
             </p>
             <p>
-              When it&rsquo;s ready, export a crisp PNG, a JPG, an SVG, or a looping WebM/GIF animation — in a click, with
-              no watermark.
+              It&rsquo;s a real Canva alternative you control: no per-seat pricing, no watermark, and no vendor lock-in —
+              just a studio that runs anywhere a browser does.
             </p>
           </div>
-          <p className="pull">A studio that fits in a browser tab.</p>
+          <p className="pull">Your product&rsquo;s design studio, in one embed.</p>
         </article>
 
         <div className="asterism" aria-hidden="true">⁂</div>
@@ -172,11 +177,11 @@ function Landing() {
           <div className="shead reveal">
             <span className="no">№ 02</span>
             <h2>The toolkit</h2>
-            <span className="meta">Everything, included &amp; free</span>
+            <span className="meta">Open-source &amp; free</span>
           </div>
           <p className="standfirst reveal">
             One editor for posts, stories, reels, thumbnails, video and more — organised into the tools you reach for,
-            each one included in full.
+            each one included in full, and all of it open.
           </p>
 
           <div className="dept reveal">
@@ -188,26 +193,32 @@ function Landing() {
           </div>
 
           <div className="dept reveal">
-            <div className="dept-head"><span className="rn">II</span><h3>AI &amp; Media</h3><span className="ln" /><span className="cnt">04</span></div>
-            <div className="ix"><span className="num">05</span><span className="nm">AI Studio<span className="desc">Generate original images straight onto the canvas from a text prompt.</span></span><span className="sys">AI</span></div>
-            <div className="ix"><span className="num">06</span><span className="nm">Stock Photos<span className="desc">Millions of free, high-resolution photos searchable inside the editor.</span></span><span className="sys">Media</span></div>
-            <div className="ix"><span className="num">07</span><span className="nm">Stock Videos<span className="desc">Drop in free stock footage and trim it to fit your design.</span></span><span className="sys">Media</span></div>
-            <div className="ix"><span className="num">08</span><span className="nm">Uploads<span className="desc">Bring your own photos, logos and video — they live in your library.</span></span><span className="sys">Media</span></div>
+            <div className="dept-head"><span className="rn">II</span><h3>Media</h3><span className="ln" /><span className="cnt">03</span></div>
+            <div className="ix"><span className="num">05</span><span className="nm">Stock Photos<span className="desc">Millions of free, high-resolution photos searchable inside the editor.</span></span><span className="sys">Media</span></div>
+            <div className="ix"><span className="num">06</span><span className="nm">Stock Videos<span className="desc">Drop in free stock footage and trim it to fit your design.</span></span><span className="sys">Media</span></div>
+            <div className="ix"><span className="num">07</span><span className="nm">Uploads<span className="desc">Bring your own photos, logos and video — they live in your library.</span></span><span className="sys">Media</span></div>
           </div>
 
           <div className="dept reveal">
             <div className="dept-head"><span className="rn">III</span><h3>Motion</h3><span className="ln" /><span className="cnt">03</span></div>
-            <div className="ix"><span className="num">09</span><span className="nm">Animations<span className="desc">Preset entrance, exit and emphasis animations for any element.</span></span><span className="sys">Motion</span></div>
-            <div className="ix"><span className="num">10</span><span className="nm">Video Timeline<span className="desc">Sequence clips, audio and animated layers on a real multi-track timeline.</span></span><span className="sys">Motion</span></div>
-            <div className="ix"><span className="num">11</span><span className="nm">Video Player<span className="desc">Scrub, preview and play your composition right on the canvas.</span></span><span className="sys">Motion</span></div>
+            <div className="ix"><span className="num">08</span><span className="nm">Animations<span className="desc">Preset entrance, exit and emphasis animations for any element.</span></span><span className="sys">Motion</span></div>
+            <div className="ix"><span className="num">09</span><span className="nm">Video Timeline<span className="desc">Sequence clips, audio and animated layers on a real multi-track timeline.</span></span><span className="sys">Motion</span></div>
+            <div className="ix"><span className="num">10</span><span className="nm">Video Player<span className="desc">Scrub, preview and play your composition right on the canvas.</span></span><span className="sys">Motion</span></div>
           </div>
 
           <div className="dept reveal">
             <div className="dept-head"><span className="rn">IV</span><h3>Finish</h3><span className="ln" /><span className="cnt">04</span></div>
-            <div className="ix"><span className="num">12</span><span className="nm">Adjust &amp; Filters<span className="desc">Brightness, contrast, saturation, blur and one-tap filter looks.</span></span><span className="sys">Finish</span></div>
-            <div className="ix"><span className="num">13</span><span className="nm">Resize<span className="desc">Switch formats and aspect ratios in a click — repurpose any design.</span></span><span className="sys">Finish</span></div>
-            <div className="ix"><span className="num">14</span><span className="nm">Export<span className="desc">Download PNG, JPG, SVG, JSON or a looping WebM/GIF — no watermark.</span></span><span className="sys">Finish</span></div>
-            <div className="ix"><span className="num">15</span><span className="nm">Auto-save<span className="desc">Your projects are saved on this device and listed on your dashboard.</span></span><span className="sys">Finish</span></div>
+            <div className="ix"><span className="num">11</span><span className="nm">Adjust &amp; Filters<span className="desc">Brightness, contrast, saturation, blur and one-tap filter looks.</span></span><span className="sys">Finish</span></div>
+            <div className="ix"><span className="num">12</span><span className="nm">Resize<span className="desc">Switch formats and aspect ratios in a click — repurpose any design.</span></span><span className="sys">Finish</span></div>
+            <div className="ix"><span className="num">13</span><span className="nm">Export<span className="desc">Download PNG, JPG, SVG, JSON or a looping WebM/GIF — no watermark.</span></span><span className="sys">Finish</span></div>
+            <div className="ix"><span className="num">14</span><span className="nm">Auto-save<span className="desc">Your projects are saved on this device and listed on your dashboard.</span></span><span className="sys">Finish</span></div>
+          </div>
+
+          <div className="dept reveal">
+            <div className="dept-head"><span className="rn">V</span><h3>Developers</h3><span className="ln" /><span className="cnt">03</span></div>
+            <div className="ix"><span className="num">15</span><span className="nm">Embed anywhere<span className="desc">Drop the editor into any site via an iframe or the built-in /embed route.</span></span><span className="sys">Dev</span></div>
+            <div className="ix"><span className="num">16</span><span className="nm">Open source<span className="desc">Read it, fork it, theme it, self-host it — the full source is on GitHub.</span></span><span className="sys">Dev</span></div>
+            <div className="ix"><span className="num">17</span><span className="nm">JSON import / export<span className="desc">Designs are plain JSON — wire them into your own save and asset pipelines.</span></span><span className="sys">Dev</span></div>
           </div>
         </section>
       </main>
@@ -217,11 +228,11 @@ function Landing() {
         <div className="wrap">
           <p className="overline ov reveal">№ 03 · Manifesto</p>
           <blockquote className="reveal">
-            Good design shouldn&rsquo;t need a <em>subscription</em> — or a manual.
+            Design tools should be <em>open</em> — and yours to embed.
           </blockquote>
           <p className="src reveal">
-            <b>So we built a full studio that runs in any browser</b> — templates, AI, video and animation, free, with
-            your work saved automatically as you go.
+            <b>So we built a full design studio, open-sourced it, and made it drop into any website</b> — a real Canva
+            alternative with no paywall, no watermark and no lock-in.
           </p>
         </div>
       </section>
@@ -229,11 +240,11 @@ function Landing() {
       {/* FIGURES */}
       <div className="figwrap reveal">
         <div className="wrap">
-          <div className="figcap"><span className="l">Fig. 1 — By the numbers</span><span className="r">Source: the studio</span></div>
+          <div className="figcap"><span className="l">Fig. 1 — By the numbers</span><span className="r">Source: the repo</span></div>
           <div className="figures">
             <div className="fig"><div className="n">100<em>s</em></div><div className="c">Templates included</div></div>
-            <div className="fig"><div className="n"><em>6</em></div><div className="c">Export formats</div></div>
-            <div className="fig"><div className="n">0<em>s</em></div><div className="c">To install</div></div>
+            <div className="fig"><div className="n"><em>1</em></div><div className="c">Embed to integrate</div></div>
+            <div className="fig"><div className="n"><em>100%</em></div><div className="c">Open source</div></div>
             <div className="fig"><div className="n"><em>$0</em></div><div className="c">Forever</div></div>
           </div>
         </div>
@@ -245,24 +256,24 @@ function Landing() {
           <div className="shead reveal"><span className="no">№ 04</span><h2>Pricing</h2><span className="meta">No catch</span></div>
           <div className="card reveal">
             <div className="left">
-              <div className="price">$0<small>Everything · forever</small></div>
+              <div className="price">$0<small>Open-source · forever</small></div>
             </div>
             <div className="right">
               <ul>
                 <li><span className="b">✳</span> Every template &amp; tool unlocked</li>
-                <li><span className="b">✳</span> AI image generation</li>
                 <li><span className="b">✳</span> Video, timeline &amp; animation</li>
                 <li><span className="b">✳</span> Export with no watermark</li>
-                <li style={{ borderBottom: 0 }}><span className="b">✳</span> No account required</li>
+                <li><span className="b">✳</span> Embed in any website</li>
+                <li style={{ borderBottom: 0 }}><span className="b">✳</span> Open-source on GitHub</li>
               </ul>
             </div>
             <div className="cta-row">
               <span className="btn btn-lg" onClick={go}>
                 Start designing <span className="ar">↗</span>
               </span>
-              <span className="mono" style={{ color: 'var(--muted)', fontSize: '12px' }}>
-                Runs in your browser · Saved on this device
-              </span>
+              <a href={GITHUB} target="_blank" rel="noreferrer" className="mono" style={{ color: 'var(--muted)', fontSize: '12px' }}>
+                Star it on GitHub ↗
+              </a>
             </div>
           </div>
         </div>
@@ -276,7 +287,7 @@ function Landing() {
           <h2>
             Go <em>make</em> something.
           </h2>
-          <p>Open the editor and turn an idea into a finished design, post or video — in minutes, for free.</p>
+          <p>Open the editor and turn an idea into a finished design — or embed the whole studio into your own product.</p>
           <span className="btn btn-lg" onClick={go}>
             Open the editor <span className="ar">↗</span>
           </span>
@@ -288,20 +299,20 @@ function Landing() {
         <div className="wrap inner">
           <div className="c">
             <span className="big">Marketifyall</span>
-            Design Studio № 01 · {year}. A free, browser-based design editor — templates, AI, video and animation, with
-            your work saved automatically. Set in <b>Fraunces</b>, <b>Space Grotesk</b> &amp; <b>Space Mono</b>.
+            Open-source design editor № 01 · {year}. A free Canva alternative — templates, video and animation — that you
+            can embed in any website. Set in <b>Fraunces</b>, <b>Space Grotesk</b> &amp; <b>Space Mono</b>.
           </div>
           <nav>
             <a href="#contents">Tools</a>
-            <a href="#manifesto">Manifesto</a>
-            <a href="#terms">Pricing</a>
+            <a href="#embed">Embed</a>
+            <a href={GITHUB} target="_blank" rel="noreferrer">GitHub ↗</a>
             <span style={{ cursor: 'pointer' }} onClick={go}>
               Open editor <span className="ar">↗</span>
             </span>
           </nav>
           <div className="end">
-            <span>© {year} Marketifyall · Design Editor</span>
-            <span>Free · No account required</span>
+            <span>© {year} Marketifyall · Open-source design editor</span>
+            <span>Free · Embeddable · No account required</span>
           </div>
         </div>
       </footer>
