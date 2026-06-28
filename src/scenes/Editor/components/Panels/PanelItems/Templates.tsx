@@ -75,17 +75,20 @@ function Templates() {
     const promisesList = fonts.map(font => {
       return new FontFace(font.name, `url(${font.url})`, font.options).load().catch(err => err)
     })
-    return new Promise((resolve, reject) => {
-      Promise.all(promisesList)
-        .then(res => {
-          res.forEach(uniqueFont => {
-            if (uniqueFont && (uniqueFont as FontFace).family) {
-              document.fonts.add(uniqueFont as FontFace)
-              resolve(true)
-            }
-          })
-        })
-        .catch(err => reject(err))
+    // Always resolve once ALL fonts settle (loaded OR failed), adding the ones
+    // that loaded. Previously resolve() was only called when a font SUCCEEDED, so
+    // a template whose font URLs fail to load (offline / CORS / bad URL) hung
+    // here forever and the design never imported.
+    return Promise.all(promisesList).then(res => {
+      res.forEach(uniqueFont => {
+        if (uniqueFont && (uniqueFont as FontFace).family) {
+          try {
+            document.fonts.add(uniqueFont as FontFace)
+          } catch {
+            /* ignore */
+          }
+        }
+      })
     })
   }
 
