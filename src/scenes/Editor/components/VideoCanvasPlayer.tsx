@@ -504,13 +504,16 @@ const VideoCanvasPlayer: React.FC = () => {
                 }
             }
 
-            // Store original opacity if not already stored
+            // Store original opacity if not already stored. Never snapshot a
+            // transient 0 — another effect may have already hidden the object this
+            // frame (e.g. during the animate-preview), and capturing that 0 as the
+            // "original" would strand the element invisible forever.
             if (!obj._wasHiddenForPlayback) {
-                obj._originalOpacity = obj.opacity ?? 1
+                obj._originalOpacity = obj.opacity && obj.opacity > 0 ? obj.opacity : 1
                 obj._wasHiddenForPlayback = true
             }
 
-            let targetOpacity = obj._originalOpacity ?? 1 // Default to visible
+            let targetOpacity = obj._originalOpacity || 1 // Default to visible (|| heals a corrupted 0)
 
             if (!isWithinTimeRange) {
                 // Hide everything outside its time range
@@ -533,7 +536,7 @@ const VideoCanvasPlayer: React.FC = () => {
                     // so text/images never silently vanish while paused/editing (the overlay
                     // mirror can be empty or mispositioned, leaving an invisible-but-selectable
                     // object).
-                    targetOpacity = isPlaying && activeClipId ? 0 : (obj._originalOpacity ?? 1)
+                    targetOpacity = isPlaying && activeClipId ? 0 : (obj._originalOpacity || 1)
                 }
             }
 

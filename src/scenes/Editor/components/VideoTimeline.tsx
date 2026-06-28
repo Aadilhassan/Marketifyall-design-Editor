@@ -1728,10 +1728,15 @@ const VideoTimeline: React.FC = () => {
 
       if (!isTimelineObject) return
 
-      // Store original opacity if not already stored (for restore when playback stops)
+      // Store original opacity if not already stored (for restore when playback
+      // stops). Never snapshot a transient 0 — another effect may have hidden the
+      // object this frame (e.g. during the animate-preview), and capturing that 0
+      // as the "original" would strand the element invisible forever.
       if (obj._originalOpacity === undefined) {
-        obj._originalOpacity = obj.opacity ?? 1
+        obj._originalOpacity = obj.opacity && obj.opacity > 0 ? obj.opacity : 1
       }
+      // Heal an already-corrupted snapshot from a previous frame/session.
+      if (obj._originalOpacity === 0) obj._originalOpacity = 1
 
       // Get timeline metadata (default to full timeline if not set)
       const timelineStart = obj.metadata?.timelineStart ?? 0
