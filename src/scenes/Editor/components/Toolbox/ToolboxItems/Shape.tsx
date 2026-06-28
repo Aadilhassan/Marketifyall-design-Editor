@@ -4,6 +4,7 @@ import Common from './components/Common'
 import StrokeWidth from './components/StrokeWidth'
 import CornerRadius from './components/CornerRadius'
 import ColorControl from './components/ColorControl'
+import Animate from './components/Animate'
 
 function Shape() {
   const activeObject = useActiveObject() as any
@@ -24,6 +25,7 @@ function Shape() {
         {controls.stroke && <ColorControl property="stroke" />}
         {controls.strokeWidth && <StrokeWidth />}
         {controls.cornerRadius && <CornerRadius />}
+        <Animate />
       </div>
       <Common />
     </div>

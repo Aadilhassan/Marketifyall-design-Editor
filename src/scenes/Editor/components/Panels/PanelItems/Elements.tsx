@@ -143,6 +143,7 @@ const CountBadge = styled('span', {
 
 const CategoryNav = styled('div', {
   display: 'flex',
+  flexWrap: 'wrap',
   overflowX: 'auto',
   gap: '0',
   borderBottom: '1px solid #e8e8e8',
