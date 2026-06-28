@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useMemo, useState, useRef } from 'react'
+import React, { createContext, useCallback, useContext, useMemo, useState, useRef } from 'react'
 
 export type TimelineLayer = {
   id: string
@@ -51,9 +51,11 @@ type VideoContextValue = {
   // Multi-select
   selectClip: (id: string, addToSelection?: boolean) => void
   clearSelection: () => void
-  // Shared playback state for syncing timeline and canvas player
+  // Shared playback state for syncing timeline and canvas player.
+  // NOTE: currentTime is intentionally NOT here — it updates ~60fps during
+  // playback and lives in PlaybackTimeContext so it doesn't re-render every
+  // VideoContext consumer. Read the clock via usePlaybackTime().
   isPlaying: boolean
-  currentTime: number
   setCurrentTime: (time: number) => void
   play: () => void
   pause: () => void
@@ -87,7 +89,6 @@ export const VideoContext = createContext<VideoContextValue>({
   clearSelection: () => { },
   // Shared playback defaults
   isPlaying: false,
-  currentTime: 0,
   setCurrentTime: () => { },
   play: () => { },
   pause: () => { },
@@ -97,6 +98,13 @@ export const VideoContext = createContext<VideoContextValue>({
   registerVideoRef: () => { },
   getVideoRef: () => null,
 })
+
+// currentTime is split into its own context because it updates ~60fps during
+// playback. Keeping it OUT of VideoContext means only components that actually
+// read the clock (the animation driver, the canvas player, the timeline
+// playhead) re-render each tick — not the entire editor (root, navbar, panels,
+// toolbox). Read it via usePlaybackTime().
+export const PlaybackTimeContext = createContext<{ currentTime: number }>({ currentTime: 0 })
 
 export const VideoProvider: React.FC = ({ children }) => {
   const [clips, setClips] = useState<VideoClip[]>([])
@@ -279,9 +287,8 @@ export const VideoProvider: React.FC = ({ children }) => {
       updateLayer,
       selectClip,
       clearSelection,
-      // Shared playback state
+      // Shared playback state (currentTime lives in PlaybackTimeContext)
       isPlaying,
-      currentTime,
       setCurrentTime,
       play,
       pause,
@@ -291,8 +298,19 @@ export const VideoProvider: React.FC = ({ children }) => {
       registerVideoRef,
       getVideoRef,
     }),
-    [clips, audioClips, layers, activeClipId, selectedClipIds, isTimelineOpen, addClip, removeClip, updateClip, reorderClips, addAudioClip, removeAudioClip, updateAudioClip, addLayer, removeLayer, updateLayer, selectClip, clearSelection, isPlaying, currentTime, play, pause, togglePlayback, seek, setIsPlaying, registerVideoRef, getVideoRef]
+    [clips, audioClips, layers, activeClipId, selectedClipIds, isTimelineOpen, addClip, removeClip, updateClip, reorderClips, addAudioClip, removeAudioClip, updateAudioClip, addLayer, removeLayer, updateLayer, selectClip, clearSelection, isPlaying, play, pause, togglePlayback, seek, setIsPlaying, registerVideoRef, getVideoRef]
   )
 
-  return <VideoContext.Provider value={value}>{children}</VideoContext.Provider>
+  // Isolated so a 60fps clock tick only re-renders the few clock consumers.
+  const playbackValue = useMemo(() => ({ currentTime }), [currentTime])
+
+  return (
+    <VideoContext.Provider value={value}>
+      <PlaybackTimeContext.Provider value={playbackValue}>{children}</PlaybackTimeContext.Provider>
+    </VideoContext.Provider>
+  )
 }
+
+/** Read the high-frequency playback clock. Kept separate from useVideoContext so
+ *  components that don't need the clock don't re-render ~60fps during playback. */
+export const usePlaybackTime = () => useContext(PlaybackTimeContext)

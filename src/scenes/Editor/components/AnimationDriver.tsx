@@ -9,13 +9,15 @@
 import React, { useEffect, useRef } from 'react'
 import { useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
+import { usePlaybackTime } from '@/contexts/VideoContext'
 import { applyAnimationsToCanvas, invalidateBase, restoreAllBases } from '@/utils/animation'
 
 const REST_EPS = 0.015
 
 const AnimationDriver: React.FC = () => {
   const { canvas } = useEditorContext()
-  const { currentTime, isPlaying } = useVideoContext()
+  const { isPlaying } = useVideoContext()
+  const { currentTime } = usePlaybackTime()
   const stateRef = useRef({ currentTime, isPlaying })
   stateRef.current = { currentTime, isPlaying }
 

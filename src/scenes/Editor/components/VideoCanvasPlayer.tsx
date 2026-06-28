@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { styled } from 'baseui'
 import useVideoContext from '@/hooks/useVideoContext'
+import { usePlaybackTime } from '@/contexts/VideoContext'
 import { useEditorContext } from '@nkyo/scenify-sdk'
 import { hasActiveAnimation, getObjectAnimation, getAnimOpacity } from '@/utils/animation'
 
@@ -138,13 +139,13 @@ const VideoCanvasPlayer: React.FC = () => {
         clips,
         activeClipId,
         isPlaying,
-        currentTime,
         setCurrentTime,
         togglePlayback,
         registerVideoRef,
         setActiveClip,
         setIsPlaying
     } = useVideoContext()
+    const { currentTime } = usePlaybackTime()
     const { canvas } = useEditorContext()
     const [canvasBounds, setCanvasBounds] = useState<CanvasBounds | null>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)

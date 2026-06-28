@@ -229,7 +229,7 @@ function Panel() {
 
   const editor = useEditor()
   const { canvas } = useEditorContext() as any
-  const { currentTime, clips } = useVideoContext()
+  const { clips } = useVideoContext()
 
   const defaultStaticPreset = TEXT_PRESETS.find(preset => preset.id === 'static-default')
 

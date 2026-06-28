@@ -3,6 +3,7 @@ import { styled } from 'baseui'
 import { StatefulPopover, PLACEMENT } from 'baseui/popover'
 import { Slider } from 'baseui/slider'
 import useVideoContext from '@/hooks/useVideoContext'
+import { usePlaybackTime } from '@/contexts/VideoContext'
 import { useEditorContext, useEditor } from '@nkyo/scenify-sdk'
 import useAppContext from '@/hooks/useAppContext'
 import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
@@ -817,12 +818,12 @@ const VideoTimeline: React.FC = () => {
     removeClip,
     updateClip,
     isPlaying,
-    currentTime,
     setCurrentTime,
     togglePlayback,
     seek,
     setIsPlaying,
   } = useVideoContext()
+  const { currentTime } = usePlaybackTime()
 
   const { canvas } = useEditorContext()
   const editor = useEditor()
