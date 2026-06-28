@@ -1,5 +1,15 @@
 import { useHistory } from 'react-router-dom'
 import EditorialShell from '@/components/EditorialShell'
+import '../../styles/landing.css'
+
+const GITHUB = 'https://github.com/Aadilhassan/Marketifyall-design-Editor'
+
+const DIFF = [
+  ['◎', 'Free & open-source', 'Every feature unlocked, no watermark, no account — and the full source is on GitHub.'],
+  ['◧', 'Runs in the browser', 'Nothing to install. Your designs auto-save to this device and never leave unless you export.'],
+  ['✷', 'Built for creators', 'Made by people who design every day — fast, focused and honest, no dark patterns.'],
+  ['{ }', 'Embeddable', 'Drop the whole editor into any product with a single iframe — designs export as plain JSON.'],
+]
 
 function About() {
   const history = useHistory()
@@ -8,60 +18,50 @@ function About() {
   return (
     <EditorialShell folio="ABOUT · THE DESIGN EDITOR">
       <main className="wrap">
-        <article className="dispatch reveal" style={{ borderTop: 'none' }}>
-          <p className="overline ov">№ 01 · About</p>
-          <div className="top">
-            <div className="lead-no">M</div>
-            <h3>
-              A free, open-source design editor — a <em>Canva alternative</em> that runs in your browser.
-            </h3>
+        <section className="sec" style={{ borderTop: 'none' }}>
+          <div className="reveal">
+            <div className="kq">About</div>
+            <h2>
+              A free, open-source <em>Canva alternative.</em>
+            </h2>
+            <p className="lead">
+              Design Editor by Marketifyall is a complete design studio you can open in a browser tab — templates,
+              photos, video and real animation, with one-click export and no watermark. It’s built by{' '}
+              <b>QuickShift Labs</b>, fully open-source, and embeddable in any website.
+            </p>
+            <div className="doc-acts">
+              <span className="btn" onClick={go}>
+                Start designing <span className="ar">↗</span>
+              </span>
+              <a className="ghbtn" href={GITHUB} target="_blank" rel="noreferrer">
+                ★ GitHub
+              </a>
+            </div>
           </div>
-          <div className="body">
-            <p>
-              Design Editor by Marketifyall is a complete design studio you can open in a tab: templates, AI image
-              generation, stock photos and video, real motion and animation, and one-click export — with no paywall and
-              no watermark.
-            </p>
-            <p>
-              It&rsquo;s built and maintained by <b>QuickShift Labs</b> and is fully open-source. Your work auto-saves to
-              your device, so a refresh never costs you progress, and nothing leaves the browser unless you export it.
-            </p>
-            <p>
-              The goal is simple: make great design tools available to everyone, for free, without the subscription and
-              the lock-in.
-            </p>
-          </div>
-          <p className="pull">Great design tools, free for everyone.</p>
-        </article>
+        </section>
 
-        <div className="asterism" aria-hidden="true">⁂</div>
-
-        <section>
-          <div className="shead reveal"><span className="no">№ 02</span><h2>What makes us different</h2></div>
-          <div className="dept reveal">
-            <div className="ix"><span className="num">01</span><span className="nm">Free &amp; open-source<span className="desc">Every feature unlocked, no watermark, no account — and the source is on GitHub.</span></span><span className="sys">Ethos</span></div>
-            <div className="ix"><span className="num">02</span><span className="nm">Runs in the browser<span className="desc">Nothing to install; your designs auto-save to this device.</span></span><span className="sys">Ethos</span></div>
-            <div className="ix"><span className="num">03</span><span className="nm">Built for creators<span className="desc">Made by people who design every day — fast, focused and honest.</span></span><span className="sys">Ethos</span></div>
-            <div className="ix"><span className="num">04</span><span className="nm">Powered by QuickShift Labs<span className="desc">Part of the Marketifyall family of tools for modern creators.</span></span><span className="sys">Team</span></div>
+        <section className="sec">
+          <div className="reveal">
+            <div className="kq">What makes us different</div>
+            <h2>
+              Great design tools, <em>free for everyone.</em>
+            </h2>
+            <p className="lead">No subscription, no lock-in — just a fast, capable editor that’s yours to use and build on.</p>
+            <div className="feats" style={{ marginTop: 30 }}>
+              {DIFF.map(([ic, t, d]) => (
+                <div className="feat" key={t}>
+                  <div className="ic">{ic}</div>
+                  <h3>{t}</h3>
+                  <p>{d}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <p className="standfirst reveal" style={{ marginTop: 24 }}>
-            Open on{' '}
-            <a href="https://github.com/Aadilhassan/Marketifyall-design-Editor" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
-              GitHub
-            </a>{' '}
-            · A{' '}
-            <a href="https://quickshiftlabs.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>
-              QuickShift Labs
-            </a>{' '}
-            project.
-          </p>
         </section>
       </main>
 
-      <section className="backcover">
-        <span className="ghost" aria-hidden="true">M</span>
-        <div className="wrap inner reveal">
-          <p className="ov">№ 03 · Get started</p>
+      <section className="ctaband">
+        <div className="wrap">
           <h2>
             Make <em>something.</em>
           </h2>

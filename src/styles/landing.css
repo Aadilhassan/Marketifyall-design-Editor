@@ -91,9 +91,19 @@
 .ed-page .foot a:hover { color: var(--accent); }
 .ed-page .foot .end { grid-column: 1/-1; border-top: 1px solid rgba(255, 255, 255, .14); margin-top: 30px; padding-top: 18px; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: #8d8775; flex-wrap: wrap; gap: 8px; }
 
+/* DEVELOPER DOCS — tables, inline code, anchors */
+.ed-page .doctable { width: 100%; border-collapse: collapse; margin-top: 22px; border: 2px solid var(--ink); background: #fff; }
+.ed-page .doctable th { text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); padding: 12px 16px; border-bottom: 2px solid var(--ink); background: var(--paper); }
+.ed-page .doctable td { padding: 13px 16px; border-bottom: 1px solid var(--rule); font-size: 14px; color: var(--ink2); vertical-align: top; }
+.ed-page .doctable tr:last-child td { border-bottom: none; }
+.ed-page .chip { font-family: var(--mono); font-size: 12.5px; background: var(--paper2); border: 1px solid var(--rule); padding: 2px 7px; color: var(--accent); white-space: nowrap; }
+.ed-page .doc-acts { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 26px; align-items: center; }
+.ed-page .code-cap { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 30px 0 -6px; }
+
 @media (max-width: 900px) {
   .ed-page .hero-grid, .ed-page .dev .grid { grid-template-columns: 1fr; }
   .ed-page .foot-grid { grid-template-columns: 1fr 1fr; }
+  .ed-page .doctable { display: block; overflow-x: auto; }
 }
 @media (max-width: 560px) {
   .ed-page .foot-grid { grid-template-columns: 1fr; }
