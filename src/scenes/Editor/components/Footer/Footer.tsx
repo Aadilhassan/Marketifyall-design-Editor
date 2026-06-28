@@ -1,4 +1,5 @@
 import { Button, KIND, SHAPE, SIZE } from 'baseui/button'
+import { useEffect } from 'react'
 import { styled } from 'baseui'
 import { Plus, CheckIndeterminate } from 'baseui/icon'
 import { StatefulPopover, PLACEMENT } from 'baseui/popover'
@@ -37,7 +38,23 @@ const ZoomItemContainer = styled('div', () => ({
 }))
 function Footer() {
   const editor = useEditor()
-  const { zoomRatio } = useEditorContext()
+  const { zoomRatio, frameSize } = useEditorContext() as any
+
+  // Fit the design to the viewport on load (and whenever the canvas size
+  // changes). Without this the board renders at a tiny/incorrect zoom (the
+  // widget showed "-2%") instead of filling the view like Canva does.
+  useEffect(() => {
+    if (!editor) return
+    const t = setTimeout(() => {
+      try {
+        editor.zoomToFit()
+      } catch {
+        /* ignore */
+      }
+    }, 350)
+    return () => clearTimeout(t)
+  }, [editor, frameSize?.width, frameSize?.height])
+
   return (
     <Container>
       <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
