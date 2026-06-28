@@ -174,22 +174,17 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
   ctx.fillStyle = backgroundColor
   ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
 
-  // captureStream(0) gives us a manual-advance track: we paint a frame then call
-  // requestFrame() to push EXACTLY that frame. This yields a smooth, frame-accurate
-  // video (each frame rendered at exact time t = i/fps) instead of whatever the
-  // browser happened to sample. Falls back to auto-capture if unsupported.
+  // Auto-capture the canvas at the target fps: the browser samples it on a steady
+  // clock while we repaint it every animation frame (real-time loop below). This
+  // yields SMOOTH video. The previous manual captureStream(0) + requestFrame()
+  // approach, paced by setTimeout(frameMs), produced uneven frame timing — choppy
+  // "stop-motion" output — because MediaRecorder records in wall-clock time and
+  // the per-frame render cost made the requestFrame cadence drift.
   let stream: MediaStream
-  let captureTrack: any = null
   try {
-    stream = (exportCanvas as any).captureStream(0)
-    captureTrack = stream.getVideoTracks()[0]
-    if (!captureTrack || typeof captureTrack.requestFrame !== 'function') {
-      stream = exportCanvas.captureStream(fps)
-      captureTrack = null
-    }
-  } catch {
     stream = exportCanvas.captureStream(fps)
-    captureTrack = null
+  } catch {
+    stream = (exportCanvas as any).captureStream()
   }
 
   videoTargets.forEach(v => {
@@ -309,11 +304,9 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
       }
     }
 
-    const frameMs = 1000 / fps
-    const totalFrames = Math.max(1, Math.ceil(durationSec * fps))
-    let frameIndex = 0
+    let startWall = 0
 
-    const renderAt = (t: number) => {
+    const renderFrame = (t: number) => {
       renderDesignFrame({
         ctx,
         exportCanvas,
@@ -326,45 +319,42 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
         mult,
         t,
       })
-      if (captureTrack) {
-        try {
-          captureTrack.requestFrame()
-        } catch {
-          /* ignore */
-        }
-      }
     }
 
+    // Real-time render loop: repaint the export canvas every animation frame at
+    // the ACTUAL elapsed time, and let captureStream(fps) sample it on a steady
+    // clock. Produces smooth, real-time video (correct duration, in-sync video
+    // audio) — unlike the old frame-index + setTimeout pacing whose uneven
+    // cadence made MediaRecorder output choppy "stop-motion" frames.
     const step = () => {
       if (settled) return
       try {
-        const t = Math.min(durationSec, frameIndex / fps)
-        renderAt(t)
+        const elapsed = (performance.now() - startWall) / 1000
+        const t = Math.min(durationSec, elapsed)
+        renderFrame(t)
         try {
-          onProgress?.(Math.min(99, (frameIndex / totalFrames) * 100), 'Rendering...')
+          onProgress?.(Math.min(99, (t / Math.max(0.001, durationSec)) * 100), 'Rendering...')
         } catch {
           /* ignore */
         }
-        frameIndex++
-        if (frameIndex <= totalFrames) {
-          // Real-time pacing keeps the encoded video the right DURATION and keeps
-          // any video-clip audio in sync.
-          setTimeout(step, frameMs)
+        if (elapsed >= durationSec) {
+          // Hold the final frame briefly so it's captured, then stop.
+          setTimeout(stopRecorder, 120)
         } else {
-          stopRecorder()
+          requestAnimationFrame(step)
         }
       } catch {
-        if (frameIndex < totalFrames) setTimeout(step, frameMs)
-        else stopRecorder()
+        stopRecorder()
       }
     }
 
     try {
-      recorder.start(Math.max(100, Math.round(frameMs)))
+      recorder.start()
       onProgress?.(2, 'Rendering...')
-      setTimeout(step, 0)
+      startWall = performance.now()
+      requestAnimationFrame(step)
       // Hard watchdog: force-finish even if the loop stalls.
-      watchdog = setTimeout(stopRecorder, totalFrames * frameMs + 5000)
+      watchdog = setTimeout(stopRecorder, durationSec * 1000 + 5000)
     } catch {
       finish()
     }
