@@ -92,7 +92,12 @@ function Panel() {
       setCurrentTime(start)
       play()
     }, 30)
-    window.setTimeout(() => pause(), (dur + 0.2) * 1000)
+    window.setTimeout(() => {
+      pause()
+      // Return to rest so the just-animated element is restored to its authored
+      // state and stays visible & editable (instead of frozen mid-animation).
+      setCurrentTime(0)
+    }, (dur + 0.2) * 1000)
   }, [activeObject, setTimelineOpen, setCurrentTime, play, pause])
 
   const applyPreset = useCallback(

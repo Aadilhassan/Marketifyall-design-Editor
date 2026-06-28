@@ -942,12 +942,13 @@ const VideoTimeline: React.FC = () => {
           obj.metadata.id = obj.id
         }
 
-        // Initialize timeline metadata if not already set
+        // Do NOT stamp a finite (5s) window on plain elements — that made them
+        // vanish once the playhead passed 5s (and at the very end of playback).
+        // With no timelineDuration the opacity/track logic treats the element as
+        // visible for the whole timeline (it falls back to totalDuration), which
+        // is what users expect for a static element.
         if (obj.metadata.timelineStart === undefined) {
           obj.metadata.timelineStart = 0
-        }
-        if (obj.metadata.timelineDuration === undefined) {
-          obj.metadata.timelineDuration = 5 // Default 5 seconds for new elements
         }
       }
 
@@ -1803,10 +1804,14 @@ const VideoTimeline: React.FC = () => {
 
       const newTime = currentTimeRef.current + deltaSeconds
 
-      // Stop at end of timeline
+      // Stop at end of timeline. Return the clock to 0 rather than pinning it at
+      // totalDuration: full-duration objects are hidden exactly at
+      // currentTime === totalDuration (and the driver hides out-of-window animated
+      // objects), which left the whole canvas BLANK after playback. Resetting to 0
+      // restores every element to its editable authored state.
       if (newTime >= totalDuration) {
-        setCurrentTime(totalDuration)
-        togglePlayback() // Pause at end
+        togglePlayback() // stop
+        setCurrentTime(0)
         return
       }
 
