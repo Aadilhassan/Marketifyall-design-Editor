@@ -95,6 +95,8 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                     targetCanvas.add(fabricObject)
                     selectObject(targetCanvas, fabricObject)
                     targetCanvas.bringToFront(fabricObject)
+                    // Snapshot history so Ctrl+Z removes the newly added element
+                    try { targetCanvas.fire('object:modified', { target: fabricObject }) } catch { /* ignore */ }
 
                     // Force render multiple times to ensure visibility
                     targetCanvas.requestRenderAll()
@@ -184,6 +186,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                         })
                         targetCanvas.add(group)
                         selectObject(targetCanvas, group)
+                        try { targetCanvas.fire('object:modified', { target: group }) } catch { /* ignore */ }
                         targetCanvas.requestRenderAll()
                     })
                     return true
@@ -234,6 +237,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
 
                             targetCanvas.add(fabricImage)
                             selectObject(targetCanvas, fabricImage)
+                            try { targetCanvas.fire('object:modified', { target: fabricImage }) } catch { /* ignore */ }
                             targetCanvas.requestRenderAll()
                             setTimeout(() => targetCanvas.requestRenderAll(), 100)
                         }
@@ -262,6 +266,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
 
                 targetCanvas.add(fabricObject)
                 selectObject(targetCanvas, fabricObject)
+                try { targetCanvas.fire('object:modified', { target: fabricObject }) } catch { /* ignore */ }
                 targetCanvas.requestRenderAll()
                 return true
             }
@@ -382,6 +387,7 @@ export const addShapeToCanvas = (canvas: any, shapeType: string, options: any = 
         if (shape) {
             canvas.add(shape)
             selectObject(canvas, shape)
+            try { canvas.fire('object:modified', { target: shape }) } catch { /* ignore */ }
             canvas.requestRenderAll()
             return true
         }
@@ -430,6 +436,7 @@ export const addTextToCanvas = (canvas: any, text: string, options: any = {}) =>
 
         canvas.add(textbox)
         selectObject(canvas, textbox)
+        try { canvas.fire('object:modified', { target: textbox }) } catch { /* ignore */ }
         canvas.requestRenderAll()
         return true
     } catch (error) {

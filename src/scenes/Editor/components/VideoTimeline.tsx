@@ -995,7 +995,7 @@ const VideoTimeline: React.FC = () => {
 
     // Add 5 seconds padding for breathing room, minimum 15 seconds for usability
     return Math.max(15, maxEndTime + 5)
-  }, [clips, audioClips, canvas])
+  }, [clips, audioClips, canvas, canvasObjectVersion])
 
   const totalDuration = calculateTotalDuration
   const timelineWidth = totalDuration * pixelsPerSecond
@@ -1187,7 +1187,7 @@ const VideoTimeline: React.FC = () => {
     }
 
     return newTracks
-  }, [canvas, clips, audioClips, totalDuration])
+  }, [canvas, clips, audioClips, totalDuration, canvasObjectVersion])
 
   // Track which audio clips are ready to play
   const audioReadyRef = useRef<Record<string, boolean>>({})

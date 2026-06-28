@@ -20,6 +20,11 @@ export const toolboxOptions: Record<string, string> = {
   line: 'Shape',
   polygon: 'Shape',
   polyline: 'Shape',
+  // grouped SVGs (icons / illustrations) and standalone paths get a real toolbar
+  group: 'StaticVector',
+  Group: 'StaticVector',
+  path: 'StaticPath',
+  Path: 'StaticPath',
 }
 
 export const getContextMenuType = (selection: any): string | string[] => {
@@ -27,7 +32,10 @@ export const getContextMenuType = (selection: any): string | string[] => {
   if (!selection) {
     return 'Default'
   }
-  if (selection._objects) {
+  // Only an actual multi-select (activeSelection) is unwrapped into its members.
+  // A single group / icon / illustration also has _objects but must be treated
+  // as ONE element so it routes to a real toolbar instead of 'Multi'/Default.
+  if (selection.type === 'activeSelection' && selection._objects) {
     for (const object of selection._objects) {
       types.add(object.type)
     }
