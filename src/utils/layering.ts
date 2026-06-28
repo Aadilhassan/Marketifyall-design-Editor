@@ -22,7 +22,9 @@ export const getFabricCanvas = (editor: AnyObj): AnyObj =>
 
 /** Send to the back of the USER content — just above the frame/background. */
 export const sendToBackSafe = (canvas: AnyObj, obj: AnyObj): void => {
-  if (!canvas || !obj || isBackgroundObj(obj)) return
+  if (!canvas) return
+  obj = obj || canvas.getActiveObject?.()
+  if (!obj || isBackgroundObj(obj)) return
   try {
     const objects = canvas.getObjects?.() || []
     const floor = objects.filter(isBackgroundObj).length // frame/bg sit at the bottom
@@ -36,7 +38,9 @@ export const sendToBackSafe = (canvas: AnyObj, obj: AnyObj): void => {
 
 /** Move back one layer, but never below the frame/background. */
 export const sendBackwardsSafe = (canvas: AnyObj, obj: AnyObj): void => {
-  if (!canvas || !obj || isBackgroundObj(obj)) return
+  if (!canvas) return
+  obj = obj || canvas.getActiveObject?.()
+  if (!obj || isBackgroundObj(obj)) return
   try {
     const objects = canvas.getObjects?.() || []
     const floor = objects.filter(isBackgroundObj).length

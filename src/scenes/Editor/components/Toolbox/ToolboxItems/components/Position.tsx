@@ -2,11 +2,12 @@ import Icons from '../../../Icons'
 import { Button, KIND, SIZE } from 'baseui/button'
 import { StatefulPopover, PLACEMENT } from 'baseui/popover'
 import { useStyletron } from 'baseui'
-import { useEditor } from '@nkyo/scenify-sdk'
+import { useEditor, useActiveObject } from '@nkyo/scenify-sdk'
 import { sendToBackSafe, sendBackwardsSafe, getFabricCanvas } from '@/utils/layering'
 
 function Position() {
   const editor = useEditor()
+  const activeObject = useActiveObject()
   return (
     <StatefulPopover
       focusLock
@@ -30,18 +31,12 @@ function Position() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
               <PositionItem
-                onClick={() => {
-                  const c = getFabricCanvas(editor)
-                  sendBackwardsSafe(c, c?.getActiveObject?.())
-                }}
+                onClick={() => sendBackwardsSafe(getFabricCanvas(editor), activeObject)}
                 icon="Backward"
                 label="Backward"
               />
               <PositionItem
-                onClick={() => {
-                  const c = getFabricCanvas(editor)
-                  sendToBackSafe(c, c?.getActiveObject?.())
-                }}
+                onClick={() => sendToBackSafe(getFabricCanvas(editor), activeObject)}
                 icon="ToBack"
                 label="To Back"
               />
