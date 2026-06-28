@@ -1,5 +1,6 @@
 import { useHistory } from 'react-router-dom'
 import EditorialShell from '@/components/EditorialShell'
+import Seo from '@/components/Seo'
 import '../../styles/landing.css'
 
 const GITHUB = 'https://github.com/Aadilhassan/Marketifyall-design-Editor'
@@ -17,6 +18,11 @@ function About() {
 
   return (
     <EditorialShell folio="ABOUT · THE DESIGN EDITOR">
+      <Seo
+        title="About — Marketifyall Design Editor"
+        description="Marketifyall is a free, open-source Canva alternative built by QuickShift Labs — capable design tools for everyone, with no paywall, no watermark and no lock-in."
+        path="/about"
+      />
       <main className="wrap">
         <section className="sec" style={{ borderTop: 'none' }}>
           <div className="reveal">

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import EditorialShell from '@/components/EditorialShell'
+import Seo from '@/components/Seo'
 
 const fieldStyle: React.CSSProperties = {
   width: '100%',
@@ -37,6 +38,11 @@ function Contact() {
 
   return (
     <EditorialShell folio="CONTACT · GET IN TOUCH">
+      <Seo
+        title="Contact — Marketifyall Design Editor"
+        description="Get in touch with the Marketifyall team — questions, feedback, bug reports and contributions to the open-source design editor."
+        path="/contact"
+      />
       <main className="wrap">
         <div className="shead reveal">
           <span className="no">№ 01</span>

@@ -1,5 +1,6 @@
 import { useHistory } from 'react-router-dom'
 import EditorialShell from '@/components/EditorialShell'
+import Seo from '@/components/Seo'
 import '../../styles/landing.css'
 
 const GITHUB = 'https://github.com/Aadilhassan/Marketifyall-design-Editor'
@@ -69,6 +70,11 @@ function EmbedDocs() {
 
   return (
     <EditorialShell folio="DEVELOPERS · EMBED THE EDITOR">
+      <Seo
+        title="Developers — Embed the Design Editor | Marketifyall"
+        description="Embed the Marketifyall design editor in your product with a single iframe. Open-source, with a simple postMessage API for events and commands."
+        path="/developers"
+      />
       <main className="wrap">
         {/* intro */}
         <section className="sec" style={{ borderTop: 'none' }}>

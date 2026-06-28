@@ -1,3 +1,10 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+Disallow: /design
+Disallow: /dashboard
+Disallow: /embed
+Disallow: /export-test
+Disallow: /url-to-video
+
+Sitemap: https://design.marketifyall.com/sitemap.xml

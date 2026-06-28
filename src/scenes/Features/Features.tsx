@@ -1,5 +1,6 @@
 import { useHistory } from 'react-router-dom'
 import EditorialShell from '@/components/EditorialShell'
+import Seo from '@/components/Seo'
 import '../../styles/landing.css'
 
 const GITHUB = 'https://github.com/Aadilhassan/Marketifyall-design-Editor'
@@ -35,6 +36,11 @@ function Features() {
 
   return (
     <EditorialShell folio="FEATURES · FREE & OPEN-SOURCE">
+      <Seo
+        title="Features — Free Design Editor | Marketifyall"
+        description="Templates, elements, text & fonts, stock photos & video, a multi-track video timeline, animations, filters and watermark-free export — every feature free and open-source."
+        path="/features"
+      />
       <main className="wrap">
         <section className="sec" style={{ borderTop: 'none' }}>
           <div className="reveal">

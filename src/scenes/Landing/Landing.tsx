@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { useHistory } from 'react-router-dom'
 import '../../styles/editorial.css'
 import '../../styles/landing.css'
+import Seo from '@/components/Seo'
 
 const GITHUB = 'https://github.com/Aadilhassan/Marketifyall-design-Editor'
 
@@ -41,6 +42,11 @@ function Landing() {
 
   return (
     <div className="ed-page">
+      <Seo
+        title="Marketifyall Design Editor — Free, Open-Source Canva Alternative"
+        description="A free, open-source design editor in your browser: hundreds of templates, stock photos, video & animation and one-click export — no watermark, no account, and embeddable in any website."
+        path="/"
+      />
       <div className="topbar" aria-hidden="true" />
 
       {/* MASTHEAD */}
