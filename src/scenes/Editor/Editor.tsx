@@ -90,10 +90,6 @@ function makeThumbnail(canvas: any): string {
   }
 }
 
-// Custom object props fabric must serialize so a restored design keeps its
-// scenify identity/metadata (geometry, fill, text and image src save by default).
-const SAVE_PROPS = ['id', 'name', 'metadata', 'animations', 'selectable', 'evented', 'editable', 'src', 'crossOrigin', 'padding']
-
 function App() {
   const { setCurrentTemplate } = useAppContext()
   const editor = useEditor() as unknown as EditorWithCanvas | null
@@ -222,6 +218,7 @@ function App() {
       frameReadyRef.current = false
       getProject(routeId)
         .then(project => {
+          const ed = editor as any
           const restoreCanvas = getFabricCanvas(editor)
           // Apply the chosen format size with setSize() (resizes BOTH frame and
           // background — update() leaves the background, stacking a 2nd rect).
@@ -234,7 +231,6 @@ function App() {
             }
             let tries = 0
             const tryApply = () => {
-              const ed = editor as any
               const objs = getFabricCanvas(editor)?.getObjects?.() || []
               const hasFrame = objs.some((o: any) => o && o.type === 'Frame')
               const userObjs = objs.filter((o: any) => o && o.type !== 'Frame' && o.type !== 'Background').length
@@ -256,11 +252,25 @@ function App() {
             tryApply()
           }
 
-          if (project?.json && restoreCanvas?.loadFromJSON) {
-            restoreCanvas.loadFromJSON(project.json, () => {
+          const json = project?.json
+          if (json && json.frame && typeof ed.importFromJSON === 'function') {
+            // scenify template format (new saves) — rebuilds frame, clip, zoom & animations.
+            try {
+              const r = ed.importFromJSON(json)
+              const done = () => {
+                frameReadyRef.current = true
+              }
+              if (r && typeof r.then === 'function') r.then(done).catch(done)
+              else setTimeout(done, 500)
+            } catch {
+              frameReadyRef.current = true
+            }
+          } else if (json && restoreCanvas?.loadFromJSON) {
+            // legacy fabric-format json — fallback restore.
+            restoreCanvas.loadFromJSON(json, () => {
               restoreCanvas.renderAll?.()
               try {
-                ;(editor as any).zoomToFit?.()
+                ed.zoomToFit?.()
               } catch {
                 /* ignore */
               }
@@ -288,14 +298,17 @@ function App() {
     const save = () => {
       if (cancelled || !frameReadyRef.current) return
       try {
-        const cv = getFabricCanvas(editor)
-        if (!cv?.toJSON) return
-        const json = cv.toJSON(SAVE_PROPS)
-        const objs = json && json.objects ? json.objects : []
+        const ed = editor as any
+        // Use scenify's exportToJSON (frame + objects + background) so importFromJSON
+        // can rebuild the design — frame, clipping, zoom and animations — on restore.
+        const json = typeof ed.exportToJSON === 'function' ? ed.exportToJSON() : null
+        if (!json) return
+        const objs = json.objects || []
         const sig = objs.length + ':' + JSON.stringify(objs).length
         if (sig === lastSig) return
         lastSig = sig
-        patchProject(routeId, { json, thumbnail: makeThumbnail(cv) }).catch(() => {})
+        const cv = getFabricCanvas(editor)
+        patchProject(routeId, { json, thumbnail: cv ? makeThumbnail(cv) : undefined }).catch(() => {})
       } catch {
         /* ignore save errors */
       }
