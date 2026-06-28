@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
+import { selectObject } from '@/utils/selectObject'
 import {
   Copy,
   Clipboard,
@@ -128,85 +129,84 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
   }, [handleContextMenu, handleClick, handleKeyDown])
 
   // Keyboard shortcuts
+  // Keyboard shortcuts. Registered in CAPTURE phase and stopPropagation()'d for
+  // keys we handle, so the SDK's own wrapperEl keydown handler cannot ALSO fire
+  // (that caused double paste / double undo-redo / a phantom delete-history entry,
+  // and made shortcuts behave differently depending on focus). Bails entirely
+  // while editing text or typing in an input so those keys reach the field.
   useEffect(() => {
     const handleKeyboardShortcuts = (e: KeyboardEvent) => {
       if (!editor) return
 
+      const target = e.target as HTMLElement | null
+      const isEditing =
+        !!(target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) ||
+        !!(activeObject as any)?.isEditing
+      if (isEditing) return
+
       const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
       const ctrlKey = isMac ? e.metaKey : e.ctrlKey
+      let handled = false
 
-      // Copy
       if (ctrlKey && e.key === 'c' && activeObject) {
-        e.preventDefault()
-        // Copy logic handled by handleCopy
         const json = editor.exportToJSON()
-        const selectedObjects = json.objects.filter((obj: any) => {
-          return obj.id === (activeObject as any).id
-        })
+        const selectedObjects = json.objects.filter((obj: any) => obj.id === (activeObject as any).id)
         setClipboard(selectedObjects.length > 0 ? selectedObjects[0] : (activeObject as any).toJSON?.() || activeObject)
-      }
-      // Paste
-      if (ctrlKey && e.key === 'v' && clipboard) {
-        e.preventDefault()
+        handled = true
+      } else if (ctrlKey && e.key === 'v' && clipboard) {
         try {
-          const pastedObject = {
-            ...clipboard,
-            left: (clipboard.left || 0) + 20,
-            top: (clipboard.top || 0) + 20,
-          }
-          editor.add(pastedObject)
+          editor.add({ ...clipboard, left: (clipboard.left || 0) + 20, top: (clipboard.top || 0) + 20 })
         } catch (err) {
           // silently handled
         }
-      }
-      // Duplicate
-      if (ctrlKey && e.key === 'd' && activeObject) {
-        e.preventDefault()
+        handled = true
+      } else if (ctrlKey && e.key === 'd' && activeObject) {
         editor.clone()
-      }
-      // Delete
-      if ((e.key === 'Delete' || e.key === 'Backspace') && activeObject) {
-        // Don't delete if user is typing in an input
-        if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
-          return
-        }
-        e.preventDefault()
+        // Record the copy in history and sync React selection to it (see Duplicate.tsx).
+        setTimeout(() => {
+          try {
+            const cv = (editor as any)?.canvas?.canvas || (editor as any)?.canvas
+            const o = cv?.getActiveObject?.()
+            if (cv && o) {
+              cv.fire('object:modified', { target: o })
+              selectObject(cv, o)
+            }
+          } catch {
+            /* ignore */
+          }
+        }, 80)
+        handled = true
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && activeObject) {
         editor.delete()
-      }
-      // Undo
-      if (ctrlKey && e.key === 'z' && !e.shiftKey) {
-        e.preventDefault()
+        handled = true
+      } else if (ctrlKey && e.key === 'z' && !e.shiftKey) {
         editor.undo()
-      }
-      // Redo
-      if (ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
-        e.preventDefault()
+        handled = true
+      } else if (ctrlKey && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) {
         editor.redo()
-      }
-      // Bring Forward
-      if (ctrlKey && e.key === ']' && activeObject) {
-        e.preventDefault()
-        editor.bringForward()
-      }
-      // Send Backward
-      if (ctrlKey && e.key === '[' && activeObject) {
-        e.preventDefault()
-        editor.sendBackwards()
-      }
-      // Bring to Front
-      if (ctrlKey && e.shiftKey && e.key === ']' && activeObject) {
-        e.preventDefault()
+        handled = true
+      } else if (ctrlKey && e.shiftKey && e.key === ']' && activeObject) {
         editor.bringToFront()
-      }
-      // Send to Back
-      if (ctrlKey && e.shiftKey && e.key === '[' && activeObject) {
-        e.preventDefault()
+        handled = true
+      } else if (ctrlKey && e.shiftKey && e.key === '[' && activeObject) {
         editor.sendToBack()
+        handled = true
+      } else if (ctrlKey && e.key === ']' && activeObject) {
+        editor.bringForward()
+        handled = true
+      } else if (ctrlKey && e.key === '[' && activeObject) {
+        editor.sendBackwards()
+        handled = true
+      }
+
+      if (handled) {
+        e.preventDefault()
+        e.stopPropagation()
       }
     }
 
-    document.addEventListener('keydown', handleKeyboardShortcuts)
-    return () => document.removeEventListener('keydown', handleKeyboardShortcuts)
+    document.addEventListener('keydown', handleKeyboardShortcuts, true)
+    return () => document.removeEventListener('keydown', handleKeyboardShortcuts, true)
   }, [editor, activeObject, clipboard])
 
   const handleCopy = () => {
