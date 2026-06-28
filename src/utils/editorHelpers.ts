@@ -192,67 +192,79 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                     return true
                 }
             }
-            // Handle Images robustly
+            // Handle Images robustly. Load with CORS; if that fails, fetch the
+            // bytes and load via an object URL (same-origin → never taints the
+            // canvas) so the image still EXPORTS instead of coming out blank.
+            // Only fall back to the SDK add (possibly tainted) as a last resort.
             else if (type === 'StaticImage' || type === 'image') {
                 const src = objectOptions.metadata?.src || objectOptions.src
                 if (src) {
-                    // Data URLs and blob URLs don't need CORS
                     const isLocalUrl = src.startsWith('data:') || src.startsWith('blob:')
-                    const loadImage = (useCors: boolean) => {
-                        const img = new Image()
-                        if (useCors && !isLocalUrl) img.crossOrigin = 'anonymous'
-                        img.onload = () => {
-                            // Scale image to fit within 60% of frame
-                            const maxW = frameWidth * 0.6
-                            const maxH = frameHeight * 0.6
-                            const imgW = img.naturalWidth || img.width
-                            const imgH = img.naturalHeight || img.height
-                            let scale = Math.min(maxW / imgW, maxH / imgH, 1)
 
-                            // If explicit scale was provided, use it
-                            if (objectOptions.scaleX && objectOptions.scaleY) {
-                                scale = objectOptions.scaleX
-                            }
-
-                            const finalW = imgW * scale
-                            const finalH = imgH * scale
-                            const imgLeft = objectOptions.left ?? (frameCenterX - finalW / 2)
-                            const imgTop = objectOptions.top ?? (frameCenterY - finalH / 2)
-
-                            const fabricImage = new fabric.Image(img, {
-                                left: imgLeft,
-                                top: imgTop,
-                                scaleX: scale,
-                                scaleY: scale,
-                                opacity: objectOptions.opacity ?? 1,
-                                selectable: true,
-                                hasControls: true,
-                                hasBorders: true,
-                                metadata: objectOptions.metadata || {}
-                            })
-
-                            if (objectOptions.metadata?.videoSrc) {
-                                fabricImage.set('isVideo', true)
-                            }
-
-                            targetCanvas.add(fabricImage)
-                            selectObject(targetCanvas, fabricImage)
-                            try { targetCanvas.fire('object:modified', { target: fabricImage }) } catch { /* ignore */ }
-                            targetCanvas.requestRenderAll()
-                            setTimeout(() => targetCanvas.requestRenderAll(), 100)
+                    const addFromImg = (img: any) => {
+                        // Scale image to fit within 60% of frame
+                        const maxW = frameWidth * 0.6
+                        const maxH = frameHeight * 0.6
+                        const imgW = img.naturalWidth || img.width
+                        const imgH = img.naturalHeight || img.height
+                        let scale = Math.min(maxW / imgW, maxH / imgH, 1)
+                        if (objectOptions.scaleX && objectOptions.scaleY) {
+                            scale = objectOptions.scaleX
                         }
-                        img.onerror = () => {
-                            if (useCors) {
-                                // Retry without CORS — image won't be exportable but will be visible
-                                loadImage(false)
-                            } else {
-                                // Last resort fallback
-                                editor.add(objectOptions)
-                            }
+                        const finalW = imgW * scale
+                        const finalH = imgH * scale
+                        const imgLeft = objectOptions.left ?? (frameCenterX - finalW / 2)
+                        const imgTop = objectOptions.top ?? (frameCenterY - finalH / 2)
+
+                        const fabricImage = new fabric.Image(img, {
+                            left: imgLeft,
+                            top: imgTop,
+                            scaleX: scale,
+                            scaleY: scale,
+                            opacity: objectOptions.opacity ?? 1,
+                            selectable: true,
+                            hasControls: true,
+                            hasBorders: true,
+                            metadata: objectOptions.metadata || {},
+                        })
+                        if (objectOptions.metadata?.videoSrc) {
+                            fabricImage.set('isVideo', true)
                         }
-                        img.src = src
+                        targetCanvas.add(fabricImage)
+                        selectObject(targetCanvas, fabricImage)
+                        try { targetCanvas.fire('object:modified', { target: fabricImage }) } catch { /* ignore */ }
+                        targetCanvas.requestRenderAll()
+                        setTimeout(() => targetCanvas.requestRenderAll(), 100)
                     }
-                    loadImage(true)
+
+                    const loadCleanFromBlob = () => {
+                        fetch(src)
+                            .then(r => {
+                                if (!r.ok) throw new Error('fetch failed')
+                                return r.blob()
+                            })
+                            .then(blob => {
+                                const objUrl = URL.createObjectURL(blob)
+                                const img2 = new Image()
+                                img2.onload = () => addFromImg(img2)
+                                img2.onerror = () => editor.add(objectOptions)
+                                img2.src = objUrl
+                            })
+                            .catch(() => {
+                                // CORS blocked even the fetch — add via the SDK so the user
+                                // sees the image (its export may be blank if cross-origin).
+                                editor.add(objectOptions)
+                            })
+                    }
+
+                    const img = new Image()
+                    if (!isLocalUrl) img.crossOrigin = 'anonymous'
+                    img.onload = () => addFromImg(img)
+                    img.onerror = () => {
+                        if (isLocalUrl) editor.add(objectOptions)
+                        else loadCleanFromBlob()
+                    }
+                    img.src = src
                     return true
                 }
             }

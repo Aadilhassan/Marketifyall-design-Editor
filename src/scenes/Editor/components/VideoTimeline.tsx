@@ -1350,7 +1350,10 @@ const VideoTimeline: React.FC = () => {
     if (!masterVideoRef.current) {
       const video = document.createElement('video')
       video.preload = 'auto'
-      video.muted = false
+      // Muted: this off-DOM master is a timing/sequencing source only — the
+      // visible VideoCanvasPlayer overlay carries the audio. Leaving it unmuted
+      // played each clip's audio twice (echo/phasing) and ran a second decoder.
+      video.muted = true
       masterVideoRef.current = video
     }
     return () => {
