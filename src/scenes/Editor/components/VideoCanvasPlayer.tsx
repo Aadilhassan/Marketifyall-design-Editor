@@ -155,8 +155,6 @@ const VideoCanvasPlayer: React.FC = () => {
     // (and re-render) when something visually changed — not on every frame/drag.
     const lastBoundsSig = useRef<string>('')
     const lastItemsSig = useRef<string>('')
-    const isPlayingRef = useRef(isPlaying)
-    isPlayingRef.current = isPlaying
 
     // Detect if any modal is open
     useEffect(() => {
@@ -572,13 +570,6 @@ const VideoCanvasPlayer: React.FC = () => {
         // so no render loop; the idempotent setState above prevents churn.
         c.on?.('mouse:wheel', schedule)
         c.on?.('mouse:up', schedule)
-        // Programmatic zoom/fit/pan only fire after:render (no mouse event); catch
-        // those while paused. Skipped during playback (the rAF loop owns it), and
-        // loop-safe because the bounds/overlay/opacity writes above are idempotent.
-        const onRender = () => {
-            if (!isPlayingRef.current) schedule()
-        }
-        c.on?.('after:render', onRender)
         return () => {
             if (pending) cancelAnimationFrame(pending)
             c.off?.('object:added', schedule)
@@ -588,7 +579,6 @@ const VideoCanvasPlayer: React.FC = () => {
             c.off?.('object:scaling', onModified)
             c.off?.('mouse:wheel', schedule)
             c.off?.('mouse:up', schedule)
-            c.off?.('after:render', onRender)
         }
     }, [canvas, updateVideoPositions])
 
