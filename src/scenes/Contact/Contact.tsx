@@ -1,456 +1,110 @@
-import React, { useState } from 'react'
-import { styled } from 'baseui'
-import Navigation from '@components/Navigation'
+import { useState } from 'react'
+import EditorialShell from '@/components/EditorialShell'
 
-const Container = styled('div', {
-  minHeight: '100vh',
-  background: '#F5F3EF',
-  fontFamily: "'Inter', 'Poppins', sans-serif",
-})
-
-const HeroSection = styled('section', {
-  background: '#1a1a1a',
-  padding: '120px 60px 80px',
-  textAlign: 'center',
-  '@media (max-width: 768px)': {
-    padding: '60px 24px 40px',
-  },
-})
-
-const Title = styled('h1', {
-  fontSize: '56px',
-  fontWeight: 700,
-  color: '#ffffff',
-  marginBottom: '24px',
-  letterSpacing: '-2px',
-  fontFamily: "'Georgia', serif",
-  '@media (max-width: 768px)': {
-    fontSize: '36px',
-  },
-})
-
-const Subtitle = styled('p', {
-  fontSize: '20px',
-  color: 'rgba(255, 255, 255, 0.8)',
-  maxWidth: '700px',
-  margin: '0 auto',
-  lineHeight: 1.6,
-  fontFamily: "'Georgia', serif",
-})
-
-const Section = styled('section', {
-  padding: '80px 60px',
-  maxWidth: '1200px',
-  margin: '0 auto',
-  '@media (max-width: 768px)': {
-    padding: '40px 24px',
-  },
-})
-
-const Grid = styled('div', {
-  display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
-  gap: '60px',
-  '@media (max-width: 968px)': {
-    gridTemplateColumns: '1fr',
-  },
-})
-
-const ContactInfo = styled('div', {
-  background: '#ffffff',
-  padding: '40px',
-  border: '2px solid #1a1a1a',
-  boxShadow: '8px 8px 0px #1a1a1a',
-})
-
-const InfoTitle = styled('h2', {
-  fontSize: '32px',
-  fontWeight: 700,
-  color: '#1a1a1a',
-  marginBottom: '24px',
-  fontFamily: "'Georgia', serif",
-})
-
-const InfoItem = styled('div', {
-  marginBottom: '32px',
-})
-
-const InfoLabel = styled('h3', {
-  fontSize: '16px',
-  fontWeight: 700,
-  color: '#1a1a1a',
-  marginBottom: '8px',
-  textTransform: 'uppercase',
-  letterSpacing: '1px',
-  fontFamily: "'Courier New', monospace",
-})
-
-const InfoText = styled('p', {
-  fontSize: '18px',
-  color: '#4a4a4a',
-  lineHeight: 1.6,
-  fontFamily: "'Georgia', serif",
-})
-
-const Link = styled('a', {
-  color: '#FF6B5B',
-  textDecoration: 'none',
-  fontWeight: 600,
-  ':hover': {
-    textDecoration: 'underline',
-  },
-})
-
-const ContactForm = styled('form', {
-  background: '#ffffff',
-  padding: '40px',
-  border: '2px solid #1a1a1a',
-  boxShadow: '8px 8px 0px #1a1a1a',
-})
-
-const FormTitle = styled('h2', {
-  fontSize: '32px',
-  fontWeight: 700,
-  color: '#1a1a1a',
-  marginBottom: '24px',
-  fontFamily: "'Georgia', serif",
-})
-
-const FormGroup = styled('div', {
-  marginBottom: '24px',
-})
-
-const Label = styled('label', {
-  display: 'block',
-  fontSize: '14px',
-  fontWeight: 700,
-  color: '#1a1a1a',
-  marginBottom: '8px',
-  textTransform: 'uppercase',
-  letterSpacing: '1px',
-  fontFamily: "'Courier New', monospace",
-})
-
-const Input = styled('input', {
+const fieldStyle: React.CSSProperties = {
   width: '100%',
-  padding: '14px 16px',
-  fontSize: '16px',
-  border: '2px solid #1a1a1a',
-  borderRadius: '0',
-  fontFamily: "'Inter', sans-serif",
-  ':focus': {
-    outline: 'none',
-    boxShadow: '4px 4px 0px #FF6B5B',
-  },
-})
-
-const TextArea = styled('textarea', {
-  width: '100%',
-  padding: '14px 16px',
-  fontSize: '16px',
-  border: '2px solid #1a1a1a',
-  borderRadius: '0',
-  fontFamily: "'Inter', sans-serif",
-  minHeight: '150px',
-  resize: 'vertical',
-  ':focus': {
-    outline: 'none',
-    boxShadow: '4px 4px 0px #FF6B5B',
-  },
-})
-
-const SubmitButton = styled('button', {
-  width: '100%',
-  padding: '16px 32px',
-  borderRadius: '4px',
-  border: 'none',
-  background: '#FF6B5B',
-  color: '#ffffff',
-  fontSize: '14px',
-  fontWeight: 600,
-  cursor: 'pointer',
-  transition: 'all 0.2s',
-  fontFamily: "'Courier New', monospace",
-  boxShadow: '4px 4px 0px #1a1a1a',
+  padding: '12px 14px',
+  border: '2px solid var(--ink)',
+  background: 'var(--paper)',
+  color: 'var(--ink)',
+  fontFamily: 'var(--sans)',
+  fontSize: 16,
+  marginTop: 8,
+  boxSizing: 'border-box',
+  outline: 'none',
+}
+const labelStyle: React.CSSProperties = {
+  fontFamily: 'var(--mono)',
+  fontSize: 11,
+  letterSpacing: '.14em',
   textTransform: 'uppercase',
-  letterSpacing: '1px',
-  ':hover': {
-    transform: 'translate(-2px, -2px)',
-    boxShadow: '6px 6px 0px #1a1a1a',
-  },
-  ':disabled': {
-    opacity: 0.6,
-    cursor: 'not-allowed',
-  },
-})
-
-const SuccessMessage = styled('div', {
-  background: '#2ECC71',
-  color: '#ffffff',
-  padding: '16px',
-  marginBottom: '24px',
-  border: '2px solid #1a1a1a',
-  fontFamily: "'Courier New', monospace",
-  fontWeight: 600,
-})
-
-const CompanySection = styled('section', {
-  background: '#ffffff',
-  padding: '80px 60px',
-  textAlign: 'center',
-  '@media (max-width: 768px)': {
-    padding: '40px 24px',
-  },
-})
-
-const CompanyGrid = styled('div', {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(3, 1fr)',
-  gap: '40px',
-  maxWidth: '1200px',
-  margin: '40px auto 0',
-  '@media (max-width: 968px)': {
-    gridTemplateColumns: '1fr',
-  },
-})
-
-const CompanyCard = styled('div', {
-  padding: '40px 32px',
-  background: '#F5F3EF',
-  border: '2px solid #1a1a1a',
-  transition: 'all 0.3s',
-  ':hover': {
-    transform: 'translateY(-4px)',
-    boxShadow: '8px 8px 0px #1a1a1a',
-  },
-})
-
-const CompanyTitle = styled('h3', {
-  fontSize: '24px',
-  fontWeight: 700,
-  color: '#1a1a1a',
-  marginBottom: '16px',
-  fontFamily: "'Georgia', serif",
-})
-
-const CompanyText = styled('p', {
-  fontSize: '16px',
-  color: '#4a4a4a',
-  marginBottom: '20px',
-  lineHeight: 1.7,
-})
-
-const CompanyLink = styled('a', {
-  display: 'inline-block',
-  padding: '12px 24px',
-  borderRadius: '4px',
-  border: '2px solid #1a1a1a',
-  background: 'transparent',
-  color: '#1a1a1a',
-  fontSize: '14px',
-  fontWeight: 600,
-  textDecoration: 'none',
-  cursor: 'pointer',
-  transition: 'all 0.2s',
-  fontFamily: "'Courier New', monospace",
-  ':hover': {
-    background: '#1a1a1a',
-    color: '#ffffff',
-  },
-})
+  color: 'var(--muted)',
+}
 
 function Contact() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: '',
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isSubmitted, setIsSubmitted] = useState(false)
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [subject, setSubject] = useState('')
+  const [message, setMessage] = useState('')
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    })
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
-
-    // Simulate form submission
-    setTimeout(() => {
-      setIsSubmitting(false)
-      setIsSubmitted(true)
-      setFormData({ name: '', email: '', subject: '', message: '' })
-      
-      // Reset success message after 5 seconds
-      setTimeout(() => setIsSubmitted(false), 5000)
-    }, 1000)
+    const body = `From: ${name} <${email}>\n\n${message}`
+    window.location.href = `mailto:support@marketifyall.com?subject=${encodeURIComponent(
+      subject || 'Hello',
+    )}&body=${encodeURIComponent(body)}`
   }
 
   return (
-    <Container>
-      <Navigation />
-      <HeroSection>
-        <Title>Get in Touch</Title>
-        <Subtitle>
-          Have questions, feedback, or want to contribute to our open-source project? We'd love to hear from you.
-        </Subtitle>
-      </HeroSection>
+    <EditorialShell folio="CONTACT · GET IN TOUCH">
+      <main className="wrap">
+        <div className="shead reveal">
+          <span className="no">№ 01</span>
+          <h2>Get in touch</h2>
+          <span className="meta">We read everything</span>
+        </div>
+        <p className="standfirst reveal">
+          Questions, feedback, bug reports or contributions — reach us directly, or send a note below.
+        </p>
 
-      <Section>
-        <Grid>
-          <ContactInfo>
-            <InfoTitle>Contact Information</InfoTitle>
-            
-            <InfoItem>
-              <InfoLabel>General Inquiries</InfoLabel>
-              <InfoText>
-                <Link href="mailto:support@marketifyall.com">support@marketifyall.com</Link>
-              </InfoText>
-            </InfoItem>
+        <div
+          className="reveal"
+          style={{ display: 'grid', gridTemplateColumns: '1fr 1.1fr', gap: 0, border: '2px solid var(--ink)', marginTop: 18 }}
+        >
+          {/* contact info */}
+          <div style={{ padding: 34, borderRight: '2px solid var(--ink)' }}>
+            <h4 style={{ ...labelStyle, color: 'var(--accent)', marginBottom: 18 }}>Contact information</h4>
+            <Info label="General & support" value="support@marketifyall.com" href="mailto:support@marketifyall.com" />
+            <Info
+              label="Contributing"
+              value="github.com/Aadilhassan/Marketifyall-design-Editor"
+              href="https://github.com/Aadilhassan/Marketifyall-design-Editor"
+            />
+            <Info label="Social" value="twitter.com/marketifyall" href="https://twitter.com/marketifyall" />
+            <Info label="Made by" value="QuickShift Labs" href="https://quickshiftlabs.com/" last />
+          </div>
 
-            <InfoItem>
-              <InfoLabel>Technical Support</InfoLabel>
-              <InfoText>
-                For technical issues or bug reports, please open an issue on our{' '}
-                <Link href="https://github.com/Aadilhassan/Marketifyall-design-Editor" target="_blank" rel="noopener noreferrer">
-                  GitHub repository
-                </Link>
-              </InfoText>
-            </InfoItem>
-
-            <InfoItem>
-              <InfoLabel>Contributing</InfoLabel>
-              <InfoText>
-                Want to contribute code, designs, or ideas? Check out our{' '}
-                <Link href="https://github.com/Aadilhassan/Marketifyall-design-Editor" target="_blank" rel="noopener noreferrer">
-                  contribution guidelines
-                </Link>
-              </InfoText>
-            </InfoItem>
-
-            <InfoItem>
-              <InfoLabel>Community</InfoLabel>
-              <InfoText>
-                Join our Discord community to connect with other designers and developers building with Design Editor.
-              </InfoText>
-            </InfoItem>
-
-            <InfoItem>
-              <InfoLabel>Social Media</InfoLabel>
-              <InfoText>
-                Follow us on Twitter{' '}
-                <Link href="https://twitter.com/marketifyall" target="_blank" rel="noopener noreferrer">
-                  @marketifyall
-                </Link>{' '}
-                for updates and announcements.
-              </InfoText>
-            </InfoItem>
-          </ContactInfo>
-
-          <ContactForm onSubmit={handleSubmit}>
-            <FormTitle>Send us a Message</FormTitle>
-            
-            {isSubmitted && (
-              <SuccessMessage>
-                ✓ Thank you! Your message has been sent successfully.
-              </SuccessMessage>
-            )}
-
-            <FormGroup>
-              <Label htmlFor="name">Your Name *</Label>
-              <Input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-              />
-            </FormGroup>
-
-            <FormGroup>
-              <Label htmlFor="email">Email Address *</Label>
-              <Input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
-            </FormGroup>
-
-            <FormGroup>
-              <Label htmlFor="subject">Subject *</Label>
-              <Input
-                type="text"
-                id="subject"
-                name="subject"
-                value={formData.subject}
-                onChange={handleChange}
-                required
-              />
-            </FormGroup>
-
-            <FormGroup>
-              <Label htmlFor="message">Message *</Label>
-              <TextArea
-                id="message"
-                name="message"
-                value={formData.message}
-                onChange={handleChange}
-                required
-              />
-            </FormGroup>
-
-            <SubmitButton type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Sending...' : 'Send Message'}
-            </SubmitButton>
-          </ContactForm>
-        </Grid>
-      </Section>
-
-      <CompanySection>
-        <InfoTitle>Our Ecosystem</InfoTitle>
-        <CompanyGrid>
-          <CompanyCard>
-            <CompanyTitle>QuickShift Labs</CompanyTitle>
-            <CompanyText>
-              The technology company behind Design Editor and Marketifyall. Building tools that accelerate creative workflows.
-            </CompanyText>
-            <CompanyLink href="http://quickshiftlabs.com/" target="_blank" rel="noopener noreferrer">
-              Visit Website
-            </CompanyLink>
-          </CompanyCard>
-
-          <CompanyCard>
-            <CompanyTitle>Marketifyall</CompanyTitle>
-            <CompanyText>
-              Complete marketing toolkit for businesses. Design Editor is part of the Marketifyall suite of creative tools.
-            </CompanyText>
-            <CompanyLink href="https://marketifyall.com/" target="_blank" rel="noopener noreferrer">
-              Explore Platform
-            </CompanyLink>
-          </CompanyCard>
-
-          <CompanyCard>
-            <CompanyTitle>Design Editor</CompanyTitle>
-            <CompanyText>
-              Open-source design tool you're currently exploring. Free forever, built by the community, for the community.
-            </CompanyText>
-            <CompanyLink href="https://design.marketifyall.com/" target="_blank" rel="noopener noreferrer">
-              Start Designing
-            </CompanyLink>
-          </CompanyCard>
-        </CompanyGrid>
-      </CompanySection>
-    </Container>
+          {/* form */}
+          <form style={{ padding: 34 }} onSubmit={submit}>
+            <h4 style={{ ...labelStyle, color: 'var(--accent)', marginBottom: 18 }}>Send us a message</h4>
+            <div style={{ marginBottom: 16 }}>
+              <span style={labelStyle}>Your name</span>
+              <input style={fieldStyle} value={name} onChange={e => setName(e.target.value)} required />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <span style={labelStyle}>Email address</span>
+              <input type="email" style={fieldStyle} value={email} onChange={e => setEmail(e.target.value)} required />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <span style={labelStyle}>Subject</span>
+              <input style={fieldStyle} value={subject} onChange={e => setSubject(e.target.value)} />
+            </div>
+            <div style={{ marginBottom: 20 }}>
+              <span style={labelStyle}>Message</span>
+              <textarea style={{ ...fieldStyle, minHeight: 120, resize: 'vertical' }} value={message} onChange={e => setMessage(e.target.value)} required />
+            </div>
+            <button type="submit" className="btn">
+              Send via email <span className="ar">↗</span>
+            </button>
+          </form>
+        </div>
+      </main>
+    </EditorialShell>
   )
 }
+
+const Info = ({ label, value, href, last }: { label: string; value: string; href: string; last?: boolean }) => (
+  <div style={{ padding: '14px 0', borderBottom: last ? 'none' : '1px solid var(--rule)' }}>
+    <div style={labelStyle}>{label}</div>
+    <a
+      href={href}
+      target={href.startsWith('http') ? '_blank' : undefined}
+      rel="noreferrer"
+      style={{ fontFamily: 'var(--serif)', fontSize: 19, color: 'var(--ink)', wordBreak: 'break-word' }}
+    >
+      {value}
+    </a>
+  </div>
+)
 
 export default Contact
