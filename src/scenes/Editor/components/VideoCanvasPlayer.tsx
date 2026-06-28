@@ -151,6 +151,12 @@ const VideoCanvasPlayer: React.FC = () => {
     const [overlayItems, setOverlayItems] = useState<OverlayItem[]>([])
     const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({})
     const overlayRef = useRef<HTMLDivElement>(null)
+    // Signatures of the last pushed bounds/overlay state, so we only call setState
+    // (and re-render) when something visually changed — not on every frame/drag.
+    const lastBoundsSig = useRef<string>('')
+    const lastItemsSig = useRef<string>('')
+    const isPlayingRef = useRef(isPlaying)
+    isPlayingRef.current = isPlaying
 
     // Detect if any modal is open
     useEffect(() => {
@@ -244,7 +250,13 @@ const VideoCanvasPlayer: React.FC = () => {
             const vpt = (canvas as any).viewportTransform || [1, 0, 0, 1, 0, 0]
 
             const frameBounds = getCanvasFrameBounds()
-            setCanvasBounds(frameBounds)
+            const boundsSig = frameBounds
+                ? `${Math.round(frameBounds.left)}:${Math.round(frameBounds.top)}:${Math.round(frameBounds.width)}:${Math.round(frameBounds.height)}`
+                : 'null'
+            if (boundsSig !== lastBoundsSig.current) {
+                lastBoundsSig.current = boundsSig
+                setCanvasBounds(frameBounds)
+            }
 
             const newOverlayItems: OverlayItem[] = []
             const videoIndices: number[] = []
@@ -328,16 +340,24 @@ const VideoCanvasPlayer: React.FC = () => {
                         })
                     } else {
                         let src = obj.metadata?.src
-                        // If no src, try to generate it, but MUST restore opacity first to avoid capturing a transparent image
-                        if (!src && obj.toDataURL) {
-                            const currentOpacity = obj.opacity
-                            obj.set('opacity', actualOpacity)
-                            try {
-                                src = obj.toDataURL()
-                            } catch (e) {
-                                // silently handled
+                        // Rasterize shapes/vectors to a data URL ONCE and cache it on the
+                        // object (rasterizing every frame during playback was a major CPU
+                        // cost). Rasterize at full opacity — the overlay element applies the
+                        // animated opacity via CSS. Cache is busted on object:modified.
+                        if (!src) {
+                            if (obj.__overlaySrc) {
+                                src = obj.__overlaySrc
+                            } else if (obj.toDataURL) {
+                                const prevOpacity = obj.opacity
+                                if (prevOpacity !== 1) obj.set('opacity', 1)
+                                try {
+                                    src = obj.toDataURL()
+                                    obj.__overlaySrc = src
+                                } catch (e) {
+                                    // silently handled
+                                }
+                                if (prevOpacity !== 1) obj.set('opacity', prevOpacity)
                             }
-                            obj.set('opacity', currentOpacity)
                         }
 
                         if (src) {
@@ -359,34 +379,49 @@ const VideoCanvasPlayer: React.FC = () => {
             })
             // Sort overlay items by their canvas index to maintain layer order
             newOverlayItems.sort((a, b) => a.index - b.index)
-            setOverlayItems(newOverlayItems)
+            const itemsSig = newOverlayItems
+                .map(it => {
+                    const d: any = it.data
+                    return `${it.type}:${d.id}:${Math.round(d.left || 0)}:${Math.round(d.top || 0)}:${Math.round(d.width || 0)}:${Math.round(d.height || 0)}:${d.opacity ?? 1}`
+                })
+                .join('|')
+            if (itemsSig !== lastItemsSig.current) {
+                lastItemsSig.current = itemsSig
+                setOverlayItems(newOverlayItems)
+            }
         } catch (err) {
             // silently handled
         }
     }, [canvas, clips, getCanvasFrameBounds])
 
-    // Update overlay positions continuously — but ONLY when there are video
-    // clips to position. Previously this rAF loop ran ~60fps for the entire
-    // session even on an empty design (no video), calling setOverlayItems every
-    // frame and forcing a re-render 60x/second. That permanent loop was the main
-    // cause of the editor feeling stuck/laggy. With no clips there are no DOM
-    // overlays to position, so we skip the loop entirely.
+    // Track overlay positions every frame ONLY during playback — that's when the
+    // video and animated objects actually move. Running this rAF loop while
+    // paused/idle (the previous behavior, gated only on clips.length) re-rendered
+    // React ~60fps and made any video project feel sluggish even when nothing was
+    // happening.
     useEffect(() => {
-        if (!canvas || clips.length === 0) return
-        let animId: number
+        if (!canvas || clips.length === 0 || !isPlaying) return
+        let animId = 0
         let running = true
         const loop = () => {
             if (!running) return
             updateVideoPositions()
             animId = requestAnimationFrame(loop)
         }
-        const timer = setTimeout(() => loop(), 200)
+        animId = requestAnimationFrame(loop)
         return () => {
             running = false
-            clearTimeout(timer)
             cancelAnimationFrame(animId)
         }
-    }, [canvas, updateVideoPositions, clips.length])
+    }, [canvas, clips.length, isPlaying, updateVideoPositions])
+
+    // While paused, position the static overlay once — and again on scrub/seek or
+    // when the design changes — instead of a permanent loop.
+    useEffect(() => {
+        if (!canvas || clips.length === 0 || isPlaying) return
+        const id = requestAnimationFrame(() => updateVideoPositions())
+        return () => cancelAnimationFrame(id)
+    }, [canvas, clips.length, isPlaying, currentTime, updateVideoPositions])
 
     const handlePlayPause = useCallback((videoId: string, e: React.MouseEvent) => {
         e.stopPropagation()
@@ -446,6 +481,7 @@ const VideoCanvasPlayer: React.FC = () => {
     useEffect(() => {
         if (!canvas || !overlayRef.current) return
         const objects = (canvas as any).getObjects?.() || []
+        let changed = false
 
         objects.forEach((obj: any, idx: number) => {
             const item = overlayItems.find(it => it.index === idx || it.data.id === (obj.id || obj.metadata?.id))
@@ -505,26 +541,54 @@ const VideoCanvasPlayer: React.FC = () => {
             if (obj.opacity !== targetOpacity) {
                 obj.set('opacity', targetOpacity)
                 obj.dirty = true
+                changed = true
             }
         })
-        ;(canvas as any).requestRenderAll?.()
+        if (changed) (canvas as any).requestRenderAll?.()
     }, [isPlaying, activeClipId, canvas, overlayItems, currentTime, clips])
 
     useEffect(() => {
         if (!canvas) return
-        const updateOverlays = () => setTimeout(() => updateVideoPositions(), 50)
         const c = canvas as any
-        c.on?.('object:added', updateOverlays)
-        c.on?.('object:modified', updateOverlays)
-        c.on?.('object:removed', updateOverlays)
-        c.on?.('object:moving', updateOverlays)
-        c.on?.('object:scaling', updateOverlays)
+        let pending = 0
+        const schedule = () => {
+            if (pending) return
+            pending = requestAnimationFrame(() => {
+                pending = 0
+                updateVideoPositions()
+            })
+        }
+        // On edits, also bust the cached rasterization of the changed object.
+        const onModified = (e: any) => {
+            if (e && e.target) e.target.__overlaySrc = null
+            schedule()
+        }
+        c.on?.('object:added', schedule)
+        c.on?.('object:modified', onModified)
+        c.on?.('object:removed', schedule)
+        c.on?.('object:moving', schedule)
+        c.on?.('object:scaling', onModified)
+        // Reposition overlays on zoom (wheel) and pan (mouse:up). Discrete events,
+        // so no render loop; the idempotent setState above prevents churn.
+        c.on?.('mouse:wheel', schedule)
+        c.on?.('mouse:up', schedule)
+        // Programmatic zoom/fit/pan only fire after:render (no mouse event); catch
+        // those while paused. Skipped during playback (the rAF loop owns it), and
+        // loop-safe because the bounds/overlay/opacity writes above are idempotent.
+        const onRender = () => {
+            if (!isPlayingRef.current) schedule()
+        }
+        c.on?.('after:render', onRender)
         return () => {
-            c.off?.('object:added', updateOverlays)
-            c.off?.('object:modified', updateOverlays)
-            c.off?.('object:removed', updateOverlays)
-            c.off?.('object:moving', updateOverlays)
-            c.off?.('object:scaling', updateOverlays)
+            if (pending) cancelAnimationFrame(pending)
+            c.off?.('object:added', schedule)
+            c.off?.('object:modified', onModified)
+            c.off?.('object:removed', schedule)
+            c.off?.('object:moving', schedule)
+            c.off?.('object:scaling', onModified)
+            c.off?.('mouse:wheel', schedule)
+            c.off?.('mouse:up', schedule)
+            c.off?.('after:render', onRender)
         }
     }, [canvas, updateVideoPositions])
 
