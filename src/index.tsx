@@ -6,16 +6,23 @@ import Routes from './Routes'
 import Container from './Container'
 import ErrorBoundary from './components/ErrorBoundary'
 
-ReactDOM.render(
+const app = (
   <ErrorBoundary>
     <Providers>
       <Container>
         <Routes />
       </Container>
     </Providers>
-  </ErrorBoundary>,
-  document.getElementById('root')
+  </ErrorBoundary>
 )
+
+// Hydrate when the page was pre-rendered (react-snap); otherwise render fresh.
+const rootElement = document.getElementById('root')
+if (rootElement && rootElement.hasChildNodes()) {
+  ReactDOM.hydrate(app, rootElement)
+} else {
+  ReactDOM.render(app, rootElement)
+}
 
 reportWebVitals()
 
