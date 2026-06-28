@@ -229,6 +229,13 @@ function App() {
                 /* ignore */
               }
             })
+          } else if (project?.frame && (editor as any).frame?.update) {
+            // New project created from the dashboard with a chosen format size.
+            try {
+              ;(editor as any).frame.update(project.frame)
+            } catch {
+              /* ignore */
+            }
           }
         })
         .catch(() => {

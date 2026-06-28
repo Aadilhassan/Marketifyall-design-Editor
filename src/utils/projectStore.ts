@@ -10,8 +10,9 @@ import { nanoid } from 'nanoid'
 export interface Project {
   id: string
   name: string
-  json: any | null // scenify editor.exportToJSON() payload
+  json: any | null // fabric canvas.toJSON() payload
   thumbnail?: string // small data-URL preview for the dashboard
+  frame?: { width: number; height: number } // chosen format size (applied on first open)
   createdAt: number
   updatedAt: number
 }
@@ -90,9 +91,12 @@ export async function deleteProject(id: string): Promise<void> {
   })
 }
 
-export async function createProject(name = 'Untitled design'): Promise<Project> {
+export async function createProject(
+  name = 'Untitled design',
+  frame?: { width: number; height: number },
+): Promise<Project> {
   const now = Date.now()
-  const project: Project = { id: genProjectId(), name, json: null, createdAt: now, updatedAt: now }
+  const project: Project = { id: genProjectId(), name, json: null, frame, createdAt: now, updatedAt: now }
   await saveProject(project)
   return project
 }
