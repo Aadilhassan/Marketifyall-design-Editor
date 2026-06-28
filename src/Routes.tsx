@@ -8,6 +8,7 @@ import Features from '@scenes/Features'
 import EmbedDocs from '@scenes/Embed'
 import ExportTest from '@scenes/ExportTest'
 import UrlToVideo from './scenes/Dashboard/UrlToVideo'
+import Projects from '@scenes/Projects'
 
 const Routes = () => {
   return (
@@ -15,6 +16,8 @@ const Routes = () => {
       <Switch>
         <Route path="/embed" component={EmbedEditor} />
         <Route path="/developers" exact component={EmbedDocs} />
+        <Route path="/dashboard" exact component={Projects} />
+        <Route path="/design/:id/edit" component={Editor} />
         <Route path="/design/edit" component={Editor} />
         <Route path="/design" component={Editor} />
         <Route path="/export-test" exact component={ExportTest} />

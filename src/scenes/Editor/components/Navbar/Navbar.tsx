@@ -225,7 +225,7 @@ function NavbarEditor() {
   const [isExporting, setIsExporting] = useState(false)
 
   const handleGoHome = () => {
-    history.push('/')
+    history.push('/dashboard')
   }
 
   useEffect(() => {

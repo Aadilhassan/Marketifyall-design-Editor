@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { ToasterContainer, PLACEMENT } from 'baseui/toast'
 import useAppContext from '@/hooks/useAppContext'
-import { useLocation } from 'react-router'
+import { useLocation, useParams, useHistory } from 'react-router'
 import { getElements } from '@store/slices/elements/actions'
 import { getFonts } from '@store/slices/fonts/actions'
 import { getTemplates } from '@store/slices/templates/actions'
@@ -21,6 +21,7 @@ import { useCredits } from '@/contexts/CreditsContext'
 import Editor, { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { fabric } from 'fabric'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
+import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
 
 interface CanvasObject {
   name?: string
@@ -63,10 +64,42 @@ function getCanvas(editor: EditorWithCanvas): CanvasWithExtras | null {
   return raw?.canvas || raw || null
 }
 
+/** The underlying fabric canvas (editor.handlers.canvas) — the object that
+ * actually exposes toJSON/loadFromJSON/getObjects/events. getCanvas() returns a
+ * wrapper that lacks toJSON, so persistence must go through this. */
+function getFabricCanvas(editor: any): any {
+  return editor?.handlers?.canvas || editor?.canvas?.canvas || editor?.canvas || null
+}
+
+/** Small JPEG preview of the design frame, for the dashboard cards. */
+function makeThumbnail(canvas: any): string {
+  try {
+    const clip = canvas?.clipPath
+    if (clip && typeof canvas.toCanvasElement === 'function') {
+      const w = (clip.width || 0) * (clip.scaleX || 1)
+      const h = (clip.height || 0) * (clip.scaleY || 1)
+      if (w > 0 && h > 0) {
+        const mult = Math.min(0.25, 320 / w)
+        const el = canvas.toCanvasElement(mult, { left: clip.left, top: clip.top, width: w, height: h })
+        return el && el.toDataURL ? el.toDataURL('image/jpeg', 0.6) : ''
+      }
+    }
+    return canvas?.toDataURL ? canvas.toDataURL({ format: 'jpeg', quality: 0.5, multiplier: 0.15 }) : ''
+  } catch {
+    return ''
+  }
+}
+
+// Custom object props fabric must serialize so a restored design keeps its
+// scenify identity/metadata (geometry, fill, text and image src save by default).
+const SAVE_PROPS = ['id', 'name', 'metadata', 'animations', 'selectable', 'evented', 'editable', 'src', 'crossOrigin', 'padding']
+
 function App() {
   const { setCurrentTemplate } = useAppContext()
   const editor = useEditor() as unknown as EditorWithCanvas | null
   const location = useLocation()
+  const { id: routeId } = useParams<{ id?: string }>()
+  const history = useHistory()
   const dispatch = useAppDispatch()
   const [hasInitialized, setHasInitialized] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -79,6 +112,15 @@ function App() {
   const searchParams = new URLSearchParams(location.search)
   const imgUrl = searchParams.get('img_url')
   const prebuiltJsonUrl = searchParams.get('prebuilt_json_url')
+
+  // A plain /design (no project id, no external content) gets a fresh project id
+  // pushed into the URL so the work auto-saves and survives reloads.
+  useEffect(() => {
+    if (!routeId && !prebuiltJsonUrl && !imgUrl) {
+      history.replace(`/design/${genProjectId()}/edit`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     dispatch(getElements())
@@ -172,9 +214,74 @@ function App() {
         })
     } else if (imgUrl) {
       handleLoadImageTemplate(imgUrl)
+    } else if (routeId) {
+      // Restore a previously saved design from local storage (IndexedDB) using
+      // fabric's native deserialization (round-trips every object type).
+      getProject(routeId)
+        .then(project => {
+          const restoreCanvas = getFabricCanvas(editor)
+          if (project?.json && restoreCanvas?.loadFromJSON) {
+            restoreCanvas.loadFromJSON(project.json, () => {
+              restoreCanvas.renderAll?.()
+              try {
+                ;(editor as any).zoomToFit?.()
+              } catch {
+                /* ignore */
+              }
+            })
+          }
+        })
+        .catch(() => {
+          /* nothing saved yet — start blank */
+        })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
+
+  // Auto-save the design so reloads never lose work: a periodic safety-net
+  // interval (canvas events can be missed) plus a debounced save on changes.
+  useEffect(() => {
+    if (!editor || !routeId) return
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let cancelled = false
+    let lastSig = ''
+
+    const save = () => {
+      if (cancelled) return
+      try {
+        const cv = getFabricCanvas(editor)
+        if (!cv?.toJSON) return
+        const json = cv.toJSON(SAVE_PROPS)
+        const objs = json && json.objects ? json.objects : []
+        const sig = objs.length + ':' + JSON.stringify(objs).length
+        if (sig === lastSig) return
+        lastSig = sig
+        patchProject(routeId, { json, thumbnail: makeThumbnail(cv) }).catch(() => {})
+      } catch {
+        /* ignore save errors */
+      }
+    }
+    const schedule = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(save, 600)
+    }
+
+    const cv = getFabricCanvas(editor)
+    cv?.on?.('object:added', schedule)
+    cv?.on?.('object:modified', schedule)
+    cv?.on?.('object:removed', schedule)
+    const interval = setInterval(save, 2000)
+
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+      clearInterval(interval)
+      cv?.off?.('object:added', schedule)
+      cv?.off?.('object:modified', schedule)
+      cv?.off?.('object:removed', schedule)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, routeId])
 
   // Constrain objects to stay within canvas bounds
   useEffect(() => {

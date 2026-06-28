@@ -18,3 +18,12 @@ ReactDOM.render(
 )
 
 reportWebVitals()
+
+// Register the service worker for offline support + PWA installability.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js').catch(() => {
+      /* ignore registration failures (e.g. unsupported context) */
+    })
+  })
+}
