@@ -10,6 +10,79 @@ import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
 import { marketifyallApi } from '@/services/marketifyall-api'
 import { exportCanvasToPdf } from '@/utils/pdfExport'
 
+/**
+ * Re-encodes a captured PNG data URL into JPG/WebP using `canvas.toBlob`, which
+ * is memory-safe for large canvases. Crucially it returns the ACTUAL produced
+ * MIME type: browsers silently fall back to PNG when an encoder (e.g. WebP) is
+ * unsupported, so the caller can verify it really got what it asked for instead
+ * of shipping a PNG named `.webp`.
+ */
+function encodeRaster(
+  sourceDataUrl: string,
+  format: string,
+  quality: number
+): Promise<{ blob: Blob | null; type: string }> {
+  return new Promise(resolve => {
+    const img = new Image()
+    img.onload = () => {
+      const c = document.createElement('canvas')
+      c.width = img.naturalWidth || img.width
+      c.height = img.naturalHeight || img.height
+      const ctx = c.getContext('2d')
+      if (!ctx) return resolve({ blob: null, type: '' })
+      // JPG has no alpha — flatten onto white so transparency doesn't go black.
+      if (format === 'jpg') {
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(0, 0, c.width, c.height)
+      }
+      ctx.drawImage(img, 0, 0)
+      const mime = format === 'jpg' ? 'image/jpeg' : `image/${format}`
+      c.toBlob(
+        b => resolve({ blob: b, type: b?.type || '' }),
+        mime,
+        Math.min(1, Math.max(0.1, quality / 100))
+      )
+    }
+    img.onerror = () => resolve({ blob: null, type: '' })
+    img.src = sourceDataUrl
+  })
+}
+
+/**
+ * Creates a fresh, fully-decoded off-screen <video> for export. We do NOT reuse
+ * the on-canvas overlay refs because those only exist while the playhead is
+ * inside the clip's time range — relying on them produced exports with no video
+ * content (a frozen frame = "just an image"). Resolves once the first frame is
+ * available (or after a timeout, so a stalled source can't hang the export).
+ */
+function createExportVideoEl(src: string): Promise<HTMLVideoElement> {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('video')
+    el.crossOrigin = 'anonymous'
+    el.muted = false
+    el.playsInline = true
+    el.preload = 'auto'
+    el.style.cssText =
+      'position:fixed;left:-100000px;top:0;width:64px;height:64px;opacity:0.01;pointer-events:none;'
+    let done = false
+    const finish = (ok: boolean) => {
+      if (done) return
+      done = true
+      clearTimeout(timer)
+      ok ? resolve(el) : reject(new Error('video load failed'))
+    }
+    el.onloadeddata = () => finish(true)
+    el.onerror = () => finish(false)
+    // On timeout, resolve the element anyway (it keeps buffering) rather than
+    // dropping the clip — the recorder's per-frame readyState check + seek handle
+    // a slow source, so a sluggish network never silently yields a video-less export.
+    const timer = setTimeout(() => finish(true), 10000)
+    document.body.appendChild(el)
+    el.src = src
+    el.load()
+  })
+}
+
 const Overlay = styled('div', {
   position: 'fixed',
   top: 0,
@@ -326,6 +399,14 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
   const hasMotion = hasVideo || hasAnimatedObjects
   const FORMATS = hasMotion ? [...VIDEO_FORMATS, ...IMAGE_FORMATS] : IMAGE_FORMATS
 
+  // When the design has motion, default the selected format to MP4 so the primary
+  // "Export" button produces a VIDEO — not a single PNG frame. Previously it always
+  // defaulted to PNG, so users with a video on the timeline clicked "Export PNG"
+  // and got a still image. Re-runs when the modal opens; a manual choice sticks.
+  useEffect(() => {
+    if (isOpen) setFormat(hasMotion ? 'mp4' : 'png')
+  }, [isOpen, hasMotion])
+
   // Automatically update video duration from the latest clip OR animated element window.
   useEffect(() => {
     let maxEnd = 0
@@ -356,6 +437,9 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
 
     setIsExporting(true)
     setExportProgress(0)
+
+    // Off-screen <video> elements created for the export; torn down in `finally`.
+    const exportVideoEls: HTMLVideoElement[] = []
 
     try {
       // Pause playback if it's playing to avoid canvas render conflicts
@@ -425,28 +509,52 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
         } catch { /* ignore */ }
 
         // Build live video targets (clips -> <video> element + design-space rect).
-        const videoTargets: VideoTarget[] = clips
-          .map(clip => {
-            const obj = fabricObjects.find(
-              (o: any) => o.metadata?.id === clip.id || o.id === clip.id || o.metadata?.videoSrc === clip.src
-            )
-            const el = getVideoRef(clip.id)
-            if (!el) return null
-            let l = (obj?.left as number) || designLeft
-            let t = (obj?.top as number) || designTop
-            const w = ((obj?.width as number) || designWidth) * ((obj?.scaleX as number) || 1)
-            const h = ((obj?.height as number) || designHeight) * ((obj?.scaleY as number) || 1)
-            if (obj?.originX === 'center') l -= w / 2
-            if (obj?.originY === 'center') t -= h / 2
-            return {
-              el,
-              rect: { left: l, top: t, width: w, height: h },
-              start: clip.start || 0,
-              duration: clip.duration || videoDuration,
-              obj,
-            } as VideoTarget
-          })
-          .filter(Boolean) as VideoTarget[]
+        // Each <video> is created fresh and preloaded here so EVERY clip is decoded
+        // and captured regardless of where the playhead was — the old path read the
+        // on-canvas overlay refs, which are null unless the clip is currently on
+        // screen, so exports often baked a frozen frame ("just an image").
+        const videoTargets: VideoTarget[] = (
+          await Promise.all(
+            clips.map(async clip => {
+              const obj = fabricObjects.find(
+                (o: any) => o.metadata?.id === clip.id || o.id === clip.id || o.metadata?.videoSrc === clip.src
+              )
+              let el: HTMLVideoElement | null = null
+              try {
+                el = await createExportVideoEl(clip.src)
+                exportVideoEls.push(el)
+              } catch {
+                el = getVideoRef(clip.id) // fall back to a live ref if preload fails
+              }
+              if (!el) return null
+              let l = (obj?.left as number) || designLeft
+              let t = (obj?.top as number) || designTop
+              const w = ((obj?.width as number) || designWidth) * ((obj?.scaleX as number) || 1)
+              const h = ((obj?.height as number) || designHeight) * ((obj?.scaleY as number) || 1)
+              if (obj?.originX === 'center') l -= w / 2
+              if (obj?.originY === 'center') t -= h / 2
+              return {
+                el,
+                rect: { left: l, top: t, width: w, height: h },
+                start: clip.start || 0,
+                duration: clip.duration || videoDuration,
+                obj,
+              } as VideoTarget
+            })
+          )
+        ).filter(Boolean) as VideoTarget[]
+
+        // Surface clips whose video never loaded (dead/offline source, or a
+        // cross-origin host that blocks canvas reads). Without this the export
+        // silently composited the still poster, which looks exactly like a frozen
+        // "it didn't export the video" bug.
+        const unloadable = videoTargets.filter(v => (v.el as any)?.readyState === 0).length
+        if (unloadable > 0) {
+          notify(
+            `${unloadable} video clip${unloadable > 1 ? 's' : ''} couldn't be loaded for export (source offline or blocked by CORS) — ${unloadable > 1 ? 'they' : 'it'} will appear as a still frame. Re-add the video or use a local upload.`,
+            'warning'
+          )
+        }
 
         const qualityConfigVid = QUALITY_PRESETS.find(q => q.id === qualityPreset) || QUALITY_PRESETS[1]
 
@@ -454,12 +562,6 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
 
         let result
         if (format === 'gif') {
-          if (videoTargets.length > 0) {
-            notify(
-              'GIF saves embedded video clips as a still frame — use MP4 or WebM for full video. Animations are captured normally.',
-              'warning'
-            )
-          }
           result = await recordAnimatedGif({
             fabricCanvas: canvas,
             designRect: { left: designLeft, top: designTop, width: designWidth, height: designHeight },
@@ -640,27 +742,24 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           } else if (format === 'png') {
             downloadFile(image, `${designName}.png`)
           } else {
-            const img = new Image()
-            img.onload = () => {
-              const c = document.createElement('canvas')
-              c.width = img.width
-              c.height = img.height
-              const ctx = c.getContext('2d')
-              if (ctx) {
-                // For JPG, fill with white background first
-                if (format === 'jpg') {
-                  ctx.fillStyle = 'white'
-                  ctx.fillRect(0, 0, c.width, c.height)
-                }
-                ctx.drawImage(img, 0, 0)
-                const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`
-                downloadFile(c.toDataURL(mimeType, quality / 100), `${designName}.${format}`)
+            // JPG / WebP: re-encode the captured PNG into the requested format and
+            // VERIFY the encoder honored it. Browsers silently return PNG when a
+            // format (esp. WebP) is unsupported — that's why "Export WebP" handed
+            // back a PNG named .webp. If the fallback happens we name the file for
+            // what it ACTUALLY is and tell the user, instead of shipping a lie.
+            const { blob, type } = await encodeRaster(image, format, quality)
+            if (!blob) throw new Error('Failed to encode image')
+            const wantedType = format === 'jpg' ? 'image/jpeg' : 'image/webp'
+            let ext: string = format
+            if (type && type !== wantedType) {
+              ext = type === 'image/jpeg' ? 'jpg' : type === 'image/webp' ? 'webp' : 'png'
+              if (format === 'webp') {
+                notify("Your browser can't encode WebP — exported as PNG instead.", 'warning')
               }
             }
-            img.onerror = () => {
-              throw new Error('Failed to load exported image')
-            }
-            img.src = image
+            const url = URL.createObjectURL(blob)
+            downloadFile(url, `${designName}.${ext}`)
+            setTimeout(() => URL.revokeObjectURL(url), 1000)
           }
         } finally {
           // Restore canvas state
@@ -683,6 +782,17 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
     } catch (error) {
       notify(`Export failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'negative')
     } finally {
+      // Tear down the off-screen export <video> elements.
+      exportVideoEls.forEach(el => {
+        try {
+          el.pause()
+          el.removeAttribute('src')
+          el.load()
+          el.remove()
+        } catch {
+          /* ignore */
+        }
+      })
       setIsExporting(false)
     }
   }

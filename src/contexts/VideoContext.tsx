@@ -51,6 +51,8 @@ type VideoContextValue = {
   // Multi-select
   selectClip: (id: string, addToSelection?: boolean) => void
   clearSelection: () => void
+  // Bulk-restore clips/audio from a persisted project (reopens the timeline).
+  restoreState: (clips: VideoClip[], audioClips?: AudioClip[]) => void
   // Shared playback state for syncing timeline and canvas player.
   // NOTE: currentTime is intentionally NOT here — it updates ~60fps during
   // playback and lives in PlaybackTimeContext so it doesn't re-render every
@@ -87,6 +89,7 @@ export const VideoContext = createContext<VideoContextValue>({
   updateLayer: () => { },
   selectClip: () => { },
   clearSelection: () => { },
+  restoreState: () => { },
   // Shared playback defaults
   isPlaying: false,
   setCurrentTime: () => { },
@@ -188,6 +191,19 @@ export const VideoProvider: React.FC = ({ children }) => {
     setSelectedClipIds([])
   }, [])
 
+  // Restore clips/audio persisted with a project on reload. Replaces current
+  // state (load happens once, on a fresh editor) and reopens the timeline so the
+  // restored video doesn't silently come back as a static image.
+  const restoreState = useCallback((restoredClips: VideoClip[] = [], restoredAudio: AudioClip[] = []) => {
+    if (restoredClips.length) {
+      setClips(restoredClips)
+      setActiveClipId(restoredClips[0]?.id ?? null)
+      setSelectedClipIds([])
+    }
+    if (restoredAudio.length) setAudioClips(restoredAudio)
+    if (restoredClips.length || restoredAudio.length) setTimelineOpen(true)
+  }, [])
+
   const addLayer = useCallback((layer: TimelineLayer) => {
     setLayers(prev => [...prev, layer])
   }, [])
@@ -210,21 +226,26 @@ export const VideoProvider: React.FC = ({ children }) => {
     return videoRefsMap.current[id] || null
   }, [])
 
-  // Play the active video
+  // Start timeline playback. We kick the active <video> off here (MUTED, so the
+  // click gesture is always honoured — the canvas player unmutes it once it's
+  // running), but timeline playback state must NEVER depend on whether that one
+  // element managed to start. The old code set isPlaying(false) inside the
+  // play() promise's .catch, so a routine AbortError (from the seek-to-0 that
+  // fires on the same click) or a blocked autoplay would cancel the whole clock
+  // — the intermittent "press play and nothing happens" bug.
   const play = useCallback(() => {
     const activeVideo = activeClipId ? videoRefsMap.current[activeClipId] : null
     if (activeVideo) {
-      playPromiseRef.current = activeVideo.play()
-      playPromiseRef.current
-        .then(() => {
-          playPromiseRef.current = null
-          setIsPlaying(true)
-        })
-        .catch(err => {
-          // silently handled (AbortError expected during seeking)
-          playPromiseRef.current = null
-          setIsPlaying(false)
-        })
+      try {
+        activeVideo.muted = true
+        const p = activeVideo.play()
+        playPromiseRef.current = p || null
+        if (p && p.then) {
+          p.then(() => { playPromiseRef.current = null }).catch(() => { playPromiseRef.current = null })
+        }
+      } catch {
+        /* ignore — the canvas player will (re)start the element */
+      }
     }
     setIsPlaying(true)
   }, [activeClipId])
@@ -256,14 +277,17 @@ export const VideoProvider: React.FC = ({ children }) => {
     }
   }, [isPlaying, play, pause])
 
-  // Seek to a specific time
+  // Seek to a specific time. The timeline clock is absolute, but a <video>'s
+  // own currentTime is relative to where its clip starts — so subtract the clip
+  // start, otherwise scrubbing jumps the video to the wrong frame.
   const seek = useCallback((time: number) => {
     const activeVideo = activeClipId ? videoRefsMap.current[activeClipId] : null
     if (activeVideo) {
-      activeVideo.currentTime = time
+      const clip = clips.find(c => c.id === activeClipId)
+      activeVideo.currentTime = Math.max(0, time - (clip?.start || 0))
     }
     setCurrentTime(time)
-  }, [activeClipId])
+  }, [activeClipId, clips])
 
   const value = useMemo(
     () => ({
@@ -287,6 +311,7 @@ export const VideoProvider: React.FC = ({ children }) => {
       updateLayer,
       selectClip,
       clearSelection,
+      restoreState,
       // Shared playback state (currentTime lives in PlaybackTimeContext)
       isPlaying,
       setCurrentTime,
@@ -298,7 +323,7 @@ export const VideoProvider: React.FC = ({ children }) => {
       registerVideoRef,
       getVideoRef,
     }),
-    [clips, audioClips, layers, activeClipId, selectedClipIds, isTimelineOpen, addClip, removeClip, updateClip, reorderClips, addAudioClip, removeAudioClip, updateAudioClip, addLayer, removeLayer, updateLayer, selectClip, clearSelection, isPlaying, play, pause, togglePlayback, seek, setIsPlaying, registerVideoRef, getVideoRef]
+    [clips, audioClips, layers, activeClipId, selectedClipIds, isTimelineOpen, addClip, removeClip, updateClip, reorderClips, addAudioClip, removeAudioClip, updateAudioClip, addLayer, removeLayer, updateLayer, selectClip, clearSelection, restoreState, isPlaying, play, pause, togglePlayback, seek, setIsPlaying, registerVideoRef, getVideoRef]
   )
 
   // Isolated so a 60fps clock tick only re-renders the few clock consumers.

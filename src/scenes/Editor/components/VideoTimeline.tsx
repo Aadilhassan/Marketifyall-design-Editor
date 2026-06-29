@@ -13,33 +13,55 @@ import { notify } from '@/lib/notify'
 // time-based opacity effects must leave it alone).
 const isAnimatedObject = (obj: any): boolean => hasActiveAnimation(getObjectAnimation(obj))
 
-// ============ CANVA-STYLE TIMELINE STYLES ============
+// ============ PROFESSIONAL VIDEO-EDITOR TIMELINE THEME ============
+// A focused, dark "editing surface" docked below the light canvas (the pattern
+// used by CapCut / Premiere / Canva's video editor) — colored clips and the red
+// playhead read clearly against charcoal, and it visually separates "editing
+// the design" from "sequencing the video".
+const T = {
+  bg: '#15151b',          // shell background
+  bgPanel: '#1b1b22',     // header + track-labels panel
+  bgRow: '#191920',       // track row
+  bgRail: '#121217',      // ruler / rail
+  border: '#2a2a33',      // hairline dividers
+  borderSoft: '#23232b',
+  text: '#ececed',        // primary text
+  textMuted: '#a2a2ad',   // secondary text
+  textFaint: '#71717f',   // tertiary text
+  hover: 'rgba(255,255,255,0.06)',
+  accent: '#8b5cf6',
+  accent2: '#6366f1',
+  accentGrad: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+  accentSoft: 'rgba(139,92,246,0.16)',
+  playhead: '#fb3b4e',
+}
 
 const TimelineShell = styled('div', ({ $isVideoPanelActive }: { $isVideoPanelActive: boolean }) => ({
   position: 'absolute',
   left: '0',
   right: '0',
   bottom: $isVideoPanelActive ? '20px' : '0', // Push up from bottom only when video panels are active
-  height: '260px',
+  height: '280px',
   zIndex: 12,
   display: 'flex',
   flexDirection: 'column',
-  background: '#ffffff',
-  borderTop: '1px solid #e5e7eb',
-  borderRadius: $isVideoPanelActive ? '8px 8px 0 0' : '0', // Rounded top corners only when video panels are active
+  background: T.bg,
+  borderTop: `1px solid ${T.border}`,
+  borderRadius: $isVideoPanelActive ? '12px 12px 0 0' : '0', // Rounded top corners only when video panels are active
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  // Add box shadow only when video panels are active
-  boxShadow: $isVideoPanelActive ? '0 -2px 12px rgba(0, 0, 0, 0.08)' : 'none',
+  color: T.text,
+  overflow: 'hidden',
+  boxShadow: '0 -8px 30px rgba(0, 0, 0, 0.28)',
 }))
 
 const TimelineHeader = styled('div', {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '8px 16px',
-  background: '#f9fafb',
-  borderBottom: '1px solid #e5e7eb',
-  minHeight: '44px',
+  padding: '10px 16px',
+  background: T.bgPanel,
+  borderBottom: `1px solid ${T.border}`,
+  minHeight: '52px',
 })
 
 const HeaderLeft = styled('div', {
@@ -61,110 +83,122 @@ const HeaderRight = styled('div', {
 })
 
 const TimeDisplay = styled('div', {
-  fontFamily: "'SF Mono', 'Fira Code', monospace",
-  fontSize: '14px',
+  fontFamily: "'SF Mono', 'Fira Code', ui-monospace, monospace",
+  fontSize: '13px',
   fontWeight: 600,
-  color: '#111827',
+  letterSpacing: '0.3px',
+  color: T.text,
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
+  gap: '7px',
+  background: 'rgba(255,255,255,0.04)',
+  border: `1px solid ${T.border}`,
+  borderRadius: '8px',
+  padding: '6px 12px',
 })
 
 const PlayButton = styled('button', ({ $playing }: { $playing?: boolean }) => ({
-  width: '40px',
-  height: '40px',
+  width: '44px',
+  height: '44px',
   borderRadius: '50%',
-  background: $playing
-    ? '#ef4444'
-    : 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+  background: $playing ? '#ef4444' : T.accentGrad,
   border: 'none',
   color: '#ffffff',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  transition: 'all 0.15s ease',
+  boxShadow: $playing
+    ? '0 4px 14px rgba(239, 68, 68, 0.45)'
+    : '0 4px 16px rgba(139, 92, 246, 0.5)',
+  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
   ':hover': {
-    transform: 'scale(1.08)',
+    transform: 'scale(1.07)',
   },
   ':active': {
-    transform: 'scale(0.95)',
+    transform: 'scale(0.94)',
   },
 }))
 
 const ControlBtn = styled('button', {
-  width: '32px',
-  height: '32px',
-  borderRadius: '6px',
+  width: '34px',
+  height: '34px',
+  borderRadius: '8px',
   background: 'transparent',
   border: 'none',
-  color: '#6b7280',
+  color: T.textMuted,
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   transition: 'all 0.15s ease',
   ':hover': {
-    background: '#f3f4f6',
-    color: '#111827',
+    background: T.hover,
+    color: T.text,
   },
 })
 
 const ZoomControl = styled('div', {
   display: 'flex',
   alignItems: 'center',
-  gap: '4px',
-  background: '#f3f4f6',
-  padding: '4px 8px',
-  borderRadius: '6px',
+  gap: '6px',
+  background: 'rgba(255,255,255,0.04)',
+  border: `1px solid ${T.border}`,
+  padding: '6px 10px',
+  borderRadius: '8px',
 })
 
 const ZoomSlider = styled('input', {
-  width: '60px',
-  height: '3px',
+  width: '70px',
+  height: '4px',
   appearance: 'none',
-  background: '#d1d5db',
+  background: '#3a3a45',
   borderRadius: '2px',
   outline: 'none',
+  cursor: 'pointer',
   '::-webkit-slider-thumb': {
     appearance: 'none',
-    width: '12px',
-    height: '12px',
+    width: '13px',
+    height: '13px',
     borderRadius: '50%',
-    background: '#8b5cf6',
+    background: T.accent,
     cursor: 'pointer',
+    boxShadow: '0 0 0 3px rgba(139,92,246,0.25)',
   },
 })
 
 const CloseButton = styled('button', {
   background: 'transparent',
   border: 'none',
-  color: '#6b7280',
+  color: T.textMuted,
   cursor: 'pointer',
-  padding: '4px 8px',
-  borderRadius: '4px',
+  padding: '7px 10px',
+  borderRadius: '8px',
   fontSize: '12px',
+  fontWeight: 500,
   ':hover': {
-    background: '#f3f4f6',
-    color: '#111827',
+    background: T.hover,
+    color: T.text,
   },
 })
 
 const AddAudioButton = styled('button', {
   background: 'transparent',
-  border: '1px solid #d1d5db',
-  color: '#6b7280',
+  border: `1px solid ${T.border}`,
+  color: T.textMuted,
   cursor: 'pointer',
-  padding: '4px 10px',
-  borderRadius: '4px',
+  padding: '7px 12px',
+  borderRadius: '8px',
   fontSize: '12px',
+  fontWeight: 500,
   display: 'flex',
   alignItems: 'center',
-  gap: '4px',
+  gap: '5px',
+  transition: 'all 0.15s ease',
   ':hover': {
-    background: '#f3f4f6',
-    color: '#111827',
-    borderColor: '#9ca3af',
+    background: T.hover,
+    color: T.text,
+    borderColor: T.accent,
   },
 })
 
@@ -175,27 +209,28 @@ const TimelineBody = styled('div', {
   overflowY: 'auto',
   overflowX: 'hidden',
   position: 'relative',
-  // Smooth scrolling
   scrollBehavior: 'smooth',
   '::-webkit-scrollbar': {
-    width: '8px',
+    width: '10px',
+    height: '10px',
   },
   '::-webkit-scrollbar-track': {
-    background: '#f9fafb',
+    background: T.bg,
   },
   '::-webkit-scrollbar-thumb': {
-    background: '#d1d5db',
-    borderRadius: '4px',
+    background: '#33333d',
+    borderRadius: '5px',
+    border: `2px solid ${T.bg}`,
   },
   '::-webkit-scrollbar-thumb:hover': {
-    background: '#9ca3af',
+    background: '#43434f',
   },
 })
 
 const TrackLabelsPanel = styled('div', {
-  width: '120px', // Slightly wider for better labels
-  background: '#f9fafb',
-  borderRight: '1px solid #e5e7eb',
+  width: '128px',
+  background: T.bgPanel,
+  borderRight: `1px solid ${T.border}`,
   display: 'flex',
   flexDirection: 'column',
   flexShrink: 0,
@@ -207,36 +242,38 @@ const TrackLabelsPanel = styled('div', {
 })
 
 const TrackLabelHeader = styled('div', {
-  height: '32px',
-  minHeight: '32px',
-  maxHeight: '32px',
-  borderBottom: '1px solid #e5e7eb',
+  height: '36px',
+  minHeight: '36px',
+  maxHeight: '36px',
+  borderBottom: `1px solid ${T.border}`,
   display: 'flex',
   alignItems: 'center',
-  padding: '0 8px',
+  padding: '0 12px',
   fontSize: '10px',
-  color: '#6b7280',
+  fontWeight: 600,
+  color: T.textFaint,
   textTransform: 'uppercase',
-  letterSpacing: '0.5px',
+  letterSpacing: '0.6px',
   flexShrink: 0,
   position: 'sticky',
   top: 0,
-  background: '#f9fafb',
+  background: T.bgPanel,
   zIndex: 21,
 })
 
-const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
-  const getColor = () => {
-    switch ($type) {
-      case 'video': return '#8b5cf6'
-      case 'text': return '#10b981'
-      case 'image': return '#f59e0b'
-      case 'shape': return '#ec4899'
-      case 'audio': return '#3b82f6'
-      default: return '#6b7280'
-    }
+const trackColor = ($type?: string) => {
+  switch ($type) {
+    case 'video': return '#8b5cf6'
+    case 'text': return '#34d399'
+    case 'image': return '#fbbf24'
+    case 'shape': return '#f472b6'
+    case 'audio': return '#60a5fa'
+    default: return '#9ca3af'
   }
-  // Video tracks are taller to show thumbnails better (Canva-style)
+}
+
+const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
+  // Video tracks are taller to show thumbnails better
   const trackHeight = $type === 'video' ? '88px' : '52px'
   return {
     height: trackHeight,
@@ -244,26 +281,29 @@ const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
     maxHeight: trackHeight,
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    padding: '0 8px',
-    fontSize: '11px',
-    fontWeight: 500,
-    color: '#374151',
-    borderBottom: '1px solid #e5e7eb',
+    gap: '9px',
+    padding: '0 12px',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: T.textMuted,
+    borderBottom: `1px solid ${T.borderSoft}`,
     cursor: 'pointer',
-    transition: 'background 0.15s ease',
+    transition: 'background 0.15s ease, color 0.15s ease',
     flexShrink: 0,
     flexGrow: 0,
+    textTransform: 'capitalize',
     ':hover': {
-      background: '#f3f4f6',
+      background: T.hover,
+      color: T.text,
     },
     '::before': {
       content: '""',
-      width: '3px',
-      height: $type === 'video' ? '40px' : '24px',
-      background: getColor(),
-      borderRadius: '2px',
+      width: '4px',
+      height: $type === 'video' ? '44px' : '26px',
+      background: trackColor($type),
+      borderRadius: '3px',
       flexShrink: 0,
+      boxShadow: `0 0 10px ${trackColor($type)}66`,
     },
   }
 })
@@ -271,15 +311,15 @@ const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
 
 const AddMediaButton = styled('button', {
   position: 'absolute',
-  left: '8px',
+  left: '10px',
   top: '50%',
   transform: 'translateY(-50%)',
-  width: '32px',
-  height: '32px',
-  borderRadius: '6px',
-  background: '#ffffff',
-  border: '1px solid #e5e7eb',
-  color: '#6b7280',
+  width: '34px',
+  height: '34px',
+  borderRadius: '8px',
+  background: 'rgba(255,255,255,0.05)',
+  border: `1px dashed ${T.borderSoft}`,
+  color: T.textMuted,
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -287,10 +327,10 @@ const AddMediaButton = styled('button', {
   transition: 'all 0.15s ease',
   zIndex: 10,
   ':hover': {
-    background: '#f3f4f6',
-    borderColor: '#8b5cf6',
-    color: '#8b5cf6',
-    transform: 'translateY(-50%) scale(1.1)',
+    background: T.accentSoft,
+    borderColor: T.accent,
+    color: '#c4b5fd',
+    transform: 'translateY(-50%) scale(1.08)',
   },
   'svg': {
     width: '18px',
@@ -300,15 +340,15 @@ const AddMediaButton = styled('button', {
 
 const MediaMenu = styled('div', ({ $visible, $top }: { $visible: boolean; $top: number }) => ({
   position: 'absolute',
-  left: '48px',
+  left: '50px',
   top: `${$top}px`,
-  background: '#ffffff',
-  borderRadius: '8px',
-  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
-  border: '1px solid #e5e7eb',
-  padding: '4px',
+  background: '#22222b',
+  borderRadius: '10px',
+  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+  border: `1px solid ${T.border}`,
+  padding: '5px',
   zIndex: 1000,
-  minWidth: '180px',
+  minWidth: '184px',
   opacity: $visible ? 1 : 0,
   visibility: $visible ? 'visible' : 'hidden',
   transform: $visible ? 'translateX(0)' : 'translateX(-8px)',
@@ -322,17 +362,17 @@ const MenuItem = styled('button', {
   alignItems: 'center',
   gap: '10px',
   padding: '10px 12px',
-  borderRadius: '6px',
+  borderRadius: '7px',
   border: 'none',
   background: 'transparent',
-  color: '#374151',
+  color: T.text,
   fontSize: '13px',
   fontWeight: 500,
   cursor: 'pointer',
   transition: 'all 0.15s ease',
   textAlign: 'left',
   ':hover': {
-    background: '#f3f4f6',
+    background: T.hover,
   },
 })
 
@@ -357,12 +397,14 @@ const EmptyTrackMessage = styled('div', {
   left: '50%',
   top: '50%',
   transform: 'translate(-50%, -50%)',
-  color: '#9ca3af',
+  color: T.textFaint,
   fontSize: '11px',
+  fontWeight: 500,
   pointerEvents: 'none',
   display: 'flex',
   alignItems: 'center',
-  gap: '4px',
+  gap: '5px',
+  whiteSpace: 'nowrap',
 })
 
 const TracksScrollContainer = styled('div', {
@@ -370,16 +412,30 @@ const TracksScrollContainer = styled('div', {
   overflowX: 'auto',
   overflowY: 'visible',
   position: 'relative',
-  background: '#ffffff',
+  background: T.bg,
   minHeight: '100%',
+  '::-webkit-scrollbar': {
+    height: '10px',
+  },
+  '::-webkit-scrollbar-track': {
+    background: T.bg,
+  },
+  '::-webkit-scrollbar-thumb': {
+    background: '#33333d',
+    borderRadius: '5px',
+    border: `2px solid ${T.bg}`,
+  },
+  '::-webkit-scrollbar-thumb:hover': {
+    background: '#43434f',
+  },
 })
 
 const TimeRuler = styled('div', {
-  height: '32px',
-  minHeight: '32px',
-  maxHeight: '32px',
-  background: '#ffffff',
-  borderBottom: '1px solid #e5e7eb',
+  height: '36px',
+  minHeight: '36px',
+  maxHeight: '36px',
+  background: T.bgRail,
+  borderBottom: `1px solid ${T.border}`,
   position: 'sticky',
   top: 0,
   zIndex: 15, // Above clips (10) but below labels panel (20) if needed
@@ -400,16 +456,17 @@ const TimeMarker = styled('div', ({ $left }: { $left: number }) => ({
 const TimeMarkerLine = styled('div', ({ $isMajor }: { $isMajor?: boolean }) => ({
   width: '1px',
   height: $isMajor ? '12px' : '6px',
-  background: $isMajor ? '#9ca3af' : '#d1d5db',
+  background: $isMajor ? '#5a5a68' : '#3a3a45',
   marginTop: 'auto',
 }))
 
 const TimeMarkerText = styled('span', {
   fontSize: '10px',
-  color: '#6b7280',
+  fontWeight: 500,
+  color: T.textFaint,
   position: 'absolute',
-  top: '4px',
-  fontFamily: "'SF Mono', monospace",
+  top: '5px',
+  fontFamily: "'SF Mono', ui-monospace, monospace",
 })
 
 const TracksArea = styled('div', {
@@ -420,15 +477,16 @@ const TracksArea = styled('div', {
 })
 
 const TrackRow = styled('div', ({ $type }: { $type?: string }) => ({
-  // Video tracks are taller to show thumbnails better (Canva-style)
+  // Video tracks are taller to show thumbnails better
   height: $type === 'video' ? '88px' : '52px',
   minHeight: $type === 'video' ? '88px' : '52px',
   maxHeight: $type === 'video' ? '88px' : '52px',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: `1px solid ${T.borderSoft}`,
   position: 'relative',
-  background: '#ffffff',
+  background: T.bgRow,
   flexShrink: 0,
   flexGrow: 0,
+  transition: 'background 0.15s ease',
 }))
 
 const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $poster }: {
@@ -436,36 +494,44 @@ const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $p
 }) => ({
   position: 'absolute',
   left: `${$left}px`,
-  top: '6px', // Reduced top margin for better thumbnail visibility
-  bottom: '6px', // Reduced bottom margin for better thumbnail visibility
+  top: '6px',
+  bottom: '6px',
   width: `${$width}px`,
   minWidth: '30px',
   background: $poster
-    ? `linear-gradient(rgba(0,0,0,0.2), rgba(0,0,0,0.2)), url(${$poster})`
-    : $color,
+    ? `linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.35)), url(${$poster})`
+    : `linear-gradient(180deg, ${$color}, ${$color}cc)`,
   backgroundSize: $poster ? 'cover' : 'auto',
   backgroundPosition: $poster ? 'center' : 'auto',
   backgroundRepeat: $poster ? 'no-repeat' : 'repeat',
-  borderRadius: '6px',
-  padding: $poster ? '0' : '0 8px', // No padding when showing thumbnail
+  borderRadius: '8px',
+  padding: $poster ? '0' : '0 10px',
   color: '#ffffff',
   fontSize: '11px',
-  fontWeight: 500,
+  fontWeight: 600,
   cursor: 'grab',
   display: 'flex',
-  alignItems: $poster ? 'flex-end' : 'center', // Align text to bottom when showing thumbnail
+  alignItems: $poster ? 'flex-end' : 'center',
   gap: '6px',
-  overflow: 'hidden', // Changed to hidden to clip video thumbnail
-  border: $selected ? '2px solid #ffffff' : ($active ? '2px solid rgba(255,255,255,0.7)' : 'none'),
-  boxShadow: $selected ? '0 0 0 2px rgba(139, 92, 246, 0.3)' : 'none',
-  transition: 'box-shadow 0.15s ease, border 0.1s ease',
+  overflow: 'hidden',
+  outline: $selected
+    ? `2px solid #ffffff`
+    : ($active ? `2px solid rgba(255,255,255,0.55)` : `1px solid rgba(0,0,0,0.25)`),
+  outlineOffset: $selected ? '0px' : '-1px',
+  boxShadow: $selected
+    ? `0 0 0 3px ${T.accentSoft}, 0 6px 16px rgba(0,0,0,0.45)`
+    : '0 2px 8px rgba(0,0,0,0.35)',
+  transition: 'box-shadow 0.15s ease, outline 0.1s ease, filter 0.15s ease',
   userSelect: 'none',
   ':hover': {
-    filter: 'brightness(1.05)',
+    filter: 'brightness(1.08)',
     '.audio-delete-btn': {
       opacity: '1 !important',
     },
     '.clip-add-btn': {
+      opacity: '1 !important',
+    },
+    '.clip-handle': {
       opacity: '1 !important',
     },
   },
@@ -477,8 +543,8 @@ const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $p
 const ClipThumbnail = styled('div', {
   width: '28px',
   height: '28px',
-  borderRadius: '3px',
-  background: 'rgba(255,255,255,0.2)',
+  borderRadius: '5px',
+  background: 'rgba(255,255,255,0.18)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -491,26 +557,37 @@ const ClipName = styled('span', {
   textOverflow: 'ellipsis',
   whiteSpace: 'nowrap',
   flex: 1,
+  textShadow: '0 1px 2px rgba(0,0,0,0.4)',
 })
 
 const ClipHandle = styled('div', ({ $position }: { $position: 'left' | 'right' }) => ({
   position: 'absolute',
   top: 0,
   bottom: 0,
-  width: '8px',
-  background: 'rgba(255,255,255,0.5)',
+  width: '10px',
+  background: 'rgba(0,0,0,0.18)',
   cursor: 'ew-resize',
   opacity: 0,
-  transition: 'opacity 0.15s ease',
+  transition: 'opacity 0.15s ease, background 0.15s ease',
   left: $position === 'left' ? 0 : 'auto',
   right: $position === 'right' ? 0 : 'auto',
-  borderRadius: $position === 'left' ? '6px 0 0 6px' : '0 6px 6px 0',
+  borderRadius: $position === 'left' ? '8px 0 0 8px' : '0 8px 8px 0',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  zIndex: 3,
+  // A small grip indicator so resize affordance is discoverable.
+  '::after': {
+    content: '""',
+    width: '3px',
+    height: '40%',
+    minHeight: '14px',
+    borderRadius: '2px',
+    background: 'rgba(255,255,255,0.9)',
+  },
   ':hover': {
     opacity: 1,
-    background: 'rgba(255,255,255,0.8)',
+    background: 'rgba(0,0,0,0.32)',
   },
 }))
 
@@ -556,11 +633,12 @@ const ContextMenuContainer = styled('div', ({ $visible, $top, $left }: { $visibl
   position: 'fixed',
   top: `${$top}px`,
   left: `${$left}px`,
-  backgroundColor: '#ffffff',
-  borderRadius: '6px',
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.08)',
-  padding: '2px',
-  minWidth: '100px',
+  backgroundColor: '#22222b',
+  borderRadius: '9px',
+  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.55)',
+  border: `1px solid ${T.border}`,
+  padding: '4px',
+  minWidth: '120px',
   zIndex: 2001,
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
   opacity: $visible ? 1 : 0,
@@ -573,17 +651,17 @@ const ContextMenuContainer = styled('div', ({ $visible, $top, $left }: { $visibl
 const ContextMenuItem = styled('div', {
   display: 'flex',
   alignItems: 'center',
-  gap: '8px',
-  padding: '6px 10px',
-  borderRadius: '4px',
+  gap: '9px',
+  padding: '8px 10px',
+  borderRadius: '6px',
   cursor: 'pointer',
   fontSize: '12px',
   fontWeight: 500,
-  color: '#374151',
+  color: T.text,
   transition: 'all 0.1s ease',
   ':hover': {
-    backgroundColor: '#f3f4f6',
-    color: '#ef4444',
+    backgroundColor: 'rgba(239,68,68,0.14)',
+    color: '#f87171',
   },
   'svg': {
     width: '14px',
@@ -597,40 +675,42 @@ const Playhead = styled('div', ({ $left }: { $left: number }) => ({
   left: `${$left}px`,
   top: 0,
   bottom: 0,
-  width: '12px',
-  marginLeft: '-6px',
+  width: '14px',
+  marginLeft: '-7px',
   background: 'transparent',
   zIndex: 50,
-  cursor: 'grab',
-  // The visible playhead line
+  cursor: 'ew-resize',
+  // The visible playhead line (with a soft glow so it reads on dark tracks).
   '::after': {
     content: '""',
     position: 'absolute',
-    left: '5px',
+    left: '6px',
     top: 0,
     bottom: 0,
     width: '2px',
-    background: '#ef4444',
+    background: T.playhead,
+    boxShadow: `0 0 8px ${T.playhead}aa`,
     pointerEvents: 'none',
   },
-  // The playhead handle at top
+  // The playhead handle at top.
   '::before': {
     content: '""',
     position: 'absolute',
     top: '0',
-    left: '0',
+    left: '1px',
     width: '12px',
-    height: '14px',
-    background: '#ef4444',
-    borderRadius: '2px 2px 4px 4px',
-    cursor: 'grab',
+    height: '15px',
+    background: T.playhead,
+    borderRadius: '3px 3px 5px 5px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+    cursor: 'ew-resize',
+    transition: 'transform 0.12s ease',
   },
   ':active': {
     cursor: 'grabbing',
   },
   ':hover::before': {
-    background: '#dc2626',
-    transform: 'scale(1.1)',
+    transform: 'scale(1.15)',
   },
 }))
 
@@ -1464,34 +1544,13 @@ const VideoTimeline: React.FC = () => {
     if (!masterVideo) return
 
     const handleEnded = () => {
-      const activeClip = getActiveClip()
-      if (!activeClip) {
-        // If no active clip, try to start from first clip
-        if (clips.length > 0 && isPlaying) {
-          const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
-          const firstClip = sortedClips[0]
-          setActiveClip(firstClip.id)
-          setCurrentTime(firstClip.start || 0)
-        }
-        return
-      }
-
-      // Sort clips by start time to find the next one
-      const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
-      const currentIndex = sortedClips.findIndex(c => c.id === activeClip.id)
-      const nextIndex = currentIndex + 1
-
-      if (nextIndex < sortedClips.length) {
-        // Switch to next clip (by start time order) and continue playing
-        const nextClip = sortedClips[nextIndex]
-        setActiveClip(nextClip.id)
-        setCurrentTime(nextClip.start || 0)
-        // Continue playing automatically - the video will start via the activeClip change effect
-      } else {
-        // All clips finished
-        setIsPlaying(false)
-        setCurrentTime(totalDuration)
-      }
+      // The rAF master clock (further below) owns the playhead: it advances time
+      // linearly and stops at totalDuration, and a separate effect derives the
+      // active clip from the current time, so clips play in sequence on their own.
+      // This muted, off-screen timing element must therefore NOT touch the clock —
+      // the old code here called setCurrentTime(totalDuration)/setIsPlaying(false)
+      // when a short clip ended, which snapped the playhead to the end and made
+      // replays jump straight there ("press play, nothing plays"). Let it pause.
     }
 
     masterVideo.addEventListener('ended', handleEnded)
@@ -1841,12 +1900,31 @@ const VideoTimeline: React.FC = () => {
     if (!isPlaying) {
       // Always start from the beginning of the timeline
       setCurrentTime(0)
-
-      // Clear active clip - it will be set based on currentTime during playback
-      // The video visibility effect will handle showing the right video
+      // Rewind the backing media too. A <video> left parked at its end from a
+      // previous playthrough fires 'ended' the instant it's played again, which
+      // (before the fix below) snapped the playhead to the timeline end — so
+      // pressing play appeared to do nothing. Resetting avoids that race.
+      if (masterVideoRef.current) { try { masterVideoRef.current.currentTime = 0 } catch { /* ignore */ } }
+      Object.values(timelineVideoRefs.current).forEach(v => { try { v.currentTime = 0 } catch { /* ignore */ } })
     }
     togglePlayback()
   }, [togglePlayback, isPlaying, setCurrentTime])
+
+  // Spacebar toggles play/pause (standard in video editors), but never while the
+  // user is typing in a field or editing text on the canvas.
+  useEffect(() => {
+    if (!isTimelineOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' && e.key !== ' ') return
+      const el = e.target as HTMLElement | null
+      const tag = el?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || el?.isContentEditable) return
+      e.preventDefault()
+      handleTogglePlay()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isTimelineOpen, handleTogglePlay])
 
   // Handle seek
   const handleSeek = useCallback((time: number) => {
@@ -2709,12 +2787,20 @@ const VideoTimeline: React.FC = () => {
 
   const playheadPosition = currentTime * pixelsPerSecond
 
-  // Generate time markers
-  const timeMarkers = []
-  const markerInterval = zoom > 100 ? 5 : 10
-  for (let i = 0; i <= totalDuration; i += markerInterval) {
-    timeMarkers.push(i)
+  // Adaptive ruler: pick a "nice" labeled step so a label lands roughly every
+  // ~84px (never crowded at low zoom, never sparse at high zoom). Minor ticks
+  // subdivide each labeled step in half.
+  const NICE_STEPS = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600]
+  const majorStep = NICE_STEPS.find(s => s * pixelsPerSecond >= 84) ?? 600
+  const minorStep = majorStep / 2
+  const timeMarkers: { time: number; major: boolean }[] = []
+  for (let t = 0; t <= totalDuration + 0.0001; t += minorStep) {
+    const time = Math.round(t * 100) / 100
+    timeMarkers.push({ time, major: Math.abs(time % majorStep) < 0.001 })
   }
+
+  // Reserve the real stacked height of all tracks (video rows are taller).
+  const tracksMinHeight = tracks.reduce((h, t) => h + (t.type === 'video' ? 88 : 52), 0)
 
   return (
     <TimelineShell $isVideoPanelActive={isVideoPanelActive}>
@@ -2827,10 +2913,10 @@ const VideoTimeline: React.FC = () => {
             onClick={handleTimelineClick}
             style={{ width: `${timelineWidth}px` }}
           >
-            {timeMarkers.map((time, idx) => (
+            {timeMarkers.map(({ time, major }) => (
               <TimeMarker key={time} $left={time * pixelsPerSecond}>
-                <TimeMarkerText>{time}s</TimeMarkerText>
-                <TimeMarkerLine $isMajor={idx % 2 === 0} />
+                {major && <TimeMarkerText>{formatTime(time)}</TimeMarkerText>}
+                <TimeMarkerLine $isMajor={major} />
               </TimeMarker>
             ))}
             <Playhead
@@ -2863,7 +2949,7 @@ const VideoTimeline: React.FC = () => {
           <TracksArea
             ref={tracksAreaRef}
             onClick={handleTimelineClick}
-            style={{ width: `${timelineWidth}px`, minHeight: `${tracks.length * 52}px` }}
+            style={{ width: `${timelineWidth}px`, minHeight: `${tracksMinHeight}px` }}
           >
             {tracks.map(track => (
               <TrackRow
@@ -2994,10 +3080,20 @@ const VideoTimeline: React.FC = () => {
                             </ClipThumbnail>
                             <ClipName style={{
                               fontSize: '11px',
-                              fontWeight: 500,
+                              fontWeight: 600,
                               color: '#ffffff',
                               textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                             }}>{clip.name}</ClipName>
+                            <span style={{
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              color: '#ffffff',
+                              fontFamily: "'SF Mono', ui-monospace, monospace",
+                              background: 'rgba(0,0,0,0.4)',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              flexShrink: 0,
+                            }}>{formatTime(displayDuration)}</span>
                           </div>
                         </ClipThumbnail>
                       ) : (
@@ -3044,10 +3140,12 @@ const VideoTimeline: React.FC = () => {
                       )}
 
                       <ClipHandle
+                        className="clip-handle"
                         $position="left"
                         onMouseDown={(e) => handleResizeStart(clip.id, track.id, 'left', e)}
                       />
                       <ClipHandle
+                        className="clip-handle"
                         $position="right"
                         onMouseDown={(e) => handleResizeStart(clip.id, track.id, 'right', e)}
                       />

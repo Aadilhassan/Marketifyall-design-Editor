@@ -440,9 +440,24 @@ const VideoCanvasPlayer: React.FC = () => {
             if (Math.abs(activeVideo.currentTime - videoTime) > 0.1) {
                 activeVideo.currentTime = Math.min(videoTime, activeVideo.duration || activeClip.duration)
             }
-            activeVideo.play().then(() => { activeVideo.muted = false }).catch(err => {
-                // silently handled (AbortError expected during seeking)
-            })
+            // Only kick off playback when actually stopped — re-issuing play() every
+            // clock tick churns the element and its muted flag. Start MUTED, then
+            // unmute once playback is established: browsers block an *unmuted*
+            // play() that isn't fired straight from the click gesture (this runs in
+            // an effect a tick later), which left the playhead advancing while the
+            // video sat frozen — the "video doesn't play" bug. Muted playback is
+            // always allowed, and unmuting an already-playing element is not gated.
+            if (activeVideo.paused) {
+                activeVideo.muted = true
+                activeVideo
+                    .play()
+                    .then(() => { activeVideo.muted = false })
+                    .catch(() => {
+                        // Keep it muted but playing so the video is at least visible.
+                        activeVideo.muted = true
+                        activeVideo.play().catch(() => { /* AbortError during seek */ })
+                    })
+            }
         } else {
             activeVideo.pause()
             activeVideo.muted = true
@@ -454,16 +469,12 @@ const VideoCanvasPlayer: React.FC = () => {
         const activeVideo = activeClipId ? videoRefs.current[activeClipId] : null
         if (!activeVideo) return
         const handleEnded = () => {
-            const sortedClips = [...clips].sort((a, b) => (a.start || 0) - (b.start || 0))
-            const currentIndex = sortedClips.findIndex(c => c.id === activeClipId)
-            const nextIndex = currentIndex + 1
-            if (nextIndex < sortedClips.length) {
-                const nextClip = sortedClips[nextIndex]
-                setActiveClip(nextClip.id)
-                setCurrentTime(nextClip.start || 0)
-            } else {
-                setIsPlaying(false)
-            }
+            // The timeline's rAF clock is the single source of truth for the playhead
+            // and stops at the timeline end; the active clip is derived from the
+            // current time. So when a clip's element ends we must NOT move the clock
+            // or flip isPlaying — doing so snapped the playhead to the next clip's
+            // start (or stopped playback) and made replays jump to the end. The next
+            // clip starts automatically as the clock crosses into its range.
         }
         activeVideo.addEventListener('ended', handleEnded)
         return () => activeVideo.removeEventListener('ended', handleEnded)
@@ -645,7 +656,11 @@ const VideoCanvasPlayer: React.FC = () => {
                                     }}
                                     src={videoData.src}
                                     poster={isVideoPlaying ? '' : (videoData.poster || '')}
-                                    muted={!isVideoPlaying} playsInline crossOrigin="anonymous" controls={false}
+                                    // Always mount muted; the play effect unmutes once playback
+                                    // is running. Binding this to !isVideoPlaying let React flip
+                                    // muted=false a tick BEFORE play() ran, so the browser blocked
+                                    // the unmuted autoplay and the clip froze.
+                                    muted={true} playsInline crossOrigin="anonymous" controls={false}
                                     style={{ opacity: 1, pointerEvents: isVideoPlaying ? 'auto' : 'none', objectFit: 'cover', objectPosition: 'center' }}
                                 />
                                 {isVideoPlaying && (

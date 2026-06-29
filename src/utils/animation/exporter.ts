@@ -245,7 +245,18 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
     safe(() => {
       v.el.currentTime = 0
       v.el.muted = false
-      v.el.play().catch(() => {})
+      // The export is kicked off behind an `await` (canvas prep / preloading), so
+      // the original click gesture has expired by now and an UNMUTED play() can be
+      // blocked by the autoplay policy — which froze the source at frame 0 and
+      // baked a still image into the video. Fall back to muted playback so the
+      // frames always advance (audio is captured separately via captureStream).
+      const p = v.el.play()
+      if (p && (p as Promise<void>).catch) {
+        ;(p as Promise<void>).catch(() => {
+          v.el.muted = true
+          v.el.play().catch(() => {})
+        })
+      }
     })
   )
 
@@ -277,10 +288,12 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
   return new Promise<RecordResult>(resolve => {
     let settled = false
     let watchdog: any = null
+    let keepAlive: any = null
     const finish = () => {
       if (settled) return
       settled = true
       if (watchdog) clearTimeout(watchdog)
+      if (keepAlive) clearInterval(keepAlive)
       cleanup()
       onProgress?.(100, 'Complete!')
       resolve({ blob: new Blob(chunks, { type: mime || 'video/webm' }), ext, mime })
@@ -305,6 +318,8 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
     }
 
     let startWall = 0
+    let stopScheduled = false
+    let lastRenderWall = 0
 
     const renderFrame = (t: number) => {
       renderDesignFrame({
@@ -321,16 +336,40 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
       })
     }
 
-    // Real-time render loop: repaint the export canvas every animation frame at
-    // the ACTUAL elapsed time, and let captureStream(fps) sample it on a steady
-    // clock. Produces smooth, real-time video (correct duration, in-sync video
-    // audio) — unlike the old frame-index + setTimeout pacing whose uneven
-    // cadence made MediaRecorder output choppy "stop-motion" frames.
-    const step = () => {
-      if (settled) return
+    // Paint the frame for the CURRENT elapsed time, and detect completion. Driven
+    // by BOTH requestAnimationFrame (smooth while the tab is focused) AND a timer
+    // (rAF is fully suspended in a backgrounded tab — relying on it alone left the
+    // capture empty/truncated when the user switched tabs mid-export). captureStream
+    // samples whatever is painted, so either driver keeps real frames flowing.
+    const renderNow = () => {
+      if (settled || stopScheduled) return
       try {
-        const elapsed = (performance.now() - startWall) / 1000
+        lastRenderWall = performance.now()
+        const elapsed = (lastRenderWall - startWall) / 1000
         const t = Math.min(durationSec, elapsed)
+        // Keep each in-window video on the exact frame this timestamp needs. Relying
+        // on real-time play() alone froze exports on a single frame whenever playback
+        // was throttled (autoplay policy, a backgrounded tab, or another effect
+        // pausing the element). We still play() for smooth audio when it works, but
+        // also nudge currentTime — a seek advances the decoded frame even when
+        // playback is suspended, so the exported video actually MOVES.
+        for (const v of videoTargets) {
+          if (t < v.start || t >= v.start + v.duration) continue
+          if (v.el.paused) {
+            try {
+              v.el.muted = true
+              const pp = v.el.play()
+              if (pp && (pp as Promise<void>).catch) (pp as Promise<void>).catch(() => {})
+            } catch {
+              /* ignore */
+            }
+          }
+          const expected = t - v.start
+          const vDur = v.el.duration || v.duration || expected
+          if (Math.abs(v.el.currentTime - expected) > 0.34) {
+            try { v.el.currentTime = Math.max(0, Math.min(expected, vDur - 0.05)) } catch { /* ignore */ }
+          }
+        }
         renderFrame(t)
         try {
           onProgress?.(Math.min(99, (t / Math.max(0.001, durationSec)) * 100), 'Rendering...')
@@ -339,21 +378,37 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
         }
         if (elapsed >= durationSec) {
           // Hold the final frame briefly so it's captured, then stop.
-          setTimeout(stopRecorder, 120)
-        } else {
-          requestAnimationFrame(step)
+          stopScheduled = true
+          setTimeout(stopRecorder, 140)
         }
       } catch {
         stopRecorder()
       }
     }
 
+    const rafLoop = () => {
+      if (settled || stopScheduled) return
+      renderNow()
+      requestAnimationFrame(rafLoop)
+    }
+
     try {
-      recorder.start()
+      // timeslice => MediaRecorder flushes data chunks periodically, so the output
+      // has content even if the stream stalls (instead of one all-or-nothing chunk).
+      recorder.start(250)
       onProgress?.(2, 'Rendering...')
       startWall = performance.now()
-      requestAnimationFrame(step)
-      // Hard watchdog: force-finish even if the loop stalls.
+      lastRenderWall = startWall
+      requestAnimationFrame(rafLoop)
+      // Keep-alive is a STALL DETECTOR, not a second render loop: it only paints
+      // when rAF hasn't run recently (i.e. the tab was backgrounded and rAF was
+      // suspended). When focused, rAF keeps lastRenderWall fresh so this never
+      // double-renders — running both loops in parallel saturated the main thread.
+      keepAlive = setInterval(() => {
+        if (settled || stopScheduled) return
+        if (performance.now() - lastRenderWall > 250) renderNow()
+      }, 250)
+      // Hard watchdog: force-finish even if every loop stalls.
       watchdog = setTimeout(stopRecorder, durationSec * 1000 + 5000)
     } catch {
       finish()

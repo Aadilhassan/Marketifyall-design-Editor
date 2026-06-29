@@ -13,6 +13,12 @@ export interface Project {
   json: any | null // fabric canvas.toJSON() payload
   thumbnail?: string // small data-URL preview for the dashboard
   frame?: { width: number; height: number } // chosen format size (applied on first open)
+  // Video/audio timeline clips. These live in React state (VideoContext) and the
+  // editor's exportToJSON strips our custom video metadata, so they're persisted
+  // here separately — otherwise a reload loses the timeline and the video reverts
+  // to a static image. Loosely typed to avoid a circular import with VideoContext.
+  clips?: any[]
+  audioClips?: any[]
   createdAt: number
   updatedAt: number
 }

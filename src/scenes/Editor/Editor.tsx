@@ -100,11 +100,18 @@ function App() {
   const dispatch = useAppDispatch()
   const [hasInitialized, setHasInitialized] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const { clips, audioClips, isTimelineOpen } = useVideoContext()
+  const { clips, audioClips, isTimelineOpen, restoreState } = useVideoContext()
   const { showUpgradeModal, upgradeModalData, dismissUpgradeModal } = useCredits()
 
   const hasTimelineContent = clips.length > 0 || audioClips.length > 0
   const shouldShowTimeline = hasTimelineContent && isTimelineOpen
+
+  // Always-fresh refs so the (effect-scoped) auto-save persists the latest clips
+  // without re-subscribing canvas listeners on every clip edit.
+  const clipsRef = useRef(clips)
+  clipsRef.current = clips
+  const audioClipsRef = useRef(audioClips)
+  audioClipsRef.current = audioClips
 
   const searchParams = new URLSearchParams(location.search)
   const imgUrl = searchParams.get('img_url')
@@ -252,6 +259,47 @@ function App() {
             tryApply()
           }
 
+          // Reattach the video metadata scenify's exportToJSON discards, then push
+          // the persisted clips back into VideoContext — so a reloaded design keeps
+          // its timeline and live video instead of degrading to a static poster.
+          const restoreVideoClips = () => {
+            const savedClips: any[] = (project as any)?.clips || []
+            const savedAudio: any[] = (project as any)?.audioClips || []
+            if (!savedClips.length && !savedAudio.length) return
+            let tries = 0
+            const attempt = () => {
+              const cv = getFabricCanvas(editor)
+              const objs: any[] = cv?.getObjects?.() || []
+              const staticImgs = objs.filter(o => o && o.type === 'StaticImage')
+              // Wait for the imported objects to materialize before matching them.
+              if (savedClips.length && staticImgs.length === 0 && tries++ < 40) {
+                setTimeout(attempt, 150)
+                return
+              }
+              savedClips.forEach(clip => {
+                // Match the backing canvas object: by its stable id, else by the
+                // identical poster data-URL, else the first unclaimed StaticImage.
+                let obj = objs.find(o => !o.__videoRelinked && clip.canvasObjectId && o.id === clip.canvasObjectId)
+                if (!obj) obj = objs.find(o => !o.__videoRelinked && clip.poster && o.metadata?.src && o.metadata.src === clip.poster)
+                if (!obj) obj = objs.find(o => !o.__videoRelinked && o.type === 'StaticImage' && !o.metadata?.isVideo)
+                if (!obj) return
+                obj.__videoRelinked = true
+                if (!obj.metadata) obj.metadata = {}
+                obj.metadata.isVideo = true
+                obj.metadata.videoSrc = clip.src
+                obj.metadata.id = clip.id
+                obj.metadata.name = clip.name
+                obj.metadata.duration = clip.duration
+                if (!clip.poster && obj.metadata.src) clip.poster = obj.metadata.src
+                obj.id = clip.id
+                try { obj.set('selectable', false); obj.set('hasControls', false); obj.set('hasBorders', false) } catch { /* ignore */ }
+              })
+              cv?.requestRenderAll?.()
+              restoreState(savedClips as any, savedAudio as any)
+            }
+            attempt()
+          }
+
           const json = project?.json
           if (json && json.frame && typeof ed.importFromJSON === 'function') {
             // scenify template format (new saves) — rebuilds frame, clip, zoom & animations.
@@ -259,6 +307,7 @@ function App() {
               const r = ed.importFromJSON(json)
               const done = () => {
                 frameReadyRef.current = true
+                restoreVideoClips()
               }
               if (r && typeof r.then === 'function') r.then(done).catch(done)
               else setTimeout(done, 500)
@@ -275,6 +324,7 @@ function App() {
                 /* ignore */
               }
               applyFormatIfBlank()
+              restoreVideoClips()
             })
           } else {
             applyFormatIfBlank()
@@ -304,11 +354,25 @@ function App() {
         const json = typeof ed.exportToJSON === 'function' ? ed.exportToJSON() : null
         if (!json) return
         const objs = json.objects || []
-        const sig = objs.length + ':' + JSON.stringify(objs).length
+        const cv = getFabricCanvas(editor)
+        const liveObjs: any[] = cv?.getObjects?.() || []
+        // Persist the timeline clips with the design. exportToJSON strips our video
+        // metadata and clips live only in React state, so without this a reload
+        // loses the timeline and the video reverts to a static image. Tag each clip
+        // with its canvas object id so it can be relinked to its object on load.
+        const clipsToSave = clipsRef.current.map(c => {
+          const obj = liveObjs.find(o => o.metadata?.id === c.id || o.id === c.id)
+          return { ...c, canvasObjectId: obj?.id || (c as any).canvasObjectId }
+        })
+        const audioToSave = audioClipsRef.current
+        // Lightweight clip/audio signature (id + position + duration) — avoids
+        // re-stringifying the large poster data-URLs on every 2s save tick.
+        const clipSig = clipsToSave.map(c => `${c.id}:${c.start}:${c.duration}:${c.canvasObjectId || ''}`).join(',')
+        const audioSig = audioToSave.map((a: any) => `${a.id}:${a.start}:${a.duration}:${a.volume}`).join(',')
+        const sig = objs.length + ':' + JSON.stringify(objs).length + '|' + clipSig + '|' + audioSig
         if (sig === lastSig) return
         lastSig = sig
-        const cv = getFabricCanvas(editor)
-        patchProject(routeId, { json, thumbnail: cv ? makeThumbnail(cv) : undefined }).catch(() => {})
+        patchProject(routeId, { json, clips: clipsToSave, audioClips: audioToSave, thumbnail: cv ? makeThumbnail(cv) : undefined }).catch(() => {})
       } catch {
         /* ignore save errors */
       }

@@ -49,9 +49,29 @@ export async function recordAnimatedGif(opts: GifRecordOptions): Promise<GifResu
   safe(() => fabricCanvas.discardActiveObject && fabricCanvas.discardActiveObject())
   safe(() => { fabricCanvas.selection = false })
 
+  // Move each video clip to the exact frame this GIF timestamp needs and WAIT for
+  // the seek before drawing. GIF is rendered frame-by-frame (not real-time), so
+  // seeking is reliable and frame-accurate — this is what lets embedded video
+  // clips actually animate in the GIF instead of being a frozen first frame.
+  const seekTargetsTo = async (t: number) => {
+    await Promise.all((opts.videoTargets || []).map(v => {
+      if (t < v.start || t >= v.start + v.duration) return Promise.resolve()
+      const expected = t - v.start
+      const dur = (v.el as any).duration || v.duration || expected
+      return new Promise<void>(res => {
+        let done = false
+        const finish = () => { if (done) return; done = true; v.el.onseeked = null; res() }
+        v.el.onseeked = finish
+        try { v.el.currentTime = Math.max(0, Math.min(expected, dur - 0.05)) } catch { finish() }
+        setTimeout(finish, 700) // never hang on a stuck seek
+      })
+    }))
+  }
+
   try {
     for (let i = 0; i < plan.frameCount; i++) {
       const t = plan.frameCount > 1 ? (i / (plan.frameCount - 1)) * opts.durationSec : 0
+      await seekTargetsTo(t)
       renderDesignFrame({
         ctx,
         exportCanvas,
