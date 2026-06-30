@@ -21,6 +21,7 @@ import { useCredits } from '@/contexts/CreditsContext'
 import Editor, { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { fabric } from 'fabric'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
+import { addStarterContent, StarterKind } from '@/utils/starterContent'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
 
 interface CanvasObject {
@@ -178,6 +179,21 @@ function App() {
       }
       // Wait for the frame/project to settle so the image lands inside it.
       setTimeout(() => addWhenReady(), 700)
+    }
+
+    // Tailored starter content (Doc / Whiteboard). Wait until the frame has been
+    // sized (frameReadyRef) and the clip frame exists, so content lands inside it.
+    const starter = searchParams.get('starter') as StarterKind | null
+    if (starter === 'doc' || starter === 'whiteboard') {
+      const addStarterWhenReady = (tries = 0) => {
+        const cv = getFabricCanvas(editor)
+        if (frameReadyRef.current && cv && cv.clipPath) {
+          addStarterContent(editor, cv, starter)
+        } else if (tries < 60) {
+          setTimeout(() => addStarterWhenReady(tries + 1), 150)
+        }
+      }
+      addStarterWhenReady()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
