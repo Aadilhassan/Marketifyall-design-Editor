@@ -27,6 +27,7 @@ interface QuickCategory {
   h?: number
   panel?: string // open the editor focused on this tool panel
   starter?: string // pre-populate the canvas with tailored starter content
+  kind?: string // design type persisted on the project (e.g. 'whiteboard')
   modal?: boolean // open the full format picker instead of creating directly
   upload?: boolean // pick an image and start a design with it
 }
@@ -37,12 +38,12 @@ interface QuickCategory {
 const QUICK_CATEGORIES: QuickCategory[] = [
   { id: 'templates', label: 'Templates', Icon: LayoutTemplate, color: '#6366f1', w: 1080, h: 1080, panel: 'Templates' },
   { id: 'magic', label: 'Magic Layers', Icon: Sparkles, color: '#a855f7', w: 1080, h: 1080, panel: 'AI Studio' },
-  { id: 'presentation', label: 'Presentation', Icon: PresentationIcon, color: '#f97316', w: 1920, h: 1080, panel: 'Templates' },
-  { id: 'social', label: 'Social media', Icon: Share2, color: '#ef4444', w: 1080, h: 1080, panel: 'Templates' },
+  { id: 'presentation', label: 'Presentation', Icon: PresentationIcon, color: '#f97316', w: 1920, h: 1080, panel: 'Templates', starter: 'presentation' },
+  { id: 'social', label: 'Social media', Icon: Share2, color: '#ef4444', w: 1080, h: 1080, panel: 'Templates', starter: 'social' },
   { id: 'video', label: 'Video', Icon: VideoIcon, color: '#d946ef', w: 1920, h: 1080, panel: 'Video' },
-  { id: 'print', label: 'Print Shop', Icon: Printer, color: '#8b5cf6', w: 2480, h: 3508, panel: 'Templates' },
-  { id: 'doc', label: 'Doc', Icon: FileText, color: '#06b6d4', w: 816, h: 1056, panel: 'Text', starter: 'doc' },
-  { id: 'whiteboard', label: 'Whiteboard', Icon: PenTool, color: '#10b981', w: 1920, h: 1080, panel: 'Elements', starter: 'whiteboard' },
+  { id: 'print', label: 'Print Shop', Icon: Printer, color: '#8b5cf6', w: 2480, h: 3508, panel: 'Templates', starter: 'poster' },
+  { id: 'doc', label: 'Doc', Icon: FileText, color: '#06b6d4', w: 1240, h: 1754, panel: 'Text', starter: 'doc' },
+  { id: 'whiteboard', label: 'Whiteboard', Icon: PenTool, color: '#10b981', w: 2560, h: 1440, panel: 'Elements', starter: 'whiteboard', kind: 'whiteboard' },
   { id: 'sheet', label: 'Sheet', Icon: Table2, color: '#3b82f6', w: 1600, h: 900, panel: 'Elements' },
   { id: 'custom', label: 'Custom size', Icon: Ruler, color: '#6b7280', modal: true },
   { id: 'upload', label: 'Upload', Icon: UploadIcon, color: '#0ea5e9', upload: true },
@@ -83,11 +84,11 @@ function Projects() {
 
   const openProject = (id: string) => history.push(`/design/${id}/edit`)
 
-  const handleCreate = async (name: string, width: number, height: number, panel?: string, starter?: string) => {
+  const handleCreate = async (name: string, width: number, height: number, panel?: string, starter?: string, kind?: string) => {
     if (creatingRef.current) return
     creatingRef.current = true
     try {
-      const p = await createProject(name, { width, height })
+      const p = await createProject(name, { width, height }, kind)
       const params = new URLSearchParams()
       if (panel) params.set('panel', panel)
       if (starter) params.set('starter', starter)
@@ -107,7 +108,7 @@ function Projects() {
       setShowCreate(true)
       return
     }
-    handleCreate(c.label, c.w, c.h, c.panel, c.starter)
+    handleCreate(c.label, c.w, c.h, c.panel, c.starter, c.kind)
   }
 
   // Upload flow: pick an image, downscale it, hand it to the editor (via

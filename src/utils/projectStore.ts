@@ -10,9 +10,14 @@ import { nanoid } from 'nanoid'
 export interface Project {
   id: string
   name: string
-  json: any | null // fabric canvas.toJSON() payload
-  thumbnail?: string // small data-URL preview for the dashboard
+  json: any | null // active page payload (mirrors pages[activePage] for back-compat)
+  thumbnail?: string // small data-URL preview for the dashboard (active page)
   frame?: { width: number; height: number } // chosen format size (applied on first open)
+  // Multi-page support. Each page holds its own scenify exportToJSON payload.
+  // Legacy single-page projects (no `pages`) are migrated to one page on load.
+  pages?: Array<{ id: string; json: any | null; thumbnail?: string }>
+  activePage?: number
+  kind?: string // design type, e.g. 'whiteboard' — enables whiteboard tools/grid
   // Video/audio timeline clips. These live in React state (VideoContext) and the
   // editor's exportToJSON strips our custom video metadata, so they're persisted
   // here separately — otherwise a reload loses the timeline and the video reverts
@@ -100,9 +105,10 @@ export async function deleteProject(id: string): Promise<void> {
 export async function createProject(
   name = 'Untitled design',
   frame?: { width: number; height: number },
+  kind?: string,
 ): Promise<Project> {
   const now = Date.now()
-  const project: Project = { id: genProjectId(), name, json: null, frame, createdAt: now, updatedAt: now }
+  const project: Project = { id: genProjectId(), name, json: null, frame, kind, createdAt: now, updatedAt: now }
   await saveProject(project)
   return project
 }

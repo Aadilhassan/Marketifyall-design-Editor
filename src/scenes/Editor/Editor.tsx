@@ -11,6 +11,8 @@ import Navbar from './components/Navbar'
 import Panels from './components/Panels'
 import Toolbox from './components/Toolbox'
 import Footer from './components/Footer'
+import PagesBar from './components/PagesBar'
+import WhiteboardToolbar from './components/WhiteboardToolbar'
 import ContextMenu from './components/ContextMenu'
 import VideoTimeline from './components/VideoTimeline'
 import VideoCanvasPlayer from './components/VideoCanvasPlayer'
@@ -22,6 +24,8 @@ import Editor, { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { fabric } from 'fabric'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
 import { addStarterContent, StarterKind } from '@/utils/starterContent'
+import { loadGoogleFont } from '@/utils/fontLoader'
+import { applyWhiteboardBackground } from '@/utils/whiteboard'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
 
 interface CanvasObject {
@@ -82,7 +86,20 @@ function makeThumbnail(canvas: any): string {
       if (w > 0 && h > 0) {
         const mult = Math.min(0.25, 320 / w)
         const el = canvas.toCanvasElement(mult, { left: clip.left, top: clip.top, width: w, height: h })
-        return el && el.toDataURL ? el.toDataURL('image/jpeg', 0.6) : ''
+        if (!el || !el.toDataURL) return ''
+        // Composite onto white so transparent pages (e.g. whiteboards) don't
+        // come out black when encoded as JPEG.
+        const out = document.createElement('canvas')
+        out.width = el.width
+        out.height = el.height
+        const octx = out.getContext('2d')
+        if (octx) {
+          octx.fillStyle = '#ffffff'
+          octx.fillRect(0, 0, out.width, out.height)
+          octx.drawImage(el, 0, 0)
+          return out.toDataURL('image/jpeg', 0.6)
+        }
+        return el.toDataURL('image/jpeg', 0.6)
       }
     }
     return canvas?.toDataURL ? canvas.toDataURL({ format: 'jpeg', quality: 0.5, multiplier: 0.15 }) : ''
@@ -101,6 +118,7 @@ function App() {
   const dispatch = useAppDispatch()
   const [hasInitialized, setHasInitialized] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [isWhiteboard, setIsWhiteboard] = useState(false)
   const { clips, audioClips, isTimelineOpen, restoreState } = useVideoContext()
   const { showUpgradeModal, upgradeModalData, dismissUpgradeModal } = useCredits()
 
@@ -113,6 +131,162 @@ function App() {
   clipsRef.current = clips
   const audioClipsRef = useRef(audioClips)
   audioClipsRef.current = audioClips
+
+  // ---- Multi-page state ----------------------------------------------------
+  // pagesRef is the authoritative store (mutated by autosave without re-render);
+  // `pages` is the UI snapshot, refreshed on structural changes.
+  type PageEntry = { id: string; json: any; thumbnail?: string }
+  const [pages, setPages] = useState<PageEntry[]>([])
+  const [activePage, setActivePage] = useState(0)
+  const pagesRef = useRef<PageEntry[]>([])
+  const activePageRef = useRef(0)
+
+  const refreshPages = useCallback(() => setPages([...pagesRef.current]), [])
+
+  const persistPages = useCallback(() => {
+    if (!routeId) return
+    const idx = activePageRef.current
+    patchProject(routeId, {
+      pages: pagesRef.current,
+      activePage: idx,
+      json: pagesRef.current[idx]?.json ?? null,
+      thumbnail: pagesRef.current[idx]?.thumbnail,
+    }).catch(() => {})
+  }, [routeId])
+
+  // Snapshot the live canvas into the active page entry.
+  const captureCurrentPage = useCallback(() => {
+    const ed = editor as any
+    if (!ed || !pagesRef.current.length) return
+    try {
+      const json = ed.exportToJSON?.()
+      const cv = getFabricCanvas(editor)
+      const idx = activePageRef.current
+      if (json && pagesRef.current[idx]) {
+        pagesRef.current[idx] = {
+          ...pagesRef.current[idx],
+          json,
+          thumbnail: cv ? makeThumbnail(cv) : pagesRef.current[idx].thumbnail,
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [editor])
+
+  // Load a page's content into the canvas (a blank page gets a frame-only json).
+  // opts let a brand-new typed page get its own frame size + starter content.
+  const loadPageContent = useCallback(
+    (index: number, opts?: { frame?: { width: number; height: number }; starter?: string }) => {
+      const ed = editor as any
+      if (!ed || index < 0 || index >= pagesRef.current.length) return
+      activePageRef.current = index
+      setActivePage(index)
+      frameReadyRef.current = false
+      const finish = () => {
+        frameReadyRef.current = true
+        try {
+          if (opts?.frame && ed.frame?.setSize) ed.frame.setSize(opts.frame)
+        } catch {
+          /* ignore */
+        }
+        try {
+          ed.zoomToFit?.()
+        } catch {
+          /* ignore */
+        }
+        if (opts?.starter) {
+          setTimeout(() => {
+            const cv = getFabricCanvas(editor)
+            if (cv) addStarterContent(editor, cv, opts.starter as any)
+          }, 300)
+        }
+      }
+      try {
+        let json = pagesRef.current[index]?.json
+        if (!json) {
+          const cur = ed.exportToJSON?.()
+          json = cur ? { ...cur, objects: [] } : null
+        }
+        if (json && ed.importFromJSON) {
+          const r = ed.importFromJSON(json)
+          if (r && typeof r.then === 'function') r.then(finish).catch(finish)
+          else setTimeout(finish, 400)
+        } else {
+          finish()
+        }
+      } catch {
+        finish()
+      }
+      refreshPages()
+      persistPages()
+    },
+    [editor, refreshPages, persistPages]
+  )
+
+  const goToPage = useCallback(
+    (index: number) => {
+      if (index === activePageRef.current) return
+      captureCurrentPage()
+      loadPageContent(index)
+    },
+    [captureCurrentPage, loadPageContent]
+  )
+
+  const addPage = useCallback(() => {
+    const ed = editor as any
+    captureCurrentPage()
+    let blank: any = null
+    try {
+      const cur = ed?.exportToJSON?.()
+      blank = cur ? { ...cur, objects: [] } : null
+    } catch {
+      /* ignore */
+    }
+    pagesRef.current = [...pagesRef.current, { id: genProjectId(), json: blank }]
+    loadPageContent(pagesRef.current.length - 1)
+  }, [editor, captureCurrentPage, loadPageContent])
+
+  // Add a new page of a specific design type (own size + tailored starter).
+  const addPageOfType = useCallback(
+    (width: number, height: number, starter?: string) => {
+      captureCurrentPage()
+      pagesRef.current = [...pagesRef.current, { id: genProjectId(), json: null }]
+      loadPageContent(pagesRef.current.length - 1, { frame: { width, height }, starter })
+    },
+    [captureCurrentPage, loadPageContent]
+  )
+
+  const duplicatePage = useCallback(
+    (index: number) => {
+      captureCurrentPage()
+      const src = pagesRef.current[index]
+      const copy: PageEntry = {
+        id: genProjectId(),
+        json: src?.json ? JSON.parse(JSON.stringify(src.json)) : null,
+        thumbnail: src?.thumbnail,
+      }
+      const next = [...pagesRef.current]
+      next.splice(index + 1, 0, copy)
+      pagesRef.current = next
+      loadPageContent(index + 1)
+    },
+    [captureCurrentPage, loadPageContent]
+  )
+
+  const deletePage = useCallback(
+    (index: number) => {
+      if (pagesRef.current.length <= 1) return
+      captureCurrentPage()
+      const wasActive = activePageRef.current
+      pagesRef.current = pagesRef.current.filter((_, i) => i !== index)
+      let newActive = wasActive
+      if (index < wasActive) newActive = wasActive - 1
+      else if (index === wasActive) newActive = Math.min(wasActive, pagesRef.current.length - 1)
+      loadPageContent(newActive)
+    },
+    [captureCurrentPage, loadPageContent]
+  )
 
   // Auto-fit the design when the timeline opens/closes so it isn't left hidden
   // behind the timeline after the canvas area resizes. Uses the SDK's own
@@ -184,6 +358,10 @@ function App() {
     // Tailored starter content (Doc / Whiteboard). Wait until the frame has been
     // sized (frameReadyRef) and the clip frame exists, so content lands inside it.
     const starter = searchParams.get('starter') as StarterKind | null
+    if (starter === 'whiteboard') {
+      setIsWhiteboard(true)
+      if (routeId) patchProject(routeId, { kind: 'whiteboard' }).catch(() => {})
+    }
     if (starter === 'doc' || starter === 'whiteboard') {
       const addStarterWhenReady = (tries = 0) => {
         const cv = getFabricCanvas(editor)
@@ -197,6 +375,57 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
+
+  // Ensure any text added (incl. on reload / page switch via importFromJSON)
+  // has its Google font loaded, then re-render so it isn't shown in a fallback.
+  useEffect(() => {
+    if (!editor) return
+    const cv = getFabricCanvas(editor)
+    if (!cv?.on) return
+    const onAdd = (e: any) => {
+      const obj = e?.target
+      if (!obj) return
+      if (obj.type === 'StaticText' || obj.type === 'DynamicText' || obj.type === 'textbox') {
+        const fam = obj.fontFamily || obj.metadata?.fontFamily
+        if (fam) {
+          loadGoogleFont(fam).then(() => {
+            try {
+              obj.dirty = true
+              cv.requestRenderAll()
+            } catch {
+              /* ignore */
+            }
+          })
+        }
+      }
+    }
+    cv.on('object:added', onAdd)
+    return () => {
+      cv.off?.('object:added', onAdd)
+    }
+  }, [editor])
+
+  // Paint the dotted whiteboard surface, but only once the frame has been sized
+  // (adding the surface rect earlier would block the frame's format resize).
+  useEffect(() => {
+    if (!isWhiteboard || !editor) return
+    const canvas = getFabricCanvas(editor)
+    if (!canvas?.on) return
+    const apply = () => {
+      if (!frameReadyRef.current) return false
+      applyWhiteboardBackground(canvas)
+      return true
+    }
+    let tries = 0
+    const iv = setInterval(() => {
+      if (apply() || tries++ > 40) clearInterval(iv)
+    }, 250)
+    canvas.on('object:added', apply)
+    return () => {
+      clearInterval(iv)
+      canvas.off?.('object:added', apply)
+    }
+  }, [isWhiteboard, editor])
 
   const editorConfig = useMemo(() => ({ clipToFrame: true, scrollLimit: 0 }), [])
 
@@ -365,7 +594,20 @@ function App() {
             attempt()
           }
 
-          const json = project?.json
+          // Initialise multi-page state. Legacy single-page projects (no `pages`)
+          // are migrated to a single page wrapping their json.
+          const initialPages: PageEntry[] =
+            project?.pages && project.pages.length
+              ? project.pages
+              : [{ id: genProjectId(), json: project?.json ?? null, thumbnail: project?.thumbnail }]
+          const initActive = Math.min(Math.max(0, project?.activePage ?? 0), initialPages.length - 1)
+          pagesRef.current = initialPages
+          activePageRef.current = initActive
+          setActivePage(initActive)
+          setPages([...initialPages])
+          if (project?.kind === 'whiteboard') setIsWhiteboard(true)
+
+          const json = initialPages[initActive]?.json
           // Defensively drop any null/undefined/typeless objects — a single bad
           // entry makes scenify's objectToFabric throw "reading 'type' of
           // undefined" and aborts the whole restore.
@@ -446,7 +688,20 @@ function App() {
         const sig = objs.length + ':' + JSON.stringify(objs).length + '|' + clipSig + '|' + audioSig
         if (sig === lastSig) return
         lastSig = sig
-        patchProject(routeId, { json, clips: clipsToSave, audioClips: audioToSave, thumbnail: cv ? makeThumbnail(cv) : undefined }).catch(() => {})
+        // Write the live canvas into the active page, then persist the whole
+        // pages array so multi-page designs survive reloads.
+        const thumb = cv ? makeThumbnail(cv) : undefined
+        if (pagesRef.current.length === 0) pagesRef.current = [{ id: genProjectId(), json: null }]
+        const idx = Math.min(activePageRef.current, pagesRef.current.length - 1)
+        pagesRef.current[idx] = { ...pagesRef.current[idx], json, thumbnail: thumb }
+        patchProject(routeId, {
+          pages: pagesRef.current,
+          activePage: idx,
+          json,
+          clips: clipsToSave,
+          audioClips: audioToSave,
+          thumbnail: thumb,
+        }).catch(() => {})
       } catch {
         /* ignore save errors */
       }
@@ -645,7 +900,9 @@ function App() {
             style={{
               flex: 1,
               display: 'flex',
-              background: '#f1f2f6',
+              backgroundColor: '#f1f2f6',
+              backgroundImage: isWhiteboard ? 'radial-gradient(#b3bcc9 2.2px, transparent 2.2px)' : undefined,
+              backgroundSize: isWhiteboard ? '26px 26px' : undefined,
               position: 'relative',
               overflow: 'hidden',
               paddingBottom: shouldShowTimeline ? '300px' : '0',
@@ -654,6 +911,7 @@ function App() {
             onDrop={handleCanvasDrop}
             onDragOver={(e) => e.preventDefault()}
           >
+            {isWhiteboard && <WhiteboardToolbar editor={editor} />}
             {loadError ? (
               <div
                 style={{
@@ -689,6 +947,17 @@ function App() {
               <VideoTimeline />
             </ErrorBoundary>
           </div>
+          <ErrorBoundary fallback={null}>
+            <PagesBar
+              pages={pages}
+              activePage={activePage}
+              onSelect={goToPage}
+              onAdd={addPage}
+              onAddTyped={addPageOfType}
+              onDuplicate={duplicatePage}
+              onDelete={deletePage}
+            />
+          </ErrorBoundary>
           <Footer />
         </div>
       </div>

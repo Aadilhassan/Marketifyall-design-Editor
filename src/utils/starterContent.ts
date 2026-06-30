@@ -19,52 +19,85 @@ function frameBounds(canvas: any): { l: number; t: number; w: number; h: number 
   return { l: 0, t: 0, w: 900, h: 1200 }
 }
 
-export type StarterKind = 'doc' | 'whiteboard'
+export type StarterKind = 'doc' | 'whiteboard' | 'presentation' | 'social' | 'poster'
+
+function addText(
+  editor: any,
+  canvas: any,
+  text: string,
+  left: number,
+  top: number,
+  width: number,
+  fontSize: number,
+  fontWeight: number,
+  fill: string,
+  textAlign: 'left' | 'center' | 'right',
+  fontFamily = 'Poppins'
+) {
+  addObjectToCanvas(
+    editor,
+    {
+      type: 'StaticText',
+      left,
+      top,
+      width,
+      metadata: { text, fontSize, fontWeight, fontFamily, fill, textAlign },
+    },
+    width,
+    canvas
+  )
+}
 
 export function addStarterContent(editor: any, canvas: any, kind: StarterKind): void {
   if (!editor || !canvas) return
   const { l, t, w, h } = frameBounds(canvas)
   const pad = Math.round(w * 0.07)
 
-  if (kind === 'doc') {
-    const titleSize = Math.max(28, Math.round(w * 0.06))
+  if (kind === 'presentation') {
+    const cw = w - pad * 2
+    addText(editor, canvas, 'Presentation title', l + pad, t + Math.round(h * 0.36), cw, Math.max(40, Math.round(w * 0.05)), 800, '#111827', 'center')
+    addText(editor, canvas, 'Add your subtitle — click to edit', l + pad, t + Math.round(h * 0.36) + Math.round(w * 0.05) + 24, cw, Math.max(18, Math.round(w * 0.022)), 400, '#6b7280', 'center', 'Arial')
+    return
+  }
+
+  if (kind === 'social') {
+    const cw = w - pad * 2
+    // accent bar
     addObjectToCanvas(
       editor,
-      {
-        type: 'StaticText',
-        left: l + pad,
-        top: t + pad,
-        width: w - pad * 2,
-        metadata: {
-          text: 'Document title',
-          fontSize: titleSize,
-          fontWeight: 700,
-          fontFamily: 'Poppins',
-          fill: '#111827',
-          textAlign: 'left',
-        },
-      },
-      w - pad * 2,
+      { type: 'StaticRect', left: l + pad, top: t + Math.round(h * 0.3), width: Math.round(w * 0.16), height: Math.max(8, Math.round(h * 0.012)), rx: 6, ry: 6, metadata: { fill: '#6366f1' } },
+      Math.round(w * 0.16),
       canvas
     )
-    addObjectToCanvas(
+    addText(editor, canvas, 'Your headline here', l + pad, t + Math.round(h * 0.36), cw, Math.max(40, Math.round(w * 0.08)), 800, '#111827', 'left')
+    addText(editor, canvas, 'Add a short supporting line.', l + pad, t + Math.round(h * 0.36) + Math.round(w * 0.08) + 18, cw, Math.max(16, Math.round(w * 0.03)), 400, '#6b7280', 'left', 'Arial')
+    return
+  }
+
+  if (kind === 'poster') {
+    const cw = w - pad * 2
+    addText(editor, canvas, 'POSTER TITLE', l + pad, t + Math.round(h * 0.16), cw, Math.max(60, Math.round(w * 0.1)), 800, '#111827', 'center')
+    addText(editor, canvas, 'Subtitle or tagline goes here', l + pad, t + Math.round(h * 0.16) + Math.round(w * 0.1) + 30, cw, Math.max(24, Math.round(w * 0.04)), 500, '#374151', 'center', 'Arial')
+    addText(editor, canvas, 'Date · Time · Location', l + pad, t + Math.round(h * 0.82), cw, Math.max(20, Math.round(w * 0.032)), 400, '#6b7280', 'center', 'Arial')
+    return
+  }
+
+  if (kind === 'doc') {
+    // Canva-Docs-style empty document: a single large serif prompt block at the
+    // top, left-aligned, that the user types over.
+    const cw = w - pad * 2
+    addText(
       editor,
-      {
-        type: 'StaticText',
-        left: l + pad,
-        top: t + pad + titleSize + 28,
-        width: w - pad * 2,
-        metadata: {
-          text: 'Start writing your document here. Click any text to edit it, change the font and colour, and add your own content.',
-          fontSize: Math.max(16, Math.round(w * 0.026)),
-          fontWeight: 400,
-          fontFamily: 'Arial',
-          fill: '#374151',
-          textAlign: 'left',
-        },
-      },
-      w - pad * 2,
-      canvas
+      canvas,
+      'Start typing…',
+      l + pad,
+      t + pad,
+      cw,
+      Math.max(30, Math.round(w * 0.04)),
+      500,
+      '#9aa0a6',
+      'left',
+      'Lora'
     )
     return
   }

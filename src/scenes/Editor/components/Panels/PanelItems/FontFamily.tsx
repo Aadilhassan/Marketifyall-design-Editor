@@ -7,6 +7,8 @@ import { useSelector } from 'react-redux'
 import { selectFonts } from '@/store/slices/fonts/selectors'
 import { IFontFamily } from '@/interfaces/editor'
 import Icons from '@components/icons'
+import { GOOGLE_FONTS } from '@/constants/googleFonts'
+import { injectGoogleFont, loadGoogleFont } from '@/utils/fontLoader'
 
 type Category = string
 
@@ -34,51 +36,27 @@ function FontFamily() {
   const [documentFonts, setDocumentFonts] = useState<string[]>([])
   const [activeFontFamily, setActiveFontFamily] = useState('Open Sans')
   const [visibleRange, setVisibleRange] = useState({ start: 0, end: 20 })
+  const [renderLimit, setRenderLimit] = useState(40)
   const scrollRef = useRef<Scrollbars>(null)
   const fontLoadQueueRef = useRef<GoogleFont[]>([])
   const fontLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const apiKey = process.env.REACT_APP_GOOGLE_FONTS_API_KEY || ''
   const editorFonts = useSelector(selectFonts)
   const editor = useEditor()
   const activeObject = useActiveObject()
 
-  // Initialize and fetch Google Fonts (limited to top popular ones)
+  // Use a bundled list of Google Fonts (no developer API key needed). Fonts are
+  // fetched on demand via the `google-fonts` package (public CSS endpoint).
   useEffect(() => {
-    if (!apiKey) return
-    let cancelled = false
-
-    const cached = localStorage.getItem('googleFonts')
-    if (cached) {
-      try {
-        const fonts = JSON.parse(cached) as GoogleFont[]
-        setAllGoogleFonts(fonts)
-        setLoadingFonts(false)
-        return
-      } catch {
-        localStorage.removeItem('googleFonts')
-      }
-    }
-
-    setLoadingFonts(true)
-    fetch(`https://www.googleapis.com/webfonts/v1/webfonts?key=${apiKey}&sort=popularity`)
-      .then(res => res.json())
-      .then(data => {
-        if (cancelled) return
-        if (data.items) {
-          // Limit stored fonts to avoid localStorage bloat
-          const limitedFonts = data.items.slice(0, MAX_GOOGLE_FONTS)
-          localStorage.setItem('googleFonts', JSON.stringify(limitedFonts))
-          setAllGoogleFonts(limitedFonts)
-        }
-        setLoadingFonts(false)
-      })
-      .catch(() => {
-        if (!cancelled) setLoadingFonts(false)
-      })
-
-    return () => { cancelled = true }
-  }, [apiKey])
+    const fonts: GoogleFont[] = GOOGLE_FONTS.map(f => ({
+      family: f.family,
+      category: f.category,
+      variants: ['regular', '700'],
+      files: {},
+    }))
+    setAllGoogleFonts(fonts)
+    setLoadingFonts(false)
+  }, [])
 
   // Track document fonts (fonts used in current canvas)
   useEffect(() => {
@@ -136,23 +114,11 @@ function FontFamily() {
     return font.files.regular || font.files['400'] || Object.values(font.files)[0]
   }, [])
 
-  // Load font stylesheet lazily (only when needed for preview)
+  // Load font stylesheet lazily (only when needed for preview) — keyless via
+  // the `google-fonts` package (fonts.googleapis.com/css, no API key).
   const ensureGoogleFontStylesheet = useCallback((font: GoogleFont) => {
     if (fontStylesheetCache.has(font.family)) return
-    
-    const formattedName = font.family.replace(/ /g, '+')
-    const linkId = `font-preview-${formattedName}`
-    
-    if (document.getElementById(linkId)) {
-      fontStylesheetCache.add(font.family)
-      return
-    }
-    
-    const link = document.createElement('link')
-    link.id = linkId
-    link.rel = 'stylesheet'
-    link.href = `https://fonts.googleapis.com/css2?family=${formattedName}:wght@400&display=swap`
-    document.head.appendChild(link)
+    injectGoogleFont(font.family)
     fontStylesheetCache.add(font.family)
   }, [])
 
@@ -215,38 +181,37 @@ function FontFamily() {
     async (font: GoogleFont | IFontFamily) => {
       if (!editor) return
 
-      let fontFamily: string
-      let fontUrl: string | undefined
-
       if (isGoogleFont(font)) {
-        // Google Font
-        fontFamily = font.family
-        fontUrl = getGoogleFontUrl(font)
+        // Google Font — load via the keyless google-fonts loader, then apply.
+        const fontFamily = font.family
         setActiveFontFamily(fontFamily)
-        ensureGoogleFontStylesheet(font)
-      } else {
-        // Editor font
-        const editorFont = font as unknown as IFontFamily
-        fontFamily = editorFont.family
-        const files = editorFont.files as any
-        fontUrl = typeof files === 'string' ? files : files?.['regular'] || files?.[0]
+        try {
+          await loadGoogleFont(fontFamily)
+          editor.update({
+            fontFamily,
+            metadata: { fontFamily, googleFont: true },
+          })
+        } catch {
+          /* font change failed */
+        }
+        return
       }
 
+      // Editor font (bundled file URL)
+      const editorFont = font as unknown as IFontFamily
+      const fontFamily = editorFont.family
+      const files = editorFont.files as any
+      const fontUrl = typeof files === 'string' ? files : files?.['regular'] || files?.[0]
       if (!fontUrl) return
-
+      setActiveFontFamily(fontFamily)
       try {
         await loadFontFace(fontFamily, fontUrl)
-        editor.update({
-          fontFamily,
-          metadata: {
-            fontURL: fontUrl,
-          },
-        })
-      } catch (err) {
-        // Font change failed
+        editor.update({ fontFamily, metadata: { fontURL: fontUrl } })
+      } catch {
+        /* font change failed */
       }
     },
-    [editor, getGoogleFontUrl, loadFontFace, ensureGoogleFontStylesheet],
+    [editor, loadFontFace],
   )
 
   // Filter fonts by search and category
@@ -288,29 +253,31 @@ function FontFamily() {
     }
   }, [filteredFonts, visibleRange, queueFontLoad])
 
-  // Handle scroll to update visible range
+  // Reset the infinite-scroll window whenever the filtered set changes.
+  useEffect(() => {
+    setRenderLimit(40)
+  }, [searchValue, selectedCategory])
+
+  // Handle scroll: update the visible range (for lazy font CSS injection) and
+  // grow the rendered window as the user nears the bottom (infinite scroll).
   const handleScroll = useCallback((values: any) => {
-    const { scrollTop, clientHeight } = values
+    const { scrollTop, clientHeight, scrollHeight } = values
     const itemHeight = 40 // Approximate height of each font item
     const start = Math.floor(scrollTop / itemHeight)
     const visibleCount = Math.ceil(clientHeight / itemHeight) + 5 // Buffer
     setVisibleRange({ start: Math.max(0, start - 5), end: start + visibleCount })
+    if (scrollHeight - (scrollTop + clientHeight) < 400) {
+      setRenderLimit(prev => prev + 40)
+    }
   }, [])
 
   // Load document fonts (fonts used in current canvas) - these are priority
   useEffect(() => {
-    if (documentFonts.length === 0 || allGoogleFonts.length === 0) return
-    
+    if (documentFonts.length === 0) return
     documentFonts.forEach(name => {
-      const font = allGoogleFonts.find(f => f.family === name)
-      if (font) {
-        ensureGoogleFontStylesheet(font)
-        // Also load font face for document fonts since they're in use
-        const url = getGoogleFontUrl(font)
-        if (url) loadFontFace(font.family, url)
-      }
+      loadGoogleFont(name)
     })
-  }, [documentFonts, allGoogleFonts, getGoogleFontUrl, loadFontFace, ensureGoogleFontStylesheet])
+  }, [documentFonts])
 
   const categories: Array<{ label: string; value: Category | 'all' }> = [
     { label: 'All', value: 'all' },
@@ -506,7 +473,7 @@ function FontFamily() {
                     {!searchValue && selectedCategory === 'all' && (
                       <SectionHeader>All fonts</SectionHeader>
                     )}
-                    {filteredFonts.map(font => (
+                    {filteredFonts.slice(0, renderLimit).map(font => (
                       <FontListItem
                         key={font.family}
                         onClick={() => handleFontChange(font)}

@@ -3,6 +3,7 @@ import ResizeObserver from 'resize-observer-polyfill'
 import useAppContext from '@hooks/useAppContext'
 import Loading from './components/Loading'
 import { editorFonts } from './constants/fonts'
+import { loadGoogleFont } from './utils/fontLoader'
 
 function Container({ children }: { children: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -33,34 +34,12 @@ function Container({ children }: { children: React.ReactNode }) {
   }, [updateMediaQuery])
 
   useEffect(() => {
-    let cancelled = false
-
-    const loadFonts = async () => {
-      const promisesList = editorFonts.map(font => {
-        return new FontFace(font.name, `url(${font.url})`, font.options as unknown as FontFaceDescriptors)
-          .load()
-          .catch(() => null)
-      })
-
-      try {
-        const results = await Promise.all(promisesList)
-        results.forEach(uniqueFont => {
-          if (uniqueFont && uniqueFont.family) {
-            document.fonts.add(uniqueFont)
-          }
-        })
-      } finally {
-        if (!cancelled) {
-          setLoaded(true)
-        }
-      }
-    }
-
-    loadFonts()
-
-    return () => {
-      cancelled = true
-    }
+    // Preload the default fonts in the background (keyless, via google-fonts).
+    // Don't block the app's loading screen on the network.
+    editorFonts.forEach(name => {
+      loadGoogleFont(name)
+    })
+    setLoaded(true)
   }, [])
 
   return (

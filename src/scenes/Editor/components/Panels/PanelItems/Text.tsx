@@ -5,6 +5,9 @@ import Icons from '@components/icons'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import useVideoContext from '@/hooks/useVideoContext'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
+import { GOOGLE_FONTS } from '@/constants/googleFonts'
+import { injectGoogleFont, loadGoogleFont } from '@/utils/fontLoader'
+import { Heading1, Heading2, Type as TypeIcon, Table as TableIcon } from 'lucide-react'
 
 type TextPresetType = 'StaticText' | 'DynamicText'
 
@@ -235,13 +238,109 @@ function Panel() {
 
   const hasSearchTerm = value.trim().length > 0
 
-  const searchedFonts = useMemo(() => {
-    if (!hasSearchTerm) return []
+  // Full Google Fonts catalog (keyless). When searching, filter it; otherwise
+  // the whole list is browsable below the default styles.
+  const filteredFonts = useMemo(() => {
+    if (!hasSearchTerm) return GOOGLE_FONTS
     const term = value.trim().toLowerCase()
-    return GOOGLE_FONT_LIBRARY.filter(font =>
-      font.name.toLowerCase().includes(term),
-    ).slice(0, 30)
+    return GOOGLE_FONTS.filter(f => f.family.toLowerCase().includes(term))
   }, [hasSearchTerm, value])
+
+  const [renderLimit, setRenderLimit] = useState(30)
+  useEffect(() => {
+    setRenderLimit(30)
+  }, [value])
+  const visibleFonts = useMemo(() => filteredFonts.slice(0, renderLimit), [filteredFonts, renderLimit])
+  // Lazily inject each visible font's stylesheet so previews render correctly.
+  useEffect(() => {
+    visibleFonts.forEach(f => injectGoogleFont(f.family))
+  }, [visibleFonts])
+  const handleFontScroll = useCallback((values: any) => {
+    const { scrollTop, clientHeight, scrollHeight } = values
+    if (scrollHeight - (scrollTop + clientHeight) < 400) {
+      setRenderLimit(prev => prev + 30)
+    }
+  }, [])
+
+  // Add a text box in the chosen font (loads it keylessly first).
+  const addFontText = useCallback(
+    (family: string) => {
+      if (!editor || !canvas) return
+      loadGoogleFont(family)
+      addObjectToCanvas(
+        editor,
+        {
+          type: 'StaticText',
+          width: 320,
+          metadata: {
+            text: family,
+            fontSize: 32,
+            fontWeight: 600,
+            fontFamily: family,
+            textAlign: 'center',
+            fill: '#000000',
+          },
+        },
+        320,
+        canvas
+      )
+    },
+    [editor, canvas]
+  )
+
+  // Quick text blocks (Canva "/" style): Heading, Subheading, Body.
+  const addQuickText = useCallback(
+    (text: string, fontSize: number, fontWeight: number) => {
+      if (!editor || !canvas) return
+      loadGoogleFont('Poppins')
+      addObjectToCanvas(
+        editor,
+        {
+          type: 'StaticText',
+          width: 480,
+          metadata: { text, fontSize, fontWeight, fontFamily: 'Poppins', textAlign: 'left', fill: '#111827' },
+        },
+        480,
+        canvas
+      )
+    },
+    [editor, canvas]
+  )
+
+  // Quick table: a 3×3 grid of bordered cells centred in the frame.
+  const addTable = useCallback(() => {
+    if (!editor || !canvas) return
+    const clip = canvas.clipPath
+    const fw = (clip?.width || 900) * (clip?.scaleX || 1)
+    const fh = (clip?.height || 1200) * (clip?.scaleY || 1)
+    const fl = clip?.left || 0
+    const ft = clip?.top || 0
+    const cols = 3
+    const rows = 3
+    const cellW = Math.round(Math.min(fw * 0.8, 900) / cols)
+    const cellH = Math.round(cellW * 0.45)
+    const startX = fl + (fw - cellW * cols) / 2
+    const startY = ft + Math.round(fh * 0.28)
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        addObjectToCanvas(
+          editor,
+          {
+            type: 'StaticRect',
+            left: startX + c * cellW,
+            top: startY + r * cellH,
+            width: cellW,
+            height: cellH,
+            fill: r === 0 ? '#f3f4f6' : '#ffffff',
+            stroke: '#d1d5db',
+            strokeWidth: 1,
+          },
+          cellW,
+          canvas
+        )
+      }
+    }
+  }, [editor, canvas])
 
   const extractFontUrlFromCss = (cssText: string) => {
     const match = cssText.match(/src:\s*url\(([^)]+)\)/)
@@ -279,13 +378,6 @@ function Panel() {
     },
     [fontLoading, fontSources],
   )
-
-  useEffect(() => {
-    if (!searchedFonts.length) return
-    searchedFonts.slice(0, 5).forEach(font => {
-      ensureFontAvailable(font)
-    })
-  }, [searchedFonts, ensureFontAvailable])
 
   const handleAddText = (preset: TextPreset) => {
     if (!editor || !canvas) {
@@ -367,8 +459,16 @@ function Panel() {
           <span>Add a text box</span>
         </div>
       </div>
+      {!hasSearchTerm && (
+        <div style={{ padding: '0 2rem 0.75rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+          <QuickButton icon={<Heading1 size={16} />} label="Heading" onClick={() => addQuickText('Heading', 48, 700)} />
+          <QuickButton icon={<Heading2 size={16} />} label="Subheading" onClick={() => addQuickText('Subheading', 30, 600)} />
+          <QuickButton icon={<TypeIcon size={16} />} label="Body text" onClick={() => addQuickText('Body text', 18, 400)} />
+          <QuickButton icon={<TableIcon size={16} />} label="Table" onClick={addTable} />
+        </div>
+      )}
       <div style={{ flex: 1 }}>
-        <Scrollbars>
+        <Scrollbars onScrollFrame={handleFontScroll}>
           <div
             style={{
               display: 'grid',
@@ -378,49 +478,10 @@ function Panel() {
           >
             {hasSearchTerm ? (
               <>
-                <div
-                  style={{
-                    fontSize: '0.85rem',
-                    fontWeight: 600,
-                    color: '#6b6b6b',
-                    margin: '0.25rem 0 0.35rem',
-                  }}
-                >
-                  Fonts
-                </div>
-                {searchedFonts.length ? (
-                  searchedFonts.map(font => (
-                    <div
-                      key={font.id}
-                      style={{
-                        padding: '0.9rem 1rem',
-                        borderRadius: '12px',
-                        background: '#ffffff',
-                        boxShadow: '0 0 0 1px rgba(0,0,0,0.08)',
-                        cursor: fontLoading[font.id] ? 'wait' : 'pointer',
-                      }}
-                      onClick={() => !fontLoading[font.id] && handleAddGoogleFont(font)}
-                    >
-                      <div
-                        style={{
-                          fontFamily: `'${font.fontFamily}', 'Helvetica Neue', sans-serif`,
-                          fontSize: `${font.fontSize}px`,
-                          lineHeight: 1.1,
-                        }}
-                      >
-                        {font.preview}
-                      </div>
-                      <div
-                        style={{
-                          marginTop: '0.35rem',
-                          fontSize: '0.85rem',
-                          fontWeight: 600,
-                          color: '#2f2f2f',
-                        }}
-                      >
-                        {font.name}
-                      </div>
-                    </div>
+                <div style={fontsLabelStyle}>Fonts</div>
+                {visibleFonts.length ? (
+                  visibleFonts.map(f => (
+                    <FontRow key={f.family} family={f.family} onClick={() => addFontText(f.family)} />
                   ))
                 ) : (
                   <div
@@ -546,11 +607,76 @@ function Panel() {
                     </div>
                   ),
                 )}
+
+                {/* Browsable full font catalog (keyless, infinite scroll) */}
+                <div style={{ ...fontsLabelStyle, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '1.25rem 0 0.25rem' }}>
+                  Fonts
+                </div>
+                {visibleFonts.map(f => (
+                  <FontRow key={f.family} family={f.family} onClick={() => addFontText(f.family)} />
+                ))}
               </>
             )}
           </div>
         </Scrollbars>
       </div>
+    </div>
+  )
+}
+
+const fontsLabelStyle: React.CSSProperties = {
+  fontSize: '0.78rem',
+  fontWeight: 600,
+  color: '#6b6b6b',
+  margin: '0.75rem 0 0.25rem',
+}
+
+function QuickButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="mfa-quick-btn"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '10px 12px',
+        borderRadius: 8,
+        border: '1px solid #e5e7eb',
+        background: '#fff',
+        color: '#374151',
+        fontWeight: 600,
+        fontSize: 13,
+        cursor: 'pointer',
+        transition: 'border-color .12s, background .12s',
+      }}
+    >
+      <span style={{ color: '#6366f1', display: 'flex' }}>{icon}</span>
+      {label}
+      <style>{`.mfa-quick-btn:hover{border-color:#6366f1 !important;background:#f8fafc !important}`}</style>
+    </button>
+  )
+}
+
+function FontRow({ family, onClick }: { family: string; onClick: () => void }) {
+  return (
+    <div
+      className="mfa-font-row"
+      onClick={onClick}
+      title={`Add text in ${family}`}
+      style={{
+        padding: '0.7rem 1rem',
+        borderRadius: '10px',
+        background: '#ffffff',
+        boxShadow: '0 0 0 1px rgba(0,0,0,0.06)',
+        cursor: 'pointer',
+        transition: 'box-shadow .12s',
+      }}
+    >
+      <div style={{ fontFamily: `'${family}', 'Helvetica Neue', sans-serif`, fontSize: 22, lineHeight: 1.2, color: '#1f2937' }}>
+        {family}
+      </div>
+      <style>{`.mfa-font-row:hover{box-shadow:0 0 0 1px #6366f1 !important}`}</style>
     </div>
   )
 }
