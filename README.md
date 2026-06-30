@@ -5,10 +5,11 @@
 ![Design Editor](https://img.shields.io/badge/Design-Editor-FF6B5B?style=for-the-badge)
 ![Open Source](https://img.shields.io/badge/Open-Source-2ECC71?style=for-the-badge)
 ![Free Forever](https://img.shields.io/badge/Free-Forever-667eea?style=for-the-badge)
+[![Join our Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/mzqYc69hxP)
 
 **A free, open-source Canva alternative with AI-powered design features**
 
-[🚀 Try Live Demo](https://design.marketifyall.com/) • [📖 Documentation](#features) • [🐛 Report Bug](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues) • [✨ Request Feature](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues)
+[🚀 Try Live Demo](https://design.marketifyall.com/) • [💬 Join Discord](https://discord.gg/mzqYc69hxP) • [📖 Documentation](#features) • [🐛 Report Bug](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues) • [✨ Request Feature](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues)
 
 </div>
 
@@ -344,6 +345,16 @@ Complete marketing and creative toolkit for businesses, creators, and marketers.
 2. Run `npm start` to start dev server
 3. Make your changes
 4. Submit a pull request
+
+---
+
+## 💬 Community
+
+Join our Discord to ask questions, share what you build, request features, and chat with other creators and contributors:
+
+**👉 [Join the Discord community](https://discord.gg/mzqYc69hxP)**
+
+[![Join our Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/mzqYc69hxP)
 
 ---
 

@@ -13,27 +13,25 @@ import { notify } from '@/lib/notify'
 // time-based opacity effects must leave it alone).
 const isAnimatedObject = (obj: any): boolean => hasActiveAnimation(getObjectAnimation(obj))
 
-// ============ PROFESSIONAL VIDEO-EDITOR TIMELINE THEME ============
-// A focused, dark "editing surface" docked below the light canvas (the pattern
-// used by CapCut / Premiere / Canva's video editor) — colored clips and the red
-// playhead read clearly against charcoal, and it visually separates "editing
-// the design" from "sequencing the video".
+// ============ TIMELINE THEME ============
+// Light theme matching the rest of the editor (white surfaces, #e5e7eb hairlines,
+// #667eea accent) — restrained, flat, no heavy gradients or glows.
 const T = {
-  bg: '#15151b',          // shell background
-  bgPanel: '#1b1b22',     // header + track-labels panel
-  bgRow: '#191920',       // track row
-  bgRail: '#121217',      // ruler / rail
-  border: '#2a2a33',      // hairline dividers
-  borderSoft: '#23232b',
-  text: '#ececed',        // primary text
-  textMuted: '#a2a2ad',   // secondary text
-  textFaint: '#71717f',   // tertiary text
-  hover: 'rgba(255,255,255,0.06)',
-  accent: '#8b5cf6',
-  accent2: '#6366f1',
-  accentGrad: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
-  accentSoft: 'rgba(139,92,246,0.16)',
-  playhead: '#fb3b4e',
+  bg: '#ffffff',          // shell / track-row background
+  bgPanel: '#f9fafb',     // header + track-labels panel + ruler
+  bgRow: '#ffffff',       // track row
+  bgRail: '#f9fafb',      // ruler / rail
+  border: '#e5e7eb',      // hairline dividers
+  borderSoft: '#eef1f4',
+  text: '#1f2937',        // primary text
+  textMuted: '#6b7280',   // secondary text
+  textFaint: '#9ca3af',   // tertiary text
+  hover: '#f3f4f6',
+  accent: '#667eea',
+  accent2: '#764ba2',
+  accentGrad: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  accentSoft: 'rgba(102,126,234,0.12)',
+  playhead: '#ef4444',
 }
 
 const TimelineShell = styled('div', ({ $isVideoPanelActive }: { $isVideoPanelActive: boolean }) => ({
@@ -51,7 +49,7 @@ const TimelineShell = styled('div', ({ $isVideoPanelActive }: { $isVideoPanelAct
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
   color: T.text,
   overflow: 'hidden',
-  boxShadow: '0 -8px 30px rgba(0, 0, 0, 0.28)',
+  boxShadow: '0 -1px 4px rgba(0, 0, 0, 0.06)',
 }))
 
 const TimelineHeader = styled('div', {
@@ -91,32 +89,29 @@ const TimeDisplay = styled('div', {
   display: 'flex',
   alignItems: 'center',
   gap: '7px',
-  background: 'rgba(255,255,255,0.04)',
-  border: `1px solid ${T.border}`,
+  background: '#f3f4f6',
   borderRadius: '8px',
   padding: '6px 12px',
 })
 
 const PlayButton = styled('button', ({ $playing }: { $playing?: boolean }) => ({
-  width: '44px',
-  height: '44px',
+  width: '38px',
+  height: '38px',
   borderRadius: '50%',
-  background: $playing ? '#ef4444' : T.accentGrad,
+  background: $playing ? '#ef4444' : T.accent,
   border: 'none',
   color: '#ffffff',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  boxShadow: $playing
-    ? '0 4px 14px rgba(239, 68, 68, 0.45)'
-    : '0 4px 16px rgba(139, 92, 246, 0.5)',
-  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.12)',
+  transition: 'background 0.15s ease, filter 0.15s ease',
   ':hover': {
-    transform: 'scale(1.07)',
+    filter: 'brightness(1.05)',
   },
   ':active': {
-    transform: 'scale(0.94)',
+    filter: 'brightness(0.95)',
   },
 }))
 
@@ -142,8 +137,7 @@ const ZoomControl = styled('div', {
   display: 'flex',
   alignItems: 'center',
   gap: '6px',
-  background: 'rgba(255,255,255,0.04)',
-  border: `1px solid ${T.border}`,
+  background: '#f3f4f6',
   padding: '6px 10px',
   borderRadius: '8px',
 })
@@ -152,7 +146,7 @@ const ZoomSlider = styled('input', {
   width: '70px',
   height: '4px',
   appearance: 'none',
-  background: '#3a3a45',
+  background: '#d1d5db',
   borderRadius: '2px',
   outline: 'none',
   cursor: 'pointer',
@@ -163,7 +157,6 @@ const ZoomSlider = styled('input', {
     borderRadius: '50%',
     background: T.accent,
     cursor: 'pointer',
-    boxShadow: '0 0 0 3px rgba(139,92,246,0.25)',
   },
 })
 
@@ -218,12 +211,12 @@ const TimelineBody = styled('div', {
     background: T.bg,
   },
   '::-webkit-scrollbar-thumb': {
-    background: '#33333d',
+    background: '#d1d5db',
     borderRadius: '5px',
     border: `2px solid ${T.bg}`,
   },
   '::-webkit-scrollbar-thumb:hover': {
-    background: '#43434f',
+    background: '#9ca3af',
   },
 })
 
@@ -263,11 +256,11 @@ const TrackLabelHeader = styled('div', {
 
 const trackColor = ($type?: string) => {
   switch ($type) {
-    case 'video': return '#8b5cf6'
-    case 'text': return '#34d399'
-    case 'image': return '#fbbf24'
-    case 'shape': return '#f472b6'
-    case 'audio': return '#60a5fa'
+    case 'video': return '#667eea'
+    case 'text': return '#10b981'
+    case 'image': return '#f59e0b'
+    case 'shape': return '#ec4899'
+    case 'audio': return '#3b82f6'
     default: return '#9ca3af'
   }
 }
@@ -298,12 +291,11 @@ const TrackLabel = styled('div', ({ $type }: { $type?: string }) => {
     },
     '::before': {
       content: '""',
-      width: '4px',
-      height: $type === 'video' ? '44px' : '26px',
+      width: '3px',
+      height: $type === 'video' ? '40px' : '24px',
       background: trackColor($type),
-      borderRadius: '3px',
+      borderRadius: '2px',
       flexShrink: 0,
-      boxShadow: `0 0 10px ${trackColor($type)}66`,
     },
   }
 })
@@ -317,8 +309,8 @@ const AddMediaButton = styled('button', {
   width: '34px',
   height: '34px',
   borderRadius: '8px',
-  background: 'rgba(255,255,255,0.05)',
-  border: `1px dashed ${T.borderSoft}`,
+  background: '#ffffff',
+  border: `1px dashed ${T.border}`,
   color: T.textMuted,
   cursor: 'pointer',
   display: 'flex',
@@ -329,8 +321,8 @@ const AddMediaButton = styled('button', {
   ':hover': {
     background: T.accentSoft,
     borderColor: T.accent,
-    color: '#c4b5fd',
-    transform: 'translateY(-50%) scale(1.08)',
+    color: T.accent,
+    transform: 'translateY(-50%) scale(1.06)',
   },
   'svg': {
     width: '18px',
@@ -342,9 +334,9 @@ const MediaMenu = styled('div', ({ $visible, $top }: { $visible: boolean; $top: 
   position: 'absolute',
   left: '50px',
   top: `${$top}px`,
-  background: '#22222b',
+  background: '#ffffff',
   borderRadius: '10px',
-  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.5)',
+  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.12)',
   border: `1px solid ${T.border}`,
   padding: '5px',
   zIndex: 1000,
@@ -421,12 +413,12 @@ const TracksScrollContainer = styled('div', {
     background: T.bg,
   },
   '::-webkit-scrollbar-thumb': {
-    background: '#33333d',
+    background: '#d1d5db',
     borderRadius: '5px',
     border: `2px solid ${T.bg}`,
   },
   '::-webkit-scrollbar-thumb:hover': {
-    background: '#43434f',
+    background: '#9ca3af',
   },
 })
 
@@ -456,7 +448,7 @@ const TimeMarker = styled('div', ({ $left }: { $left: number }) => ({
 const TimeMarkerLine = styled('div', ({ $isMajor }: { $isMajor?: boolean }) => ({
   width: '1px',
   height: $isMajor ? '12px' : '6px',
-  background: $isMajor ? '#5a5a68' : '#3a3a45',
+  background: $isMajor ? '#9ca3af' : '#d1d5db',
   marginTop: 'auto',
 }))
 
@@ -499,12 +491,12 @@ const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $p
   width: `${$width}px`,
   minWidth: '30px',
   background: $poster
-    ? `linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.35)), url(${$poster})`
-    : `linear-gradient(180deg, ${$color}, ${$color}cc)`,
+    ? `linear-gradient(rgba(0,0,0,0.10), rgba(0,0,0,0.30)), url(${$poster})`
+    : $color,
   backgroundSize: $poster ? 'cover' : 'auto',
   backgroundPosition: $poster ? 'center' : 'auto',
   backgroundRepeat: $poster ? 'no-repeat' : 'repeat',
-  borderRadius: '8px',
+  borderRadius: '6px',
   padding: $poster ? '0' : '0 10px',
   color: '#ffffff',
   fontSize: '11px',
@@ -515,16 +507,16 @@ const TrackClip = styled('div', ({ $left, $width, $color, $active, $selected, $p
   gap: '6px',
   overflow: 'hidden',
   outline: $selected
-    ? `2px solid #ffffff`
-    : ($active ? `2px solid rgba(255,255,255,0.55)` : `1px solid rgba(0,0,0,0.25)`),
-  outlineOffset: $selected ? '0px' : '-1px',
+    ? `2px solid ${T.accent}`
+    : ($active ? `2px solid ${T.accentSoft}` : 'none'),
+  outlineOffset: '-1px',
   boxShadow: $selected
-    ? `0 0 0 3px ${T.accentSoft}, 0 6px 16px rgba(0,0,0,0.45)`
-    : '0 2px 8px rgba(0,0,0,0.35)',
+    ? `0 0 0 3px ${T.accentSoft}`
+    : '0 1px 2px rgba(0,0,0,0.12)',
   transition: 'box-shadow 0.15s ease, outline 0.1s ease, filter 0.15s ease',
   userSelect: 'none',
   ':hover': {
-    filter: 'brightness(1.08)',
+    filter: 'brightness(1.04)',
     '.audio-delete-btn': {
       opacity: '1 !important',
     },
@@ -600,7 +592,7 @@ const ClipAddButton = styled('div', {
   width: '20px',
   height: '20px',
   borderRadius: '50%',
-  background: 'rgba(99, 102, 241, 0.9)',
+  background: T.accent,
   color: '#ffffff',
   display: 'flex',
   alignItems: 'center',
@@ -611,11 +603,11 @@ const ClipAddButton = styled('div', {
   zIndex: 10,
   fontSize: '14px',
   fontWeight: 'bold',
-  boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
   ':hover': {
     opacity: 1,
     transform: 'translateY(-50%) scale(1.1)',
-    background: 'rgba(99, 102, 241, 1)',
+    filter: 'brightness(1.05)',
   },
 })
 
@@ -633,9 +625,9 @@ const ContextMenuContainer = styled('div', ({ $visible, $top, $left }: { $visibl
   position: 'fixed',
   top: `${$top}px`,
   left: `${$left}px`,
-  backgroundColor: '#22222b',
+  backgroundColor: '#ffffff',
   borderRadius: '9px',
-  boxShadow: '0 12px 32px rgba(0, 0, 0, 0.55)',
+  boxShadow: '0 6px 20px rgba(0, 0, 0, 0.12)',
   border: `1px solid ${T.border}`,
   padding: '4px',
   minWidth: '120px',
@@ -660,8 +652,8 @@ const ContextMenuItem = styled('div', {
   color: T.text,
   transition: 'all 0.1s ease',
   ':hover': {
-    backgroundColor: 'rgba(239,68,68,0.14)',
-    color: '#f87171',
+    backgroundColor: 'rgba(239,68,68,0.10)',
+    color: '#dc2626',
   },
   'svg': {
     width: '14px',
@@ -680,7 +672,7 @@ const Playhead = styled('div', ({ $left }: { $left: number }) => ({
   background: 'transparent',
   zIndex: 50,
   cursor: 'ew-resize',
-  // The visible playhead line (with a soft glow so it reads on dark tracks).
+  // The visible playhead line.
   '::after': {
     content: '""',
     position: 'absolute',
@@ -689,7 +681,6 @@ const Playhead = styled('div', ({ $left }: { $left: number }) => ({
     bottom: 0,
     width: '2px',
     background: T.playhead,
-    boxShadow: `0 0 8px ${T.playhead}aa`,
     pointerEvents: 'none',
   },
   // The playhead handle at top.
@@ -702,7 +693,7 @@ const Playhead = styled('div', ({ $left }: { $left: number }) => ({
     height: '15px',
     background: T.playhead,
     borderRadius: '3px 3px 5px 5px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.5)',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.25)',
     cursor: 'ew-resize',
     transition: 'transform 0.12s ease',
   },
@@ -722,20 +713,21 @@ const ShowTimelineButton = styled('button', {
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  padding: '10px 20px',
-  background: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
-  color: '#ffffff',
-  border: 'none',
-  borderRadius: '24px',
+  padding: '9px 18px',
+  background: '#ffffff',
+  color: '#374151',
+  border: '1px solid #e5e7eb',
+  borderRadius: '10px',
   fontSize: '13px',
   fontWeight: 600,
   cursor: 'pointer',
-  boxShadow: '0 4px 16px rgba(139, 92, 246, 0.4)',
-  transition: 'all 0.2s ease',
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.10)',
+  transition: 'all 0.15s ease',
   zIndex: 15,
   ':hover': {
-    transform: 'translateX(-50%) translateY(-2px)',
-    boxShadow: '0 6px 24px rgba(139, 92, 246, 0.5)',
+    background: '#f9fafb',
+    borderColor: '#667eea',
+    color: '#667eea',
   },
 })
 
@@ -1111,7 +1103,7 @@ const VideoTimeline: React.FC = () => {
       name: clip.name || 'Video',
       start: clip.start || 0,
       duration: clip.duration || 60,
-      color: '#8b5cf6',
+      color: '#667eea',
       type: 'video' as TrackType,
       poster: clip.poster, // Include poster for video thumbnail
       videoSrc: clip.src, // Include video source for playback

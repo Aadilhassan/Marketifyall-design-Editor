@@ -113,6 +113,21 @@ function App() {
   const audioClipsRef = useRef(audioClips)
   audioClipsRef.current = audioClips
 
+  // Auto-fit the design when the timeline opens/closes so it isn't left hidden
+  // behind the timeline after the canvas area resizes. Uses the SDK's own
+  // zoomToFit (keeps all content visible); the delays let the layout + the SDK's
+  // resize observer settle before re-fitting.
+  const fitDesignToView = useCallback(() => {
+    try { (editor as any)?.zoomToFit?.() } catch { /* ignore */ }
+  }, [editor])
+
+  useEffect(() => {
+    if (!editor) return
+    const t1 = setTimeout(fitDesignToView, 300)
+    const t2 = setTimeout(fitDesignToView, 600)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [editor, shouldShowTimeline, fitDesignToView])
+
   const searchParams = new URLSearchParams(location.search)
   const imgUrl = searchParams.get('img_url')
   const prebuiltJsonUrl = searchParams.get('prebuilt_json_url')
@@ -301,6 +316,12 @@ function App() {
           }
 
           const json = project?.json
+          // Defensively drop any null/undefined/typeless objects — a single bad
+          // entry makes scenify's objectToFabric throw "reading 'type' of
+          // undefined" and aborts the whole restore.
+          if (json && Array.isArray(json.objects)) {
+            json.objects = json.objects.filter((o: any) => o && o.type)
+          }
           if (json && json.frame && typeof ed.importFromJSON === 'function') {
             // scenify template format (new saves) — rebuilds frame, clip, zoom & animations.
             try {
@@ -308,6 +329,9 @@ function App() {
               const done = () => {
                 frameReadyRef.current = true
                 restoreVideoClips()
+                // Re-fit after the design is in place (the SDK's own fit-on-load
+                // runs before the layout settles, leaving it off-centre/clipped).
+                setTimeout(fitDesignToView, 450)
               }
               if (r && typeof r.then === 'function') r.then(done).catch(done)
               else setTimeout(done, 500)

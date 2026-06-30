@@ -143,16 +143,18 @@ const CloseButton = styled('button', {
 })
 
 const ModalBody = styled('div', {
-  padding: '24px',
+  padding: '20px 24px',
   flex: 1,
   overflowY: 'auto',
+  overflowX: 'hidden',
 })
 
 const SectionTitle = styled('h3', {
-  fontSize: '14px',
+  fontSize: '12px',
   fontWeight: 600,
-  color: '#374151',
-  marginBottom: '12px',
+  color: '#6b7280',
+  marginTop: 0,
+  marginBottom: '10px',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
 })
@@ -160,53 +162,55 @@ const SectionTitle = styled('h3', {
 const FormatGrid = styled('div', {
   display: 'grid',
   gridTemplateColumns: 'repeat(3, 1fr)',
-  gap: '12px',
-  marginBottom: '24px',
+  gap: '8px',
+  marginBottom: '20px',
 })
 
 const FormatOption = styled('button', ({ $active }: { $active?: boolean }) => ({
-  padding: '16px',
-  borderRadius: '12px',
-  border: $active ? '2px solid #667eea' : '2px solid #e5e7eb',
-  background: $active ? '#f0f0ff' : '#ffffff',
+  padding: '12px 8px',
+  borderRadius: '10px',
+  border: $active ? '1px solid #667eea' : '1px solid #e5e7eb',
+  background: $active ? '#f3f4ff' : '#ffffff',
+  boxShadow: $active ? '0 0 0 1px #667eea' : 'none',
   cursor: 'pointer',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: '8px',
-  transition: 'all 0.2s',
+  gap: '6px',
+  transition: 'border-color 0.15s, background 0.15s',
   ':hover': {
     borderColor: '#667eea',
-    background: '#f9f9ff',
+    background: '#fafaff',
   },
 }))
 
 const FormatIcon = styled('div', ({ $color }: { $color: string }) => ({
-  width: '48px',
-  height: '48px',
-  borderRadius: '10px',
+  width: '34px',
+  height: '34px',
+  borderRadius: '8px',
   background: $color,
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   color: '#ffffff',
-  fontSize: '14px',
+  fontSize: '11px',
   fontWeight: 700,
+  letterSpacing: '0.2px',
 }))
 
 const FormatName = styled('span', {
-  fontSize: '13px',
+  fontSize: '12px',
   fontWeight: 600,
   color: '#374151',
 })
 
 const FormatDesc = styled('span', {
-  fontSize: '11px',
+  fontSize: '10px',
   color: '#9ca3af',
 })
 
 const QualitySection = styled('div', {
-  marginBottom: '24px',
+  marginBottom: '18px',
 })
 
 const QualitySlider = styled('div', {
@@ -241,7 +245,7 @@ const QualityValue = styled('span', {
 })
 
 const SizeSection = styled('div', {
-  marginBottom: '24px',
+  marginBottom: '4px',
 })
 
 const SizeOptions = styled('div', {
@@ -288,10 +292,10 @@ const CancelButton = styled('button', {
 })
 
 const ExportButton = styled('button', {
-  padding: '10px 24px',
+  padding: '10px 22px',
   borderRadius: '8px',
   border: 'none',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#667eea',
   color: '#ffffff',
   fontSize: '14px',
   fontWeight: 600,
@@ -299,15 +303,13 @@ const ExportButton = styled('button', {
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  transition: 'all 0.2s',
+  transition: 'background 0.15s, filter 0.15s',
   ':hover': {
-    transform: 'translateY(-1px)',
-    boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+    filter: 'brightness(1.05)',
   },
   ':disabled': {
     opacity: 0.6,
     cursor: 'not-allowed',
-    transform: 'none',
   },
 })
 
@@ -972,7 +974,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
                 <div style={{
                   width: `${exportProgress}%`,
                   height: '100%',
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  background: '#667eea',
                   transition: 'width 0.3s ease',
                 }} />
               </div>
@@ -1011,10 +1013,9 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
               </SizeOptions>
             </SizeSection>
           )}
-        </ModalBody>
 
-        {/* ── Share with Community ─────────────────────── */}
-        <div style={{ borderTop: '1px solid #e5e7eb', margin: '16px 0 0', padding: '16px 0 0' }}>
+          {/* ── Share with Community (scrolls with the body) ── */}
+          <div style={{ borderTop: '1px solid #e5e7eb', marginTop: '20px', paddingTop: '16px' }}>
           {!showTemplateForm ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
@@ -1024,8 +1025,8 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
               <button
                 onClick={() => { setShowTemplateForm(true); setTemplateName(designName || 'Untitled Template') }}
                 style={{
-                  padding: '8px 16px', borderRadius: '8px', border: '1px solid #5A3FFF',
-                  background: '#fff', color: '#5A3FFF', fontSize: '13px', fontWeight: 600,
+                  padding: '8px 16px', borderRadius: '8px', border: '1px solid #667eea',
+                  background: '#fff', color: '#667eea', fontSize: '13px', fontWeight: 600,
                   cursor: 'pointer', transition: 'all 0.2s',
                 }}
               >
@@ -1123,7 +1124,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
                   }}
                   style={{
                     padding: '8px 16px', borderRadius: '6px', border: 'none',
-                    background: isSubmittingTemplate ? '#9CA3AF' : '#5A3FFF', color: '#fff',
+                    background: isSubmittingTemplate ? '#9CA3AF' : '#667eea', color: '#fff',
                     fontSize: '13px', fontWeight: 600, cursor: isSubmittingTemplate ? 'wait' : 'pointer',
                   }}
                 >
@@ -1132,7 +1133,8 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
               </div>
             </div>
           )}
-        </div>
+          </div>
+        </ModalBody>
 
         <ModalFooter>
           <CancelButton onClick={onClose}>Cancel</CancelButton>

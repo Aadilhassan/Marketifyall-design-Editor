@@ -35,7 +35,15 @@ const PersistProvider: FC = ({ children }) => (
   </PersistGate>
 )
 const StyleProvider: FC = ({ children }) => <StyletronProvider value={engine}>{children}</StyletronProvider>
-const ThemeProvider: FC = ({ children }) => <BaseProvider theme={LightTheme}>{children}</BaseProvider>
+// The editor canvas area sits in a `position: relative; z-index: 100` stacking
+// context (Editor.tsx), so without an explicit layer z-index baseui popovers,
+// dropdowns and modals render *behind* it. Lift the layer manager above the
+// editor and app chrome (but below the full-screen drag overlay at 9999).
+const ThemeProvider: FC = ({ children }) => (
+  <BaseProvider theme={LightTheme} zIndex={4000}>
+    {children}
+  </BaseProvider>
+)
 
 const ComposedProviders = composeProviders(
   ReduxProvider,

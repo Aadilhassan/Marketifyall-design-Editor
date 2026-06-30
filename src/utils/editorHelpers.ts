@@ -4,6 +4,9 @@
  * initialize object content.
  */
 import { selectObject } from './selectObject'
+// Side-effect import: registers the custom Vignette/Duotone fabric filters so
+// they exist before any saved project is deserialised on load.
+import './filters'
 
 export const addObjectToCanvas = (editor: any, options: any, width?: number, canvas?: any) => {
     if (!editor) {
