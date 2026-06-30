@@ -91,7 +91,7 @@ function makeThumbnail(canvas: any): string {
 }
 
 function App() {
-  const { setCurrentTemplate } = useAppContext()
+  const { setCurrentTemplate, setActivePanel } = useAppContext()
   const editor = useEditor() as unknown as EditorWithCanvas | null
   const location = useLocation()
   const { id: routeId } = useParams<{ id?: string }>()
@@ -147,6 +147,40 @@ function App() {
     dispatch(getTemplates())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Honour dashboard "quick start" intents: focus a tool panel (?panel=) and/or
+  // drop in an image the user picked on the dashboard (sessionStorage handoff).
+  useEffect(() => {
+    if (!editor) return
+    const panel = searchParams.get('panel')
+    if (panel) {
+      try {
+        setActivePanel(panel as any)
+      } catch {
+        /* ignore unknown panel */
+      }
+    }
+    let pendingUpload: string | null = null
+    try {
+      pendingUpload = sessionStorage.getItem('mfa:pendingUpload')
+      if (pendingUpload) sessionStorage.removeItem('mfa:pendingUpload')
+    } catch {
+      /* sessionStorage unavailable */
+    }
+    if (pendingUpload) {
+      const addWhenReady = (tries = 0) => {
+        const cv = getFabricCanvas(editor)
+        if (cv && cv.getObjects) {
+          addObjectToCanvas(editor, { type: 'StaticImage', metadata: { src: pendingUpload } }, 600, cv)
+        } else if (tries < 40) {
+          setTimeout(() => addWhenReady(tries + 1), 150)
+        }
+      }
+      // Wait for the frame/project to settle so the image lands inside it.
+      setTimeout(() => addWhenReady(), 700)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor])
 
   const editorConfig = useMemo(() => ({ clipToFrame: true, scrollLimit: 0 }), [])
 
