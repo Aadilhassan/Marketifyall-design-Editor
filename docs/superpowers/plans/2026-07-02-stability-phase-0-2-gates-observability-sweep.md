@@ -38,6 +38,7 @@
 3. Catch clauses without a binding (`catch {`) gain one (`catch (err) {`) so the error can be forwarded.
 4. **Do not toast from autosave paths** (`Editor.tsx` save loop) — spec D5 routes those to the Phase 3 status chip; until then they get `log.warn` only.
 5. Line numbers in the tables were measured at plan time — verify with the quoted snippet, and search for the snippet if the file has drifted.
+6. **`fail()` user messages are static strings** — no interpolated filenames/IDs/URLs (dynamic text defeats toast dedupe and churns the eviction map). Put the dynamic part in the `err` argument; it lands in the log entry's `detail`.
 
 ---
 
@@ -423,6 +424,8 @@ Run the strict typecheck and the full test suite (Conventions). Expected: exit 0
 git add src/lib/logger.ts src/lib/logger.test.ts
 git commit -m "feat(observability): logger core — ring buffer, fail()/ignoreError(), toast dedupe + rate cap"
 ```
+
+> **Post-review hardening (landed as a follow-up commit):** the shipped `logger.ts` additionally guards the `notify()` call in a try/catch (BaseUI's toaster THROWS in dev when no `ToasterContainer` is mounted — i.e. every non-editor route), hardens `describeError` against unstringifiable values (`'[unstringifiable value]'`), wraps `record`'s entire output section (console + beacon) in a never-throw guard with the ring-buffer push outside it, LRU-refreshes the dedupe map (delete-before-set), and adds a dev-only swapped-args warning to `ignoreError`. Test suite grew to 8 (never-throws + exotic-values pinning tests; rate-cap test also asserts suppressed toasts still record). The blocks above show the pre-review core; the shipped files supersede them.
 
 ---
 
