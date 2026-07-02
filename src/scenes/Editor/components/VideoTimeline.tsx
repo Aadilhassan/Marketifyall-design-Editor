@@ -8,6 +8,7 @@ import { useEditorContext, useEditor } from '@nkyo/scenify-sdk'
 import useAppContext from '@/hooks/useAppContext'
 import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
 import { notify } from '@/lib/notify'
+import { ignoreError } from '@/lib/logger'
 
 // True when an object is driven by the keyframe AnimationDriver (so other
 // time-based opacity effects must leave it alone).
@@ -1365,7 +1366,7 @@ const VideoTimeline: React.FC = () => {
               if (playPromise !== undefined) {
                 playPromise
                   .catch(err => {
-                    // silently handled (AbortError expected during seeking)
+                    ignoreError(err, 'audio play() interrupted during seek')
                   })
               }
             } else {
@@ -1525,7 +1526,7 @@ const VideoTimeline: React.FC = () => {
       const videoTime = Math.max(0, currentTime - clipStart)
       masterVideo.currentTime = Math.min(videoTime, masterVideo.duration || activeClip.duration)
       masterVideo.play().catch(err => {
-        // silently handled (AbortError expected during seeking)
+        ignoreError(err, 'master video play() interrupted during seek')
       })
     }
   }, [getActiveClip, isPlaying, currentTime, canvas])
@@ -1616,7 +1617,7 @@ const VideoTimeline: React.FC = () => {
 
         if (masterVideo.paused) {
           masterVideo.play().catch(err => {
-            // silently handled (AbortError expected during seeking)
+            ignoreError(err, 'master video play() interrupted during sync')
           })
         }
         lastSyncTime = now
@@ -1633,7 +1634,7 @@ const VideoTimeline: React.FC = () => {
             videoEl.currentTime = expectedTime
           }
           if (videoEl.paused) {
-            videoEl.play().catch(() => { }) // Ignore errors
+            videoEl.play().catch((err) => ignoreError(err, 'clip video play() interrupted during seek'))
           }
         }
       }
@@ -1896,8 +1897,8 @@ const VideoTimeline: React.FC = () => {
       // previous playthrough fires 'ended' the instant it's played again, which
       // (before the fix below) snapped the playhead to the timeline end — so
       // pressing play appeared to do nothing. Resetting avoids that race.
-      if (masterVideoRef.current) { try { masterVideoRef.current.currentTime = 0 } catch { /* ignore */ } }
-      Object.values(timelineVideoRefs.current).forEach(v => { try { v.currentTime = 0 } catch { /* ignore */ } })
+      if (masterVideoRef.current) { try { masterVideoRef.current.currentTime = 0 } catch (err) { ignoreError(err, 'timeline media reset') } }
+      Object.values(timelineVideoRefs.current).forEach(v => { try { v.currentTime = 0 } catch (err) { ignoreError(err, 'timeline media reset') } })
     }
     togglePlayback()
   }, [togglePlayback, isPlaying, setCurrentTime])

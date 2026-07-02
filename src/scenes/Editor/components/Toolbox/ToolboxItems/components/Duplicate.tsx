@@ -2,6 +2,7 @@ import { useEditor } from '@nkyo/scenify-sdk'
 import { Button, SHAPE, KIND, SIZE } from 'baseui/button'
 import Icons from '../../../Icons'
 import { selectObject } from '@/utils/selectObject'
+import { fail } from '@/lib/logger'
 
 function Duplicate() {
   const editor = useEditor()
@@ -20,8 +21,8 @@ function Duplicate() {
               canvas.fire('object:modified', { target: obj })
               selectObject(canvas, obj)
             }
-          } catch {
-            /* ignore */
+          } catch (err) {
+            fail('edit', 'Duplicate failed', err)
           }
         }, 80)
       }}

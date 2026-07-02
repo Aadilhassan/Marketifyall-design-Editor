@@ -5,6 +5,7 @@ import { Plus, CheckIndeterminate } from 'baseui/icon'
 import { StatefulPopover, PLACEMENT } from 'baseui/popover'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
+import { ignoreError } from '@/lib/logger'
 
 const Container = styled('div', props => ({
   backgroundColor: '#ffffff',
@@ -48,8 +49,8 @@ function Footer() {
     const t = setTimeout(() => {
       try {
         editor.zoomToFit()
-      } catch {
-        /* ignore */
+      } catch (err) {
+        ignoreError(err, 'zoom guard')
       }
     }, 350)
     return () => clearTimeout(t)
