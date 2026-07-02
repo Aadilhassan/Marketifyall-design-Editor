@@ -336,14 +336,14 @@ const lastToastAt = new Map<string, number>()
 let rateWindowStart = 0
 let rateCount = 0
 
-function describe(err: unknown): string | undefined {
+function describeError(err: unknown): string | undefined {
   if (err instanceof Error) return `${err.name}: ${err.message}`
   if (err === undefined || err === null) return undefined
   return String(err)
 }
 
 function record(level: LogEntry['level'], scope: string, message: string, err?: unknown): void {
-  entries.push({ time: Date.now(), level, scope, message, detail: describe(err) })
+  entries.push({ time: Date.now(), level, scope, message, detail: describeError(err) })
   if (entries.length > RING_SIZE) entries.shift()
   const line = `[${scope}] ${message}`
   if (level === 'error') console.error(line, err !== undefined ? err : '')
