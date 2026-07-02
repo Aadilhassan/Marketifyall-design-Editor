@@ -9,7 +9,7 @@ import { notify } from '@/lib/notify'
 import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
 import { marketifyallApi } from '@/services/marketifyall-api'
 import { exportCanvasToPdf } from '@/utils/pdfExport'
-import { fail, ignoreError } from '@/lib/logger'
+import { ignoreError, log } from '@/lib/logger'
 
 /**
  * Re-encodes a captured PNG data URL into JPG/WebP using `canvas.toBlob`, which
@@ -715,7 +715,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           try {
             fabricCanvas.renderAll?.()
           } catch (renderError) {
-            fail('export', 'Export failed', renderError)
+            log.warn('export', 'pre-capture render failed — capture may be stale', renderError)
           }
 
           // Export using toDataURL cropped to the design area
@@ -776,7 +776,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           try {
             fabricCanvas.renderAll?.()
           } catch (renderError) {
-            fail('export', 'Export failed', renderError)
+            ignoreError(renderError, 'post-export view restore render')
           }
         }
       }

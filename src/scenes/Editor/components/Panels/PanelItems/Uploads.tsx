@@ -33,7 +33,7 @@ function saveLocalUploads(uploads: LocalUpload[]) {
     // storage full — drop oldest
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads.slice(0, 10)))
-    } catch (err) { log.warn('uploads', 'stored uploads unreadable — starting empty', err) }
+    } catch (err) { log.warn('uploads', 'could not persist uploads — storage full even after trim', err) }
   }
 }
 

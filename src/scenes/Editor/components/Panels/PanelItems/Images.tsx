@@ -5,7 +5,7 @@ import Icons from '@components/icons'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import api from '@/services/api'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
-import { fail } from '@/lib/logger'
+import { log } from '@/lib/logger'
 
 interface Image {
   id: string
@@ -54,7 +54,7 @@ function Images() {
         setQueryImageUrl(paramUrl)
       }
     } catch (error) {
-      fail('images', 'Image search failed', error)
+      log.warn('images', 'could not read ?image= URL param', error)
     }
   }, [])
 

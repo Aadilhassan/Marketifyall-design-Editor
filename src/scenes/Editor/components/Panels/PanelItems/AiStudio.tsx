@@ -691,7 +691,7 @@ function AiStudio() {
 
         case 'setBackground': {
           const color = p.gradient?.colors?.[0] || p.color || '#ffffff'
-          try { editor.background.setBackgroundColor(color) } catch (err) { ignoreError(err, 'unparseable stream chunk skipped') }
+          try { editor.background.setBackgroundColor(color) } catch (err) { ignoreError(err, 'background color set failed') }
           return true
         }
 
@@ -928,7 +928,7 @@ function AiStudio() {
       try {
         const jsonMatch = raw.match(/\{[\s\S]*\}/)
         if (jsonMatch) parsed = JSON.parse(jsonMatch[0])
-      } catch (err) { ignoreError(err, 'optional enrichment skipped') }
+      } catch (err) { ignoreError(err, 'AI response JSON parse failed — using defaults') }
 
       const aiMsg: ChatMessage = {
         id: `msg-${Date.now()}-ai`,

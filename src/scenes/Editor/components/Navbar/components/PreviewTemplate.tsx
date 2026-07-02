@@ -78,7 +78,7 @@ function PreviewTemplate() {
       const image = await (editor as any).toPNG(options);
       setPreviewImage(image);
     } catch (err) {
-      log.warn('preview', 'template preview state save failed', err)
+      log.warn('preview', 'preview image render (toPNG) failed', err)
     } finally {
       setIsProcessing(false);
     }
