@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import axios from 'axios'
+import { fail } from '@/lib/logger'
 
 const SAMPLE_PROPERTY = `$399,900
 1901 Mallard Dr, London, KY 40741
@@ -99,7 +100,7 @@ const UrlToVideo = () => {
                         setLoading(false)
                         setStatus(`❌ Error: ${s.error}`)
                     }
-                } catch (err) { /* silently handled */ }
+                } catch (err) { fail('urlToVideo', 'Could not process that URL', err) }
             }, 1000)
 
         } catch (err: any) {

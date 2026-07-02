@@ -3,6 +3,7 @@ import { uniqueFilename } from '@/utils/unique'
 import { createAsyncThunk, createAction } from '@reduxjs/toolkit'
 import api from '@services/api'
 import axios from 'axios'
+import { log } from '@/lib/logger'
 
 export const setUploads = createAction<IUpload[]>('uploads/setUploads')
 export const setUploading = createAction<Uploading>('uploads/setUploading')
@@ -15,7 +16,7 @@ export const getUploads = createAsyncThunk(
       const uploads = await api.getUploads()
       dispatch(setUploads(uploads))
     } catch (err) {
-      // silently fail
+      log.warn('store', 'uploads persistence failed', err)
     }
   }
 )
