@@ -4,10 +4,19 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   ci:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       # webpack 4 (CRA 4) needs the legacy OpenSSL provider on modern Node
       NODE_OPTIONS: --openssl-legacy-provider

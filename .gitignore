@@ -1,5 +1,7 @@
 # Dependencies
 node_modules/
+# yarn v1 is the sole installer — keep npm's lockfile out
+package-lock.json
 
 # Build output
 dist/

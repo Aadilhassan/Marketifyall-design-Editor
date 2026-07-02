@@ -104,7 +104,7 @@ Each phase lands independently green.
 
 ### Phase 0 — Gates & pins
 CI workflow running what exists today (base tsc, tests, build), `.nvmrc` (26) + `engines`, `patch-package` dependency + `postinstall` wired (empty patch dir).
-**Accept:** CI green on a no-op PR; `npm ci` runs `patch-package` in postinstall without error (no-op while the patch dir is empty — the fail-loudly-on-drift behavior is exercised in Phase 4 when the patch lands).
+**Accept:** CI green on a no-op PR; `yarn install --frozen-lockfile` runs `patch-package` in postinstall without error (no-op while the patch dir is empty — the fail-loudly-on-drift behavior is exercised in Phase 4 when the patch lands).
 
 ### Phase 1 — Observability core
 `logger.ts` (+ dedupe/rate-limit), `fail()`, `ignoreError()`, `globalErrors.ts` in `index.tsx`, `tsconfig.strict.json` covering `src/lib/**` added to CI. ESLint safety rules added as **warnings**.

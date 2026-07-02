@@ -7,5 +7,6 @@
     "noImplicitReturns": true,
     "noUnusedLocals": true
   },
+  // tsc strict-checks every file src/lib transitively imports — keep src/lib imports self-contained (relative or node_modules) so the ratchet stays scoped.
   "include": ["src/lib"]
 }
