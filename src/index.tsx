@@ -1,10 +1,13 @@
 import './polyfills'
+import { installGlobalErrorHandlers } from './lib/globalErrors'
 import ReactDOM from 'react-dom'
 import reportWebVitals from './reportWebVitals'
 import Providers from './Providers'
 import Routes from './Routes'
 import Container from './Container'
 import ErrorBoundary from './components/ErrorBoundary'
+
+installGlobalErrorHandlers()
 
 const app = (
   <ErrorBoundary>
