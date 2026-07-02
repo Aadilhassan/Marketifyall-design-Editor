@@ -7,6 +7,8 @@ import { PanelType } from '@/constants/app-options'
 import { useEmbedMode } from '@/contexts/EmbedContext'
 import { useCredits } from '@/contexts/CreditsContext'
 import { fail } from '@/lib/logger'
+import { useSaveManager } from '@/contexts/SaveManagerContext'
+import SaveStatusChip from '@/components/SaveStatusChip'
 import Resize from './components/Resize'
 import PreviewTemplate from './components/PreviewTemplate'
 import History from './components/History'
@@ -219,6 +221,7 @@ function NavbarEditor() {
   const { currentTemplate, setActivePanel } = useAppContext()
   const { config, sendImageToParent, notifyCancel } = useEmbedMode()
   const { balance } = useCredits()
+  const saveManager = useSaveManager()
   const [name, setName] = useState('Untitled design')
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -333,6 +336,7 @@ function NavbarEditor() {
         <Divider />
         <Resize />
         <History />
+        <SaveStatusChip manager={saveManager} />
       </LeftSection>
 
       <CenterSection>

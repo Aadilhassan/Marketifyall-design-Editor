@@ -20,6 +20,7 @@ import AnimationDriver from './components/AnimationDriver'
 import ErrorBoundary from '@/components/ErrorBoundary/ErrorBoundary'
 import InsufficientCreditsModal from '@/components/InsufficientCreditsModal'
 import { useCredits } from '@/contexts/CreditsContext'
+import { SaveManagerContext } from '@/contexts/SaveManagerContext'
 import Editor, { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { fabric } from 'fabric'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
@@ -144,6 +145,7 @@ function App() {
   const pagesRef = useRef<PageEntry[]>([])
   const activePageRef = useRef(0)
   const saveManagerRef = useRef<SaveManager | null>(null)
+  const [saveManager, setSaveManager] = useState<SaveManager | null>(null)
 
   const refreshPages = useCallback(() => setPages([...pagesRef.current]), [])
 
@@ -707,6 +709,7 @@ function App() {
       onEscalate: (msg) => { if (!escalated) { escalated = true; fail('autosave', msg) } },
     })
     saveManagerRef.current = manager
+    setSaveManager(manager)
     const removeUnload = manager.installUnloadHandlers()
 
     const cv = getFabricCanvas(editor)
@@ -722,6 +725,7 @@ function App() {
       cv?.off?.('object:removed', onChange)
       manager.dispose()
       saveManagerRef.current = null
+      setSaveManager(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, routeId])
@@ -884,7 +888,9 @@ function App() {
     >
       <ToasterContainer placement={PLACEMENT.bottomRight} autoHideDuration={4500} />
       <div style={{ position: 'relative', zIndex: 100 }}>
-        <Navbar />
+        <SaveManagerContext.Provider value={saveManager}>
+          <Navbar />
+        </SaveManagerContext.Provider>
       </div>
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <ErrorBoundary fallback={<div style={{ padding: 20, color: '#ef4444' }}>Panel failed to load</div>}>
