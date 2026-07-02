@@ -12,7 +12,7 @@ export const getElements = createAsyncThunk(
       const elements = await api.getElements()
       dispatch(setElements(elements))
     } catch (err) {
-      log.warn('store', 'elements persistence failed', err)
+      log.warn('store', 'elements load failed', err)
     }
   }
 )

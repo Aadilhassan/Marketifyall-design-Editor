@@ -12,7 +12,7 @@ export const getTemplates = createAsyncThunk(
       const templates = await api.getTemplates()
       dispatch(setTemplates(templates as unknown as Template[]))
     } catch (err) {
-      log.warn('store', 'templates persistence failed', err)
+      log.warn('store', 'templates load failed', err)
     }
   }
 )

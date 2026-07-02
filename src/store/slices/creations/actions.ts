@@ -13,7 +13,7 @@ export const getCreations = createAsyncThunk(
       const creations = await api.getCreations()
       dispatch(setCreations(creations as unknown as Template[]))
     } catch (err) {
-      log.warn('store', 'creations persistence failed', err)
+      log.warn('store', 'creations load failed', err)
     }
   }
 )

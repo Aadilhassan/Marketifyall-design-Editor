@@ -16,7 +16,7 @@ export const getUploads = createAsyncThunk(
       const uploads = await api.getUploads()
       dispatch(setUploads(uploads))
     } catch (err) {
-      log.warn('store', 'uploads persistence failed', err)
+      log.warn('store', 'uploads load failed', err)
     }
   }
 )

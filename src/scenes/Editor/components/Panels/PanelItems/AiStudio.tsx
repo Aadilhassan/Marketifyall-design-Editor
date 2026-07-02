@@ -10,7 +10,7 @@ import { useCredits } from '@/contexts/CreditsContext'
 import { searchPexelsImages } from '@/services/pexels'
 import { getIconsByCategory, svgToBase64 } from '@/utils/lucideIconsManager'
 import { searchIconify, fetchIconifySvg } from '@/services/illustrations'
-import { ignoreError } from '@/lib/logger'
+import { fail, ignoreError } from '@/lib/logger'
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -836,8 +836,11 @@ function AiStudio() {
       const improved = await improvePrompt(genPrompt)
       setGenPrompt(improved)
       await refresh()
-    } catch (err) { ignoreError(err, '402 surfaced via credits modal upstream') }
-    finally { setGenLoading(false) }
+    } catch (err: any) {
+      // 402 (out of credits) is surfaced by the credits modal upstream; only
+      // network/server failures need their own signal (mirrors handleGenImage).
+      if (err?.response?.status !== 402) fail('aiStudio', 'Could not improve the prompt — please try again', err)
+    } finally { setGenLoading(false) }
   }, [genPrompt, genLoading, canAfford, refresh])
 
   const handleGenSave = useCallback(() => {
