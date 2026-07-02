@@ -129,6 +129,60 @@ describe('createSaveManager retry/backoff', () => {
   })
 })
 
+describe('createSaveManager dirty-during-save (no stranded work)', () => {
+  beforeEach(() => jest.useFakeTimers('modern'))
+  afterEach(() => { jest.clearAllTimers(); jest.useRealTimers() })
+
+  it('persists an edit that arrives WHILE a save is in flight', async () => {
+    // First persist hangs so we can edit mid-save; later ones resolve.
+    let releaseFirst: () => void = () => {}
+    const persist = jest.fn<Promise<void>, [any]>()
+      .mockImplementationOnce(() => new Promise<void>(res => { releaseFirst = res }))
+      .mockResolvedValue(undefined)
+    const d = makeDeps({ persist })
+    const m = createSaveManager(d)
+
+    m.markDirty(); jest.advanceTimersByTime(600); await flush()
+    expect(persist).toHaveBeenCalledTimes(1)
+    expect(m.getState().status).toBe('saving')
+
+    // Edit changes content DURING the in-flight save.
+    d._bump()
+    m.markDirty()
+    jest.advanceTimersByTime(600); await flush()
+    expect(persist).toHaveBeenCalledTimes(1) // guarded — no concurrent persist
+
+    // First save completes; the mid-save edit must not be stranded.
+    releaseFirst(); await flush()
+    jest.advanceTimersByTime(600); await flush()
+    expect(persist).toHaveBeenCalledTimes(2)
+    expect(m.getState().status).toBe('saved')
+  })
+
+  it('keeps the max-wait cap working after a prior cap fired during a save (not stuck)', async () => {
+    // Regression: if the max-wait timer fires while a save is in flight (early-
+    // return) and its ref isn't nulled, `if (!maxWaitTimer)` would never re-arm
+    // and continuous edits would silently never hit the cap.
+    let releaseFirst: () => void = () => {}
+    const persist = jest.fn<Promise<void>, [any]>()
+      .mockImplementationOnce(() => new Promise<void>(res => { releaseFirst = res }))
+      .mockResolvedValue(undefined)
+    const d = makeDeps({ persist })
+    const m = createSaveManager(d)
+    m.markDirty(); jest.advanceTimersByTime(600); await flush() // persist #1 in flight
+    d._bump(); m.markDirty()
+    jest.advanceTimersByTime(3000); await flush() // a max-wait fires DURING the save
+    releaseFirst(); await flush(); jest.advanceTimersByTime(600); await flush() // save settles
+
+    // Now edit continuously, never idling the 600ms debounce — only the max-wait
+    // cap can save this. A stuck timer would leave persist uncalled.
+    persist.mockClear()
+    for (let i = 0; i < 8; i++) { d._bump(); m.markDirty(); jest.advanceTimersByTime(500) }
+    await flush()
+    expect(persist).toHaveBeenCalled()
+  })
+})
+
 import { readRecovery, clearRecovery, RECOVERY_LIMIT_BYTES } from './saveManager'
 
 describe('recovery snapshot', () => {

@@ -71,6 +71,7 @@ export function createSaveManager(deps: SaveManagerDeps): SaveManager {
   let backoffTimer: ReturnType<typeof setTimeout> | undefined
   let retries = 0
   let saving = false
+  let pending = false // an edit arrived while a save was in flight — re-run after it settles
   let disposed = false
 
   function set(next: Partial<SaveState>) {
@@ -84,7 +85,12 @@ export function createSaveManager(deps: SaveManagerDeps): SaveManager {
   }
 
   async function run() {
-    if (disposed || saving) return
+    if (disposed) return
+    // A persist is already in flight. Don't run concurrently — record that there's
+    // newer content so we re-run once the in-flight save settles (else the last
+    // edit made during a save is stranded, and — since state would read 'saved' —
+    // the unload snapshot wouldn't catch it either: silent data loss).
+    if (saving) { pending = true; return }
     clearTimers()
     const result = deps.serialize()
     if (!result) return
@@ -106,8 +112,10 @@ export function createSaveManager(deps: SaveManagerDeps): SaveManager {
       saving = false
       set({ status: 'saved', lastError: undefined, lastSavedAt: now() })
       clearRecovery(deps.projectId)
+      if (pending) { pending = false; markDirty() } // edits arrived mid-save → capture them
     } catch (err) {
       saving = false
+      pending = false // the backoff retry re-serializes the latest content anyway
       set({ status: 'error', lastError: err instanceof Error ? err.message : String(err) })
       scheduleBackoff()
     }
@@ -127,8 +135,12 @@ export function createSaveManager(deps: SaveManagerDeps): SaveManager {
     if (disposed) return
     if (state.status === 'saved') set({ status: 'dirty' })
     if (debounceTimer) clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => { void run() }, debounceMs)
-    if (!maxWaitTimer) maxWaitTimer = setTimeout(() => { void run() }, maxWaitMs)
+    // Null the timer refs when they fire, so a timer that fires during an
+    // in-flight save (and early-returns) can't leave a stale ref that makes
+    // `if (!maxWaitTimer)` skip re-arming the cap — which would silently
+    // disable the max-wait safety net for the rest of the session.
+    debounceTimer = setTimeout(() => { debounceTimer = undefined; void run() }, debounceMs)
+    if (!maxWaitTimer) maxWaitTimer = setTimeout(() => { maxWaitTimer = undefined; void run() }, maxWaitMs)
   }
 
   async function flushNow() { await run() }
