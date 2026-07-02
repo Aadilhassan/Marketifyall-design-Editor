@@ -10,7 +10,7 @@
 
 **Product:** Marketifyall Design Editor — open-source Canva alternative on `@nkyo/scenify-sdk` 0.3.4 (Fabric.js 4), React 17 / CRA 4 (CRACO) / BaseUI / Redux / Supabase, deployed at design.marketifyall.com.
 
-**The problem (audited 2026-07-02):** The app is engineered to fail invisibly. 55 of 95 catch blocks swallow errors with a bare comment; autosave failure is hidden behind `.catch(() => {})` with no unload flush and length-based change detection; one dead image URL hangs design/template restore forever (the SDK's `loadImageFromURL` has no `onerror`); 8 sites inject remote SVG unsanitized; a paid OpenRouter key can ship in the client bundle; there is no CI; deleted clips leak blob URLs; the timeline re-renders wholesale at 60fps.
+**The problem (audited 2026-07-02):** The app is engineered to fail invisibly. 117 catch sites swallow errors (108 comment-only catches, 6 empty promise `.catch()`s, 3 console-only — authoritative classifier inventory in the Phase 0–2 plan); autosave failure is hidden behind `.catch(() => {})` with no unload flush and length-based change detection; one dead image URL hangs design/template restore forever (the SDK's `loadImageFromURL` has no `onerror`); 8 sites inject remote SVG unsanitized; a paid OpenRouter key can ship in the client bundle; there is no CI; deleted clips leak blob URLs; the timeline re-renders wholesale at 60fps.
 
 **Goal:** Make failure impossible to miss and data loss structurally hard: every error is logged and (when user-facing) surfaced; every media load is bounded; saves are verified, visible, and recoverable; the two SDK root-cause bugs are fixed at the source; CI enforces all of it so it cannot rot.
 
@@ -25,7 +25,7 @@
 
 | Area | State | Evidence |
 |---|---|---|
-| Silent failures | 55/95 comment-only catches; 6 naked `.catch(() => {})`; only 19 `notify()` calls, 11 `console.*` statements app-wide | `Editor.tsx:173,191,196,244,296,335,543,640,706`; `WhiteboardToolbar.tsx:80,143,147`; `VideoTimeline.tsx:1899`; `.catch(() => {})` at `Editor.tsx:154,363,704`, `VideoTimeline.tsx:1636`, `exporter.ts:257,362` |
+| Silent failures | 117 sites: 108 comment-only catches, 6 naked `.catch(() => {})`, 3 console-only (classifier count; the earlier audit's 61 undercounted); only 19 `notify()` calls app-wide | `Editor.tsx:173,191,196,244,296,335,543,640,706`; `WhiteboardToolbar.tsx:80,143,147`; `VideoTimeline.tsx:1899`; `.catch(() => {})` at `Editor.tsx:154,363,704`, `VideoTimeline.tsx:1636`, `exporter.ts:257,362` |
 | Autosave | Debounce 600ms + 2s interval → IndexedDB (`projectStore.ts`); failures swallowed (`Editor.tsx:704-707`); change signature = `objs.length + ':' + JSON.stringify(objs).length` (`Editor.tsx:688`) → same-size edits skipped; no unload flush | `Editor.tsx:656-729` |
 | SDK loader | `loadImageFromURL` resolves only in `onload`; **no `onerror`** → promise hangs forever on dead/CORS-blocked URLs. Consumed via `main` → `dist/index.js`, which requires `scenify-sdk.cjs.development.js` (dev) / `scenify-sdk.cjs.production.min.js` (prod). The `module` field points at a non-existent file, so the CJS bundles are what run (confirmed: the "UNABLE TO LOAD OBJECT" string appears in `build/static/js/2.*.chunk.js`) | `node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.development.js:955-963` |
 | Unknown object types | `objectToFabric` has no default case → unknown types are skipped with only a `console.log('UNABLE TO LOAD OBJECT')`; the user sees a partial design with no warning | dev bundle `:2913,3725,3914` |
@@ -90,7 +90,7 @@
 **Data flow (import path):** template/restore JSON → count objects in payload → outside-in `promiseWithTimeout(importFromJSON, 60s)` → count objects on canvas → shortfall > 0 → `fail('import', 'N element(s) could not be loaded', …)`. The SDK patch converts per-image hangs into rejections that this wrapper reports.
 
 **Migration map (call sites → primitives):**
-- 55 comment-catches + 6 naked `.catch()` → `fail` / `log.warn` / `ignoreError` per D4 taxonomy (file-by-file commits).
+- All 117 inventoried silent-failure sites → `fail` / `log.warn` / `ignoreError` per D4 taxonomy (file-by-file commits; the flipped lint rules catch any stragglers, e.g. multiline empty `.catch()` bodies).
 - ~16 temp media element sites in `Video.tsx` / `VideoTimeline.tsx` → `loadMedia` / `withTempVideo`.
 - 8 SVG injection sites in `Elements.tsx` / `Illustrations.tsx` → `<SafeSvg svg={…}/>`.
 - `VideoContext.removeClip/removeAudioClip` + editor unmount → revoke `blob:` URLs (safe today: timeline has no undo; noted as an interaction point for the future unified undo in Timeline Pro).
@@ -111,7 +111,7 @@ CI workflow running what exists today (base tsc, tests, build), `.nvmrc` (26) + 
 **Accept:** thrown async error + unhandled rejection each produce one log entry + one toast; a 100-error storm produces ≤3 toasts/min; unit tests for dedupe + ring buffer pass.
 
 ### Phase 2 — The sweep
-All 55 comment-catches + 6 naked `.catch()` migrated per D4 taxonomy. ESLint rules flip to **error** in CI.
+All 117 inventoried sites migrated per D4 taxonomy. ESLint rules flip to **error** in CI (the AST selectors also catch comment-only bodies, which `no-empty` alone would miss).
 **Accept:** `grep` finds zero bare/comment-only catches in `src/`; CI fails on a deliberately-introduced `catch {}`; every migrated user-facing path shows a toast when its failure is induced.
 
 ### Phase 3 — Data integrity
@@ -166,7 +166,7 @@ Playhead re-render isolation; styletron shorthand/longhand fixes until a normal 
 - **Patch drift** if the SDK is ever updated → `postinstall` fails the install loudly; version is pinned by the patch filename; SDK is unmaintained so churn is unlikely.
 - **`beforeunload` unreliability** → three layers (D6); the sync-localStorage snapshot is the guarantee, the hidden-flush is the optimization, the confirm dialog is the oversized-payload fallback.
 - **Toast fatigue / error storms** → dedupe + global rate cap in the logger (D4); save errors deliberately routed to the chip, not toasts (D5).
-- **Sweep breadth (61 sites) regression risk** → file-by-file commits, each independently revertable; CI runs the full suite on every one; no behavior changes beyond surfacing.
+- **Sweep breadth (117 sites) regression risk** → file-by-file commits, each independently revertable; CI runs the full suite on every one; no behavior changes beyond surfacing.
 - **Recovery snapshot vs. large designs** (data-URL images can exceed localStorage) → size guard + confirm-dialog fallback; snapshot stores the same serialized payload autosave writes, no new format.
 - **saveManager extraction destabilizing autosave** → keep the exact serialize/relink logic (clips tagging, page write-back) verbatim; only the scheduling/state wrapper changes; drill #2/#3 verify.
 
