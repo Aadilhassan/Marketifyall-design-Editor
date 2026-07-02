@@ -128,3 +128,50 @@ describe('createSaveManager retry/backoff', () => {
     expect(m.getState().status).toBe('saved')
   })
 })
+
+import { readRecovery, clearRecovery, RECOVERY_LIMIT_BYTES } from './saveManager'
+
+describe('recovery snapshot', () => {
+  let storeMap: Record<string, string>
+  beforeEach(() => {
+    storeMap = {}
+    ;(global as any).localStorage = {
+      getItem: (k: string) => (k in storeMap ? storeMap[k] : null),
+      setItem: (k: string, v: string) => { storeMap[k] = v },
+      removeItem: (k: string) => { delete storeMap[k] },
+    }
+  })
+  afterEach(() => { delete (global as any).localStorage })
+
+  it('writes a snapshot the size guard accepts, and reads it back', () => {
+    const d = makeDeps()
+    const m = createSaveManager({ ...d, projectId: 'pX' })
+    const ok = m.writeRecoverySync()
+    expect(ok).toBe(true)
+    const snap = readRecovery('pX')
+    expect(snap).not.toBeNull()
+    expect(snap!.payload.json).toEqual({ objects: [] })
+    expect(typeof snap!.savedAt).toBe('number')
+  })
+
+  it('skips (returns false) when the serialized payload exceeds the size limit', () => {
+    const big = 'x'.repeat(RECOVERY_LIMIT_BYTES + 10)
+    const serialize = () => ({ payload: { pages: [], activePage: 0, json: big, clips: [], audioClips: [] }, changeKey: 'k' })
+    const m = createSaveManager({ ...makeDeps(), serialize, projectId: 'pBig' })
+    expect(m.writeRecoverySync()).toBe(false)
+    expect(readRecovery('pBig')).toBeNull()
+  })
+
+  it('clearRecovery removes the snapshot', () => {
+    const m = createSaveManager({ ...makeDeps(), projectId: 'pC' })
+    m.writeRecoverySync()
+    expect(readRecovery('pC')).not.toBeNull()
+    clearRecovery('pC')
+    expect(readRecovery('pC')).toBeNull()
+  })
+
+  it('readRecovery returns null for corrupt JSON without throwing', () => {
+    ;(global as any).localStorage.setItem('mfa-recovery:pBad', '{not json')
+    expect(readRecovery('pBad')).toBeNull()
+  })
+})

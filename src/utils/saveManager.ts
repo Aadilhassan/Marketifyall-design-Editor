@@ -144,6 +144,47 @@ export function createSaveManager(deps: SaveManagerDeps): SaveManager {
   }
 }
 
-// TEMPORARY stubs — replaced with the real recovery-snapshot implementation in Task 3.
-function clearRecovery(projectId: string): void { void projectId }
-function writeRecoverySync(projectId: string, serialize: () => SerializeResult | null): boolean { void projectId; void serialize; return false }
+export const RECOVERY_LIMIT_BYTES = 4_000_000 // ~4MB, under the ~5MB localStorage ceiling
+const RECOVERY_PREFIX = 'mfa-recovery:'
+
+export interface RecoverySnapshot { payload: SavePayload; savedAt: number }
+
+/** Synchronously write a recovery snapshot to localStorage (safe to call in
+ *  pagehide/beforeunload, where async IndexedDB cannot be awaited). Returns false
+ *  if serialization is unavailable, the payload is too large, or storage throws. */
+export function writeRecoverySync(projectId: string, serialize: () => SerializeResult | null): boolean {
+  try {
+    if (typeof localStorage === 'undefined' || !projectId) return false
+    const result = serialize()
+    if (!result) return false
+    const body = JSON.stringify({ payload: result.payload, savedAt: Date.now() })
+    if (body.length > RECOVERY_LIMIT_BYTES) return false
+    localStorage.setItem(RECOVERY_PREFIX + projectId, body)
+    return true
+  } catch (err) {
+    // Best-effort; the beforeunload confirm dialog is the fallback. Not a user toast.
+    return false
+  }
+}
+
+export function readRecovery(projectId: string): RecoverySnapshot | null {
+  try {
+    if (typeof localStorage === 'undefined' || !projectId) return null
+    const raw = localStorage.getItem(RECOVERY_PREFIX + projectId)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed.savedAt !== 'number' || !parsed.payload) return null
+    return parsed as RecoverySnapshot
+  } catch (err) {
+    return null
+  }
+}
+
+export function clearRecovery(projectId: string): void {
+  try {
+    if (typeof localStorage === 'undefined' || !projectId) return
+    localStorage.removeItem(RECOVERY_PREFIX + projectId)
+  } catch (err) {
+    /* best-effort */ void err
+  }
+}
