@@ -1,6 +1,7 @@
 import { restoreAllBases } from './driver'
 import { renderDesignFrame, DesignRect, VideoTarget } from './exporter'
 import { computeGifPlan } from './exportHelpers'
+import { ignoreError } from '@/lib/logger'
 
 export interface GifRecordOptions {
   fabricCanvas: any
@@ -41,7 +42,7 @@ export async function recordAnimatedGif(opts: GifRecordOptions): Promise<GifResu
   const savedVpt = [...(fabricCanvas.viewportTransform || [1, 0, 0, 1, 0, 0])]
   const savedZoom = fabricCanvas.getZoom ? fabricCanvas.getZoom() : 1
   const savedSelection = fabricCanvas.selection
-  const safe = (fn: () => void) => { try { fn() } catch { /* ignore */ } }
+  const safe = (fn: () => void) => { try { fn() } catch (err) { ignoreError(err, 'gif frame cleanup') } }
   // Render GIF frames in design space (identity viewport), matching the video
   // exporter, so a zoomed/panned editor canvas still exports the full design.
   safe(() => fabricCanvas.setViewportTransform && fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]))

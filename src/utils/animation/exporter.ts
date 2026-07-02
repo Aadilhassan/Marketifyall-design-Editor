@@ -12,6 +12,7 @@
  * watchdog force-stops the recorder even if requestAnimationFrame stalls).
  */
 import { applyAnimationsToCanvas, getAnimOpacity, restoreAllBases } from './driver'
+import { ignoreError } from '@/lib/logger'
 
 export interface DesignRect {
   left: number
@@ -89,8 +90,8 @@ export function renderDesignFrame(p: FrameRenderParams): void {
   try {
     applyAnimationsToCanvas(fabricCanvas, t, true)
     fabricCanvas.renderAll()
-  } catch {
-    /* ignore a bad animation frame */
+  } catch (err) {
+    ignoreError(err, 'bad animation frame — skipped in export')
   }
   ctx.fillStyle = backgroundColor
   ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height)
@@ -102,8 +103,8 @@ export function renderDesignFrame(p: FrameRenderParams): void {
       height: designRect.height,
     })
     if (cropped) ctx.drawImage(cropped, 0, 0, exportCanvas.width, exportCanvas.height)
-  } catch {
-    /* ignore a bad crop frame */
+  } catch (err) {
+    ignoreError(err, 'bad crop frame — skipped in export')
   }
   for (const v of videoTargets) {
     if (t < v.start || t >= v.start + v.duration) continue
@@ -191,8 +192,8 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
     try {
       const vs = (v.el as any).captureStream?.() || (v.el as any).mozCaptureStream?.()
       vs?.getAudioTracks?.().forEach((t: MediaStreamTrack) => stream.addTrack(t))
-    } catch {
-      /* ignore */
+    } catch (err) {
+      ignoreError(err, 'export compositor best-effort step')
     }
   })
 
@@ -216,8 +217,8 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
   const safe = (fn: () => void) => {
     try {
       fn()
-    } catch {
-      /* ignore */
+    } catch (err) {
+      ignoreError(err, 'export compositor best-effort step')
     }
   }
 
@@ -254,7 +255,7 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
       if (p && (p as Promise<void>).catch) {
         ;(p as Promise<void>).catch(() => {
           v.el.muted = true
-          v.el.play().catch(() => {})
+          v.el.play().catch((err) => ignoreError(err, 'export: video play() interrupted'))
         })
       }
     })
@@ -307,8 +308,8 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
         if (recorder.state !== 'inactive') {
           try {
             recorder.requestData()
-          } catch {
-            /* ignore */
+          } catch (err) {
+            ignoreError(err, 'export cleanup')
           }
           recorder.stop()
         } else finish()
@@ -359,22 +360,22 @@ export async function recordAnimatedVideo(opts: RecordOptions): Promise<RecordRe
             try {
               v.el.muted = true
               const pp = v.el.play()
-              if (pp && (pp as Promise<void>).catch) (pp as Promise<void>).catch(() => {})
-            } catch {
-              /* ignore */
+              if (pp && (pp as Promise<void>).catch) (pp as Promise<void>).catch((err) => ignoreError(err, 'export: pause() race'))
+            } catch (err) {
+              ignoreError(err, 'export teardown')
             }
           }
           const expected = t - v.start
           const vDur = v.el.duration || v.duration || expected
           if (Math.abs(v.el.currentTime - expected) > 0.34) {
-            try { v.el.currentTime = Math.max(0, Math.min(expected, vDur - 0.05)) } catch { /* ignore */ }
+            try { v.el.currentTime = Math.max(0, Math.min(expected, vDur - 0.05)) } catch (err) { ignoreError(err, 'export teardown') }
           }
         }
         renderFrame(t)
         try {
           onProgress?.(Math.min(99, (t / Math.max(0.001, durationSec)) * 100), 'Rendering...')
-        } catch {
-          /* ignore */
+        } catch (err) {
+          ignoreError(err, 'export teardown')
         }
         if (elapsed >= durationSec) {
           // Hold the final frame briefly so it's captured, then stop.
