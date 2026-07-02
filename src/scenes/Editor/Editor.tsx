@@ -27,7 +27,9 @@ import { addStarterContent, StarterKind } from '@/utils/starterContent'
 import { loadGoogleFont } from '@/utils/fontLoader'
 import { applyWhiteboardBackground } from '@/utils/whiteboard'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
-import { log, ignoreError } from '@/lib/logger'
+import { createSaveManager } from '@/utils/saveManager'
+import type { SaveManager } from '@/utils/saveManager'
+import { log, ignoreError, fail } from '@/lib/logger'
 
 interface CanvasObject {
   name?: string
@@ -141,6 +143,7 @@ function App() {
   const [activePage, setActivePage] = useState(0)
   const pagesRef = useRef<PageEntry[]>([])
   const activePageRef = useRef(0)
+  const saveManagerRef = useRef<SaveManager | null>(null)
 
   const refreshPages = useCallback(() => setPages([...pagesRef.current]), [])
 
@@ -153,6 +156,7 @@ function App() {
       json: pagesRef.current[idx]?.json ?? null,
       thumbnail: pagesRef.current[idx]?.thumbnail,
     }).catch((err) => log.warn('autosave', 'failed to persist pages after navigation', err))
+    saveManagerRef.current?.markDirty()
   }, [routeId])
 
   // Snapshot the live canvas into the active page entry.
@@ -654,77 +658,70 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
-  // Auto-save the design so reloads never lose work: a periodic safety-net
-  // interval (canvas events can be missed) plus a debounced save on changes.
+  // Auto-save via saveManager: content-hash change detection, a status chip,
+  // retry/backoff, and unload-time recovery snapshots (replaces the old inline
+  // length-signature loop). All editor-specific serialization stays here.
   useEffect(() => {
     if (!editor || !routeId) return
-    let timer: ReturnType<typeof setTimeout> | undefined
-    let cancelled = false
-    let lastSig = ''
-
-    const save = () => {
-      if (cancelled || !frameReadyRef.current) return
-      try {
-        const ed = editor as any
-        // Use scenify's exportToJSON (frame + objects + background) so importFromJSON
-        // can rebuild the design — frame, clipping, zoom and animations — on restore.
-        const json = typeof ed.exportToJSON === 'function' ? ed.exportToJSON() : null
-        if (!json) return
-        const objs = json.objects || []
-        const cv = getFabricCanvas(editor)
-        const liveObjs: any[] = cv?.getObjects?.() || []
-        // Persist the timeline clips with the design. exportToJSON strips our video
-        // metadata and clips live only in React state, so without this a reload
-        // loses the timeline and the video reverts to a static image. Tag each clip
-        // with its canvas object id so it can be relinked to its object on load.
-        const clipsToSave = clipsRef.current.map(c => {
-          const obj = liveObjs.find(o => o.metadata?.id === c.id || o.id === c.id)
-          return { ...c, canvasObjectId: obj?.id || (c as any).canvasObjectId }
-        })
-        const audioToSave = audioClipsRef.current
-        // Lightweight clip/audio signature (id + position + duration) — avoids
-        // re-stringifying the large poster data-URLs on every 2s save tick.
-        const clipSig = clipsToSave.map(c => `${c.id}:${c.start}:${c.duration}:${c.canvasObjectId || ''}`).join(',')
-        const audioSig = audioToSave.map((a: any) => `${a.id}:${a.start}:${a.duration}:${a.volume}`).join(',')
-        const sig = objs.length + ':' + JSON.stringify(objs).length + '|' + clipSig + '|' + audioSig
-        if (sig === lastSig) return
-        lastSig = sig
-        // Write the live canvas into the active page, then persist the whole
-        // pages array so multi-page designs survive reloads.
-        const thumb = cv ? makeThumbnail(cv) : undefined
-        if (pagesRef.current.length === 0) pagesRef.current = [{ id: genProjectId(), json: null }]
-        const idx = Math.min(activePageRef.current, pagesRef.current.length - 1)
-        pagesRef.current[idx] = { ...pagesRef.current[idx], json, thumbnail: thumb }
-        patchProject(routeId, {
-          pages: pagesRef.current,
-          activePage: idx,
-          json,
-          clips: clipsToSave,
-          audioClips: audioToSave,
-          thumbnail: thumb,
-        }).catch((err) => log.warn('autosave', 'autosave write failed — will retry on next change', err)) // Phase 3: saveManager replaces this with the status chip
-      } catch (err) {
-        log.warn('autosave', 'autosave serialize failed', err) // Phase 3: saveManager replaces this
+    const buildSerialize = () => {
+      if (!frameReadyRef.current) return null
+      const ed = editor as any
+      // Use scenify's exportToJSON (frame + objects + background) so importFromJSON
+      // can rebuild the design — frame, clipping, zoom and animations — on restore.
+      const json = typeof ed.exportToJSON === 'function' ? ed.exportToJSON() : null
+      if (!json) return null
+      const objs = json.objects || []
+      const cv = getFabricCanvas(editor)
+      const liveObjs: any[] = cv?.getObjects?.() || []
+      // Persist the timeline clips with the design. exportToJSON strips our video
+      // metadata and clips live only in React state, so without this a reload
+      // loses the timeline and the video reverts to a static image. Tag each clip
+      // with its canvas object id so it can be relinked to its object on load.
+      const clipsToSave = clipsRef.current.map(c => {
+        const obj = liveObjs.find(o => o.metadata?.id === c.id || o.id === c.id)
+        return { ...c, canvasObjectId: obj?.id || (c as any).canvasObjectId }
+      })
+      const audioToSave = audioClipsRef.current
+      const clipSig = clipsToSave.map(c => `${c.id}:${c.start}:${c.duration}:${c.canvasObjectId || ''}`).join(',')
+      const audioSig = audioToSave.map((a: any) => `${a.id}:${a.start}:${a.duration}:${a.volume}`).join(',')
+      // changeKey hashes CONTENT (objects JSON), not byte-length — catches
+      // same-length edits the old signature skipped.
+      const changeKey = JSON.stringify(objs) + '|' + clipSig + '|' + audioSig
+      // Write the live canvas into the active page, then persist the whole
+      // pages array so multi-page designs survive reloads.
+      const thumb = cv ? makeThumbnail(cv) : undefined
+      if (pagesRef.current.length === 0) pagesRef.current = [{ id: genProjectId(), json: null }]
+      const idx = Math.min(activePageRef.current, pagesRef.current.length - 1)
+      pagesRef.current[idx] = { ...pagesRef.current[idx], json, thumbnail: thumb }
+      return {
+        payload: { pages: pagesRef.current, activePage: idx, json, clips: clipsToSave, audioClips: audioToSave, thumbnail: thumb },
+        changeKey,
       }
     }
-    const schedule = () => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(save, 600)
-    }
+
+    let escalated = false
+    const manager = createSaveManager({
+      serialize: buildSerialize,
+      persist: (payload) => patchProject(routeId, payload).then(() => undefined),
+      projectId: routeId,
+      onEscalate: (msg) => { if (!escalated) { escalated = true; fail('autosave', msg) } },
+    })
+    saveManagerRef.current = manager
+    const removeUnload = manager.installUnloadHandlers()
 
     const cv = getFabricCanvas(editor)
-    cv?.on?.('object:added', schedule)
-    cv?.on?.('object:modified', schedule)
-    cv?.on?.('object:removed', schedule)
-    const interval = setInterval(save, 2000)
+    const onChange = () => manager.markDirty()
+    cv?.on?.('object:added', onChange)
+    cv?.on?.('object:modified', onChange)
+    cv?.on?.('object:removed', onChange)
 
     return () => {
-      cancelled = true
-      if (timer) clearTimeout(timer)
-      clearInterval(interval)
-      cv?.off?.('object:added', schedule)
-      cv?.off?.('object:modified', schedule)
-      cv?.off?.('object:removed', schedule)
+      removeUnload()
+      cv?.off?.('object:added', onChange)
+      cv?.off?.('object:modified', onChange)
+      cv?.off?.('object:removed', onChange)
+      manager.dispose()
+      saveManagerRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, routeId])
