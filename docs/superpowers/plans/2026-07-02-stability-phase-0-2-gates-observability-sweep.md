@@ -742,6 +742,8 @@ User-action-dense cluster — most sites become `fail()`.
 | `Templates.tsx:87` | `/* ignore */` | `fail('templates', 'Could not load this template', err)` |
 | `Uploads.tsx:35` | `/* ignore */` | `log.warn('uploads', 'stored uploads unreadable — starting empty', err)` |
 | `Video.tsx:773,909` | `// silently handled` | `fail('video', 'Could not add the video', err)` (both are add/insert paths; verify with context rule) |
+| `Video.tsx:1289` | bare `videoEl.play()` (play/pause toggle — rapid toggling rejects with AbortError, reaching the global handler as a false "Something went wrong" toast) | append `.catch((err) => ignoreError(err, 'play() interrupted by pause'))` |
+| `Video.tsx:1124` | bare `video.play()` (webcam preview) | append `.catch((err) => ignoreError(err, 'preview play() interrupted'))` |
 | `Navbar.tsx:250` | `// silently handled` | context rule — user-triggered (e.g. rename/save action) → `fail('navbar', '<action> failed', err)`; else `log.warn('navbar', …)` |
 | `ExportModal.tsx:427,511,600` | `/* ignore */` | `ignoreError(err, 'export cleanup best-effort')` |
 | `ExportModal.tsx:716,777` | `// silently handled` | `fail('export', 'Export failed', err)` (export steps — user must know) |
@@ -785,6 +787,7 @@ git commit -m "refactor(observability): sweep <cluster> — route silent catches
 **Files:**
 - Modify: `package.json` (`eslintConfig` — `"warn"` → `"error"`)
 - Modify: `.github/workflows/ci.yml`
+- Modify: `src/lib/globalErrors.test.ts` (four review-requested branch tests: benign-rejection path, exotic `Object.create(null)` reason, `error: null` + real-message fallback passing the string as err, and the `Script error.` pattern)
 
 - [ ] **Step 1: Verify zero remaining hits**
 
