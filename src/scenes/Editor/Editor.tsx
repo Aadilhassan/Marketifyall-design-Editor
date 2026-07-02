@@ -152,7 +152,7 @@ function App() {
       activePage: idx,
       json: pagesRef.current[idx]?.json ?? null,
       thumbnail: pagesRef.current[idx]?.thumbnail,
-    }).catch((err) => log.warn('editor', 'initial restore step failed', err))
+    }).catch((err) => log.warn('autosave', 'failed to persist pages after navigation', err))
   }, [routeId])
 
   // Snapshot the live canvas into the active page entry.
@@ -333,7 +333,7 @@ function App() {
       try {
         setActivePanel(panel as any)
       } catch (err) {
-        ignoreError(err, 'unknown panel name in sessionStorage')
+        ignoreError(err, 'unknown panel name from URL param')
       }
     }
     let pendingUpload: string | null = null
