@@ -34,6 +34,16 @@ jobs:
       - name: Install (frozen lockfile; postinstall runs patch-package)
         run: yarn install --frozen-lockfile --ignore-optional
 
+      - name: Assert scenify round-trip patch applied
+        run: |
+          set -e
+          grep -q "object = item;" node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.development.js
+          grep -q "enlivenObjects(\[raw\]" node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.development.js
+          grep -q "break;default:r=t}return r" node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.production.min.js
+          node --check node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.development.js
+          node --check node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.production.min.js
+          echo "scenify round-trip patch present and both CJS bundles parse"
+
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.json
 
