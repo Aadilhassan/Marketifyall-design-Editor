@@ -2,6 +2,9 @@
   "name": "marketifyall-design-editor",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@craco/craco": "^6.4.5",
     "@nkyo/scenify-sdk": "^0.3.4",
@@ -49,7 +52,8 @@
     "test": "craco test",
     "eject": "craco eject",
     "format": "prettier --write src",
-    "postbuild": "react-snap || true; [ -s build/200.html ] || cp build/index.html build/200.html"
+    "postbuild": "react-snap || true; [ -s build/200.html ] || cp build/index.html build/200.html",
+    "postinstall": "patch-package"
   },
   "eslintConfig": {
     "extends": [
@@ -80,6 +84,7 @@
     "@types/react-color": "^3.0.4",
     "@types/react-dom": "17.0.17",
     "cross-env": "^10.1.0",
+    "patch-package": "^8.0.1",
     "prettier": "^2.2.1",
     "react-snap": "^1.23.0",
     "typescript": "^4.1.2"
