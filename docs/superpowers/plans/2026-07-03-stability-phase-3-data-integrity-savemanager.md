@@ -122,7 +122,7 @@ The core engine. Injected clock + timers make it deterministic. `serialize()` re
 
 **Files:** Modify `src/utils/saveManager.ts`, `src/utils/saveManager.test.ts`.
 
-- [ ] **Step 1: Append the failing tests** to `saveManager.test.ts`:
+- [ ] **Step 1: Append the failing tests** to `saveManager.test.ts`. (Transcription note: the `flush()` helper below replaces the old `await Promise.resolve()` idiom — in every test in this file's two `createSaveManager` describe blocks, each settle point after `jest.advanceTimersByTime(...)` uses `await flush()`, not one or two `await Promise.resolve()`. The full corrected file is what shipped; the blocks below already reflect the first test.)
 ```ts
 import { createSaveManager } from './saveManager'
 import type { SerializeResult } from './saveManager'
@@ -145,6 +145,14 @@ function makeDeps(overrides: Partial<Parameters<typeof createSaveManager>[0]> = 
   }
 }
 
+// IMPORTANT (this repo's toolchain): babel-preset-react-app applies the
+// regenerator transform to async/await UNCONDITIONALLY, so each `await` in the
+// module under test costs several microtask hops to settle — more than a fixed
+// 1–2 `await Promise.resolve()`. Drain a generous number of microtask ticks
+// after advancing fake timers. Fake timers still advance via advanceTimersByTime;
+// flush() only drains the microtask queue the resolved timers/persist enqueue.
+const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve() }
+
 describe('createSaveManager scheduling + change detection', () => {
   beforeEach(() => jest.useFakeTimers('modern'))
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers() })
@@ -155,7 +163,7 @@ describe('createSaveManager scheduling + change detection', () => {
     m.markDirty(); m.markDirty(); m.markDirty()
     expect(d.persist).not.toHaveBeenCalled()
     jest.advanceTimersByTime(600)
-    await Promise.resolve()
+    await flush()
     expect(d.persist).toHaveBeenCalledTimes(1)
   })
 
@@ -298,12 +306,22 @@ export function createSaveManager(deps: SaveManagerDeps): SaveManager {
   }
 
   async function run() {
-    if (disposed || saving) return
+    if (disposed) return
+    // A persist is already in flight — record newer content and re-run after it
+    // settles (else an edit made during a save is stranded, and the unload
+    // snapshot won't catch it because state reads 'saved': silent data loss).
+    if (saving) { pending = true; return }
     clearTimers()
     const result = deps.serialize()
     if (!result) return
     const hash = fnv1a(result.changeKey)
-    if (hash === lastHash && state.status === 'saved') return
+    if (hash === lastHash) {
+      // Content is byte-identical to the last successful save — nothing to
+      // persist. markDirty() flips status to 'dirty' before run(), so a no-op
+      // edit lands here; settle the chip back to 'saved'.
+      if (state.status !== 'saved') set({ status: 'saved' })
+      return
+    }
     saving = true
     set({ status: 'saving' })
     try {
@@ -855,6 +873,7 @@ gh run watch <run-id> --exit-status
 - **Spec coverage:** D5 (state-not-toasts chip + FNV-1a content hash) → Tasks 1, 2, 5, 6, 7. D6 (three-layer unload + recovery snapshot + `canva_clone_*` migration) → Tasks 3, 4, 8, 9. Phase 3 acceptance criteria → Task 10 drills (each acceptance bullet maps to a numbered drill).
 - **Control-flow risk is isolated to Task 6 and Task 8** (the Editor extraction and the recovery-source threading). Both carry an explicit "stop and report if entangled" instruction, and the serialization logic is copied verbatim (only the length→hash `changeKey` and the payload-return shape change). The old behavior (frameReadyRef gating, clip tagging, page write-back, same canvas events) is preserved.
 - **The old length-signature bug is fixed** by hashing `JSON.stringify(objs)` (content) instead of measuring `.length`. `JSON.stringify(objs)` was already computed in the old code (for `.length`), so no new per-tick cost.
+- **Concurrency hardening (found via TDD + adversarial review of the module):** (1) a `pending` flag — when `run()` is entered while a save is in flight it records `pending` and returns, and the success path re-schedules once the in-flight save settles, so an edit made *during* a save is never stranded (which would otherwise be silent data loss, since state would read `saved` and the unload snapshot would skip it); (2) the debounce/max-wait `setTimeout` callbacks null their own refs on fire, so a timer that fires during a save can't leave a stale ref that makes `if (!maxWaitTimer)` skip re-arming the cap. Both are covered by the `dirty-during-save` describe block in `saveManager.test.ts`.
 - **Autosave never toasts per failure** (D5): the manager sets `error` state → chip; a single escalation toast fires only after `MAX_RETRIES_BEFORE_ESCALATE`.
 - **Type consistency:** `SaveManager`, `SaveState`, `SaveStatus`, `SavePayload`, `SerializeResult`, `RecoverySnapshot`, `createSaveManager`, `readRecovery`/`clearRecovery`/`writeRecoverySync`, `installUnloadHandlers`, `markDirty`/`flushNow`/`retryNow`/`getState`/`subscribe`/`dispose` — names are consistent across Tasks 1–8 and the two consumers.
 - **Lint compliance:** the two recovery `catch` blocks return a value (non-empty body) so they pass the silent-catch error rule; `clearRecovery`'s catch uses `void err`. No bare catches introduced.
