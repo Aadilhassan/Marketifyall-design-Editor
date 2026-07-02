@@ -8,6 +8,7 @@ import { FormControl } from 'baseui/form-control'
 import { Input } from 'baseui/input'
 import ExportModal from './ExportModal'
 import useAppContext from '@/hooks/useAppContext'
+import { log } from '@/lib/logger'
 
 function PreviewTemplate() {
   const [isOpen, setIsOpen] = useState(false)
@@ -33,7 +34,7 @@ function PreviewTemplate() {
           try {
             localStorage.setItem('canva_clone_temp_state', JSON.stringify(template));
           } catch (err) {
-            // silently handled
+            log.warn('preview', 'template preview state save failed', err)
           }
         }
 
@@ -77,7 +78,7 @@ function PreviewTemplate() {
       const image = await (editor as any).toPNG(options);
       setPreviewImage(image);
     } catch (err) {
-      // silently handled
+      log.warn('preview', 'template preview state save failed', err)
     } finally {
       setIsProcessing(false);
     }

@@ -14,6 +14,7 @@ import { getIconsByCategory, svgToBase64 } from '@/utils/lucideIconsManager'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
 import { useCredits } from '@/contexts/CreditsContext'
 import { CREDIT_COSTS } from '@/services/marketifyall-api'
+import { fail, log } from '@/lib/logger'
 
 // Styled Components
 const Container = styled('div', {
@@ -368,7 +369,7 @@ function AIDesigner() {
       // Small delay to let canvas process
       await new Promise(resolve => setTimeout(resolve, 100))
     } catch (e) {
-      // silently handled
+      fail('aiDesigner', 'The AI request failed — please try again', e)
     }
   }, [editor, canvas])
 
@@ -457,7 +458,7 @@ function AIDesigner() {
               return true
             }
           } catch (err) {
-            // silently handled
+            fail('aiDesigner', 'The AI request failed — please try again', err)
           }
           return false
         }
@@ -507,7 +508,7 @@ function AIDesigner() {
               return true
             }
           } catch (err) {
-            // silently handled
+            log.warn('aiDesigner', 'response post-processing failed', err)
           }
           return false
         }
@@ -628,9 +629,7 @@ function AIDesigner() {
       if (response.actions && response.actions.length > 0) {
         // Use setTimeout to ensure the UI has updated before executing
         setTimeout(() => {
-          executeActions(response.actions, assistantMessage.id).catch(() => {
-            // silently handled
-          })
+          executeActions(response.actions, assistantMessage.id).catch((err) => fail('aiDesigner', 'Some AI actions could not be applied', err))
         }, 100)
       }
     } catch (error: any) {

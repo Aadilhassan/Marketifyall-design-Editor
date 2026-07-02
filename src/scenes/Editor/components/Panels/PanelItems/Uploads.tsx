@@ -3,6 +3,7 @@ import { Scrollbars } from 'react-custom-scrollbars'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import DropZone from '@components/Dropzone'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
+import { log } from '@/lib/logger'
 
 // ─── Local uploads storage ───────────────────────────────────
 
@@ -32,7 +33,7 @@ function saveLocalUploads(uploads: LocalUpload[]) {
     // storage full — drop oldest
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(uploads.slice(0, 10)))
-    } catch { /* ignore */ }
+    } catch (err) { log.warn('uploads', 'stored uploads unreadable — starting empty', err) }
   }
 }
 

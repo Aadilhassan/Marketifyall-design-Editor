@@ -6,6 +6,7 @@ import useAppContext from '@/hooks/useAppContext'
 import { PanelType } from '@/constants/app-options'
 import { useEmbedMode } from '@/contexts/EmbedContext'
 import { useCredits } from '@/contexts/CreditsContext'
+import { fail } from '@/lib/logger'
 import Resize from './components/Resize'
 import PreviewTemplate from './components/PreviewTemplate'
 import History from './components/History'
@@ -248,7 +249,7 @@ function NavbarEditor() {
         height: (editor as any).frame?.height,
       })
     } catch (error) {
-      // silently handled
+      fail('navbar', 'Could not export your design — please try again', error)
     } finally {
       setIsExporting(false)
     }

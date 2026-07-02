@@ -10,6 +10,7 @@ import { useCredits } from '@/contexts/CreditsContext'
 import { searchPexelsImages } from '@/services/pexels'
 import { getIconsByCategory, svgToBase64 } from '@/utils/lucideIconsManager'
 import { searchIconify, fetchIconifySvg } from '@/services/illustrations'
+import { ignoreError } from '@/lib/logger'
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -690,7 +691,7 @@ function AiStudio() {
 
         case 'setBackground': {
           const color = p.gradient?.colors?.[0] || p.color || '#ffffff'
-          try { editor.background.setBackgroundColor(color) } catch { /* skip */ }
+          try { editor.background.setBackgroundColor(color) } catch (err) { ignoreError(err, 'unparseable stream chunk skipped') }
           return true
         }
 
@@ -835,7 +836,7 @@ function AiStudio() {
       const improved = await improvePrompt(genPrompt)
       setGenPrompt(improved)
       await refresh()
-    } catch { /* 402 handled */ }
+    } catch (err) { ignoreError(err, '402 surfaced via credits modal upstream') }
     finally { setGenLoading(false) }
   }, [genPrompt, genLoading, canAfford, refresh])
 
@@ -927,7 +928,7 @@ function AiStudio() {
       try {
         const jsonMatch = raw.match(/\{[\s\S]*\}/)
         if (jsonMatch) parsed = JSON.parse(jsonMatch[0])
-      } catch { /* skip */ }
+      } catch (err) { ignoreError(err, 'optional enrichment skipped') }
 
       const aiMsg: ChatMessage = {
         id: `msg-${Date.now()}-ai`,
