@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    env:
+      # webpack 4 (CRA 4) needs the legacy OpenSSL provider on modern Node
+      NODE_OPTIONS: --openssl-legacy-provider
+      # react-snap's puppeteer is never run in CI — skip its chromium download
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+
+      - name: Install (frozen lockfile; postinstall runs patch-package)
+        run: yarn install --frozen-lockfile --ignore-optional
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Tests
+        run: npx craco test --watchAll=false
+
+      - name: Build
+        env:
+          CI: 'false'
+        run: npx craco build
