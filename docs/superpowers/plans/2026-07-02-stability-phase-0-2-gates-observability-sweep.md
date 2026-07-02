@@ -530,7 +530,16 @@ export function installGlobalErrorHandlers(): void {
 
   window.addEventListener('unhandledrejection', (event: Event) => {
     const reason: unknown = (event as PromiseRejectionEvent).reason
-    const message = reason instanceof Error ? reason.message : String(reason)
+    let message = ''
+    if (reason instanceof Error) message = reason.message
+    else {
+      try {
+        message = String(reason)
+      } catch (coerceErr) {
+        void coerceErr
+        message = '' // exotic reason — benign filter simply won't match
+      }
+    }
     if (isBenign(message)) {
       log.debug('global', `benign rejection: ${message}`)
       return
