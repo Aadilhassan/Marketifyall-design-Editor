@@ -7,6 +7,7 @@
  *
  * Used for long in-browser operations like AI upscaling and background removal.
  */
+import { ignoreError } from '@/lib/logger'
 
 export interface ProcessingHandle {
   /** ratio 0..1 (use <=0 for an indeterminate stage), with a short label. */
@@ -157,8 +158,8 @@ export function showImageProcessingOverlay(canvas: any, obj: any, initialStage =
       closed = true
       try {
         document.body.removeChild(host)
-      } catch {
-        /* already removed */
+      } catch (err) {
+        ignoreError(err, 'overlay already removed')
       }
     },
   }

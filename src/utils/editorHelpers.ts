@@ -7,6 +7,7 @@ import { selectObject } from './selectObject'
 // Side-effect import: registers the custom Vignette/Duotone fabric filters so
 // they exist before any saved project is deserialised on load.
 import './filters'
+import { log } from '@/lib/logger'
 
 export const addObjectToCanvas = (editor: any, options: any, width?: number, canvas?: any) => {
     if (!editor) {
@@ -99,7 +100,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                     selectObject(targetCanvas, fabricObject)
                     targetCanvas.bringToFront(fabricObject)
                     // Snapshot history so Ctrl+Z removes the newly added element
-                    try { targetCanvas.fire('object:modified', { target: fabricObject }) } catch { /* ignore */ }
+                    try { targetCanvas.fire('object:modified', { target: fabricObject }) } catch (err) { log.warn('editorHelpers', 'text add — history snapshot fire failed', err) }
 
                     // Force render multiple times to ensure visibility
                     targetCanvas.requestRenderAll()
@@ -189,7 +190,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                         })
                         targetCanvas.add(group)
                         selectObject(targetCanvas, group)
-                        try { targetCanvas.fire('object:modified', { target: group }) } catch { /* ignore */ }
+                        try { targetCanvas.fire('object:modified', { target: group }) } catch (err) { log.warn('editorHelpers', 'svg group add — history snapshot fire failed', err) }
                         targetCanvas.requestRenderAll()
                     })
                     return true
@@ -235,7 +236,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                         }
                         targetCanvas.add(fabricImage)
                         selectObject(targetCanvas, fabricImage)
-                        try { targetCanvas.fire('object:modified', { target: fabricImage }) } catch { /* ignore */ }
+                        try { targetCanvas.fire('object:modified', { target: fabricImage }) } catch (err) { log.warn('editorHelpers', 'image add — history snapshot fire failed', err) }
                         targetCanvas.requestRenderAll()
                         setTimeout(() => targetCanvas.requestRenderAll(), 100)
                     }
@@ -281,7 +282,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
 
                 targetCanvas.add(fabricObject)
                 selectObject(targetCanvas, fabricObject)
-                try { targetCanvas.fire('object:modified', { target: fabricObject }) } catch { /* ignore */ }
+                try { targetCanvas.fire('object:modified', { target: fabricObject }) } catch (err) { log.warn('editorHelpers', 'shape add — history snapshot fire failed', err) }
                 targetCanvas.requestRenderAll()
                 return true
             }
@@ -298,7 +299,7 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                     targetCanvas.requestRenderAll()
                 }
             } catch (e) {
-                // silently handled
+                log.warn('editorHelpers', 'editor.add fallback — delayed re-render failed', e)
             }
         }, 50)
 
@@ -402,7 +403,7 @@ export const addShapeToCanvas = (canvas: any, shapeType: string, options: any = 
         if (shape) {
             canvas.add(shape)
             selectObject(canvas, shape)
-            try { canvas.fire('object:modified', { target: shape }) } catch { /* ignore */ }
+            try { canvas.fire('object:modified', { target: shape }) } catch (err) { log.warn('editorHelpers', 'addShapeToCanvas — history snapshot fire failed', err) }
             canvas.requestRenderAll()
             return true
         }
@@ -451,7 +452,7 @@ export const addTextToCanvas = (canvas: any, text: string, options: any = {}) =>
 
         canvas.add(textbox)
         selectObject(canvas, textbox)
-        try { canvas.fire('object:modified', { target: textbox }) } catch { /* ignore */ }
+        try { canvas.fire('object:modified', { target: textbox }) } catch (err) { log.warn('editorHelpers', 'addTextToCanvas — history snapshot fire failed', err) }
         canvas.requestRenderAll()
         return true
     } catch (error) {

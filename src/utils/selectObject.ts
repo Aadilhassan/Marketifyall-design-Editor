@@ -13,13 +13,15 @@
  * on the canvas — a major UX gap versus Canva, where new elements are instantly
  * selected and editable.
  */
+import { ignoreError } from '@/lib/logger'
+
 export function selectObject(canvas: any, obj: any): void {
   if (!canvas || !obj) return
   try {
     canvas.setActiveObject(obj)
     canvas.fire('selection:updated', { target: obj, selected: [obj] })
     canvas.requestRenderAll()
-  } catch {
-    /* defensive: never let selection wiring break an add */
+  } catch (err) {
+    ignoreError(err, 'selection wiring must never break an add')
   }
 }

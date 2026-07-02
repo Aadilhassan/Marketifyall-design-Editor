@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import * as LucideIcons from 'lucide-react'
+import { log } from '@/lib/logger'
 
 /**
  * Lucide Icons Manager
@@ -120,8 +121,8 @@ const renderIconToSvg = (element: React.ReactElement): string => {
   } finally {
     try {
       ReactDOM.unmountComponentAtNode(host)
-    } catch {
-      /* ignore */
+    } catch (err) {
+      log.warn('icons', 'lucide icon render failed', err)
     }
   }
 }

@@ -12,6 +12,7 @@
  * filter backend fabric initialises with.
  */
 import { fabric } from 'fabric'
+import { log, ignoreError } from '@/lib/logger'
 
 export interface Adjustments {
   brightness: number // -100..100
@@ -238,7 +239,7 @@ function registerCustomFilters() {
 try {
   registerCustomFilters()
 } catch (e) {
-  // never let custom-filter registration break editor startup / project load
+  log.warn('filters', 'custom filter registration failed — continuing without it', e)
 }
 
 /** Warm/cool tint via a color matrix that scales the R and B channels. */
@@ -347,7 +348,7 @@ export function applyAdjustments(canvas: any, obj: any, adj: Adjustments): void 
       if (typeof canvas.requestRenderAll === 'function') canvas.requestRenderAll()
     }
   } catch (e) {
-    // fabric filter backend (webgl/2d) not ready — ignore
+    ignoreError(e, 'filter backend not ready')
   }
 }
 
