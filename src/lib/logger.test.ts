@@ -10,7 +10,7 @@ describe('logger', () => {
     jest.useFakeTimers('modern')
     jest.setSystemTime(1_000_000)
     __resetLoggerForTests()
-    mockNotify.mockClear()
+    mockNotify.mockReset()
     jest.spyOn(console, 'error').mockImplementation(() => undefined)
     jest.spyOn(console, 'warn').mockImplementation(() => undefined)
     jest.spyOn(console, 'info').mockImplementation(() => undefined)
@@ -51,7 +51,7 @@ describe('logger', () => {
     expect(mockNotify).toHaveBeenCalledTimes(2)
   })
 
-  it('caps toasts at 3 per rolling minute', () => {
+  it('caps toasts at 3 per minute window', () => {
     fail('a', 'msg a')
     fail('b', 'msg b')
     fail('c', 'msg c')
@@ -60,11 +60,28 @@ describe('logger', () => {
     jest.setSystemTime(1_000_000 + 61_000)
     fail('e', 'msg e')
     expect(mockNotify).toHaveBeenCalledTimes(4)
+    expect(getRecentLogs()).toHaveLength(5)
   })
 
   it('ignoreError records at debug level and never toasts', () => {
     ignoreError(new Error('benign'), 'best-effort cleanup')
     expect(mockNotify).not.toHaveBeenCalled()
     expect(getRecentLogs()[0]).toMatchObject({ level: 'debug', scope: 'ignored', message: 'best-effort cleanup', detail: 'Error: benign' })
+  })
+
+  it('fail() never throws even if the toaster throws (no ToasterContainer)', () => {
+    mockNotify.mockImplementation(() => {
+      throw new Error('no container')
+    })
+    expect(() => fail('x', 'msg x')).not.toThrow()
+    expect(getRecentLogs()[0]).toMatchObject({ level: 'error', message: 'msg x' })
+  })
+
+  it('records unstringifiable and non-Error values without throwing', () => {
+    expect(() => log.warn('x', 'weird', Object.create(null))).not.toThrow()
+    expect(() => log.warn('x', 'str', 'thrown string')).not.toThrow()
+    const logs = getRecentLogs()
+    expect(logs[0].detail).toBe('[unstringifiable value]')
+    expect(logs[1].detail).toBe('thrown string')
   })
 })
