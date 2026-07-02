@@ -27,6 +27,7 @@ import { addStarterContent, StarterKind } from '@/utils/starterContent'
 import { loadGoogleFont } from '@/utils/fontLoader'
 import { applyWhiteboardBackground } from '@/utils/whiteboard'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
+import { log, ignoreError } from '@/lib/logger'
 
 interface CanvasObject {
   name?: string
@@ -151,7 +152,7 @@ function App() {
       activePage: idx,
       json: pagesRef.current[idx]?.json ?? null,
       thumbnail: pagesRef.current[idx]?.thumbnail,
-    }).catch(() => {})
+    }).catch((err) => log.warn('editor', 'initial restore step failed', err))
   }, [routeId])
 
   // Snapshot the live canvas into the active page entry.
@@ -169,8 +170,8 @@ function App() {
           thumbnail: cv ? makeThumbnail(cv) : pagesRef.current[idx].thumbnail,
         }
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      log.warn('editor', 'failed to capture current page snapshot before switching pages', err)
     }
   }, [editor])
 
@@ -187,13 +188,13 @@ function App() {
         frameReadyRef.current = true
         try {
           if (opts?.frame && ed.frame?.setSize) ed.frame.setSize(opts.frame)
-        } catch {
-          /* ignore */
+        } catch (err) {
+          log.warn('editor', 'failed to apply frame size to new page', err)
         }
         try {
           ed.zoomToFit?.()
-        } catch {
-          /* ignore */
+        } catch (err) {
+          log.warn('editor', 'zoom-to-fit failed after loading page', err)
         }
         if (opts?.starter) {
           setTimeout(() => {
@@ -240,8 +241,8 @@ function App() {
     try {
       const cur = ed?.exportToJSON?.()
       blank = cur ? { ...cur, objects: [] } : null
-    } catch {
-      /* ignore */
+    } catch (err) {
+      log.warn('editor', 'failed to derive blank page template from current canvas', err)
     }
     pagesRef.current = [...pagesRef.current, { id: genProjectId(), json: blank }]
     loadPageContent(pagesRef.current.length - 1)
@@ -293,7 +294,7 @@ function App() {
   // zoomToFit (keeps all content visible); the delays let the layout + the SDK's
   // resize observer settle before re-fitting.
   const fitDesignToView = useCallback(() => {
-    try { (editor as any)?.zoomToFit?.() } catch { /* ignore */ }
+    try { (editor as any)?.zoomToFit?.() } catch (err) { log.warn('editor', 'zoom-to-fit failed', err) }
   }, [editor])
 
   useEffect(() => {
@@ -331,16 +332,16 @@ function App() {
     if (panel) {
       try {
         setActivePanel(panel as any)
-      } catch {
-        /* ignore unknown panel */
+      } catch (err) {
+        ignoreError(err, 'unknown panel name in sessionStorage')
       }
     }
     let pendingUpload: string | null = null
     try {
       pendingUpload = sessionStorage.getItem('mfa:pendingUpload')
       if (pendingUpload) sessionStorage.removeItem('mfa:pendingUpload')
-    } catch {
-      /* sessionStorage unavailable */
+    } catch (err) {
+      ignoreError(err, 'sessionStorage unavailable')
     }
     if (pendingUpload) {
       const addWhenReady = (tries = 0) => {
@@ -360,7 +361,7 @@ function App() {
     const starter = searchParams.get('starter') as StarterKind | null
     if (starter === 'whiteboard') {
       setIsWhiteboard(true)
-      if (routeId) patchProject(routeId, { kind: 'whiteboard' }).catch(() => {})
+      if (routeId) patchProject(routeId, { kind: 'whiteboard' }).catch((err) => log.warn('autosave', 'could not persist whiteboard kind', err))
     }
     if (starter === 'doc' || starter === 'whiteboard') {
       const addStarterWhenReady = (tries = 0) => {
@@ -392,8 +393,8 @@ function App() {
             try {
               obj.dirty = true
               cv.requestRenderAll()
-            } catch {
-              /* ignore */
+            } catch (err) {
+              log.warn('editor', 'failed to re-render canvas after font load', err)
             }
           })
         }
@@ -539,8 +540,8 @@ function App() {
                 if (userObjs === 0) {
                   try {
                     ed.frame.setSize(frame)
-                  } catch {
-                    /* ignore */
+                  } catch (err) {
+                    log.warn('editor', 'failed to apply saved frame size on restore', err)
                   }
                 }
                 frameReadyRef.current = true
@@ -586,7 +587,7 @@ function App() {
                 obj.metadata.duration = clip.duration
                 if (!clip.poster && obj.metadata.src) clip.poster = obj.metadata.src
                 obj.id = clip.id
-                try { obj.set('selectable', false); obj.set('hasControls', false); obj.set('hasBorders', false) } catch { /* ignore */ }
+                try { obj.set('selectable', false); obj.set('hasControls', false); obj.set('hasBorders', false) } catch (err) { log.warn('editor', 'failed to lock relinked video object controls', err) }
               })
               cv?.requestRenderAll?.()
               restoreState(savedClips as any, savedAudio as any)
@@ -636,8 +637,8 @@ function App() {
               restoreCanvas.renderAll?.()
               try {
                 ed.zoomToFit?.()
-              } catch {
-                /* ignore */
+              } catch (err) {
+                log.warn('editor', 'zoom-to-fit failed after legacy restore', err)
               }
               applyFormatIfBlank()
               restoreVideoClips()
@@ -701,9 +702,9 @@ function App() {
           clips: clipsToSave,
           audioClips: audioToSave,
           thumbnail: thumb,
-        }).catch(() => {})
-      } catch {
-        /* ignore save errors */
+        }).catch((err) => log.warn('autosave', 'autosave write failed — will retry on next change', err)) // Phase 3: saveManager replaces this with the status chip
+      } catch (err) {
+        log.warn('autosave', 'autosave serialize failed', err) // Phase 3: saveManager replaces this
       }
     }
     const schedule = () => {
@@ -788,8 +789,8 @@ function App() {
           obj.setCoords()
           canvas.requestRenderAll?.()
         }
-      } catch {
-        // Canvas not ready or object invalid
+      } catch (err) {
+        ignoreError(err, 'canvas not ready for constrain pass')
       }
     }
 
@@ -845,8 +846,8 @@ function App() {
         }
         ;(canvas as any).controlsAboveOverlay = true
         canvas.requestRenderAll?.()
-      } catch {
-        // Clipping setup failed
+      } catch (err) {
+        log.warn('editor', 'frame clipping setup failed', err)
       }
     }
 

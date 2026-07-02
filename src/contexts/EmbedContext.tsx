@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
+import { log } from '@/lib/logger'
 
 interface EmbedConfig {
   isEmbedMode: boolean
@@ -103,7 +104,7 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
       try {
         initialImage = decodeURIComponent(imageParam)
       } catch (e) {
-        // silently handled
+        log.warn('embed', 'failed to parse initial image URL parameter', e)
       }
     }
 
@@ -238,7 +239,7 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
           targetOrigin
         )
       } catch (error) {
-        // silently handled
+        log.warn('embed', 'failed to dispatch message to parent frame', error)
       }
     },
     [config.isEmbedMode]

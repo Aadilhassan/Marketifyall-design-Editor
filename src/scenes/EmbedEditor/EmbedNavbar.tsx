@@ -4,6 +4,7 @@ import { useEditor } from '@nkyo/scenify-sdk'
 import useAppContext from '@/hooks/useAppContext'
 import { useEmbedMode } from '@/contexts/EmbedContext'
 import { useCredits } from '@/contexts/CreditsContext'
+import { fail } from '@/lib/logger'
 
 const Container = styled('div', {
   height: '64px',
@@ -134,7 +135,7 @@ function EmbedNavbar() {
         height: (editor as any).frame?.height,
       })
     } catch (error) {
-      // silently handled
+      fail('embed', 'Could not save the design', error)
     } finally {
       setIsExporting(false)
     }

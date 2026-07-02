@@ -17,6 +17,7 @@ import EmbedNavbar from './EmbedNavbar'
 import Editor, { useEditor } from '@nkyo/scenify-sdk'
 import { fabric } from 'fabric'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
+import { log, ignoreError } from '@/lib/logger'
 
 interface CanvasObject {
   name?: string
@@ -231,8 +232,8 @@ function EmbedEditorApp() {
           obj.setCoords()
           canvas.requestRenderAll?.()
         }
-      } catch {
-        // Canvas not ready or object invalid
+      } catch (err) {
+        ignoreError(err, 'canvas not ready for constrain pass')
       }
     }
 
@@ -286,8 +287,8 @@ function EmbedEditorApp() {
         }
         ;(canvas as any).controlsAboveOverlay = true
         canvas.requestRenderAll?.()
-      } catch {
-        // Clipping setup failed
+      } catch (err) {
+        log.warn('embed', 'frame clipping setup failed', err)
       }
     }
 
