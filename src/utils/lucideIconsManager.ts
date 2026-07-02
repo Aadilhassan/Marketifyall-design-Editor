@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom'
 import * as LucideIcons from 'lucide-react'
-import { log } from '@/lib/logger'
+import { ignoreError } from '@/lib/logger'
 
 /**
  * Lucide Icons Manager
@@ -122,7 +122,7 @@ const renderIconToSvg = (element: React.ReactElement): string => {
     try {
       ReactDOM.unmountComponentAtNode(host)
     } catch (err) {
-      log.warn('icons', 'lucide icon render failed', err)
+      ignoreError(err, 'lucide host unmount cleanup')
     }
   }
 }
