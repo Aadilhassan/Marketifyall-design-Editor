@@ -40,6 +40,9 @@ jobs:
       - name: Typecheck (strict ratchet — src/lib)
         run: npx tsc --noEmit -p tsconfig.strict.json
 
+      - name: Lint (safety rules — silent catches are errors)
+        run: npx eslint src --ext .ts,.tsx --max-warnings 9999
+
       - name: Tests
         run: npx craco test --watchAll=false
 

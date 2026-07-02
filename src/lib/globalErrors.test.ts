@@ -40,4 +40,32 @@ describe('globalErrors', () => {
     window.dispatchEvent(new ErrorEvent('error', { message: 'boom2', error: new Error('boom2') }))
     expect(mockFail).toHaveBeenCalledTimes(1)
   })
+
+  it('filters benign rejections to debug, not fail()', () => {
+    const ev = Object.assign(new Event('unhandledrejection'), {
+      reason: new Error('ResizeObserver loop completed with undelivered notifications.'),
+    })
+    window.dispatchEvent(ev)
+    expect(mockFail).not.toHaveBeenCalled()
+    expect(mockDebug).toHaveBeenCalled()
+  })
+
+  it('survives an unstringifiable rejection reason and still routes to fail()', () => {
+    const ev = Object.assign(new Event('unhandledrejection'), { reason: Object.create(null) })
+    expect(() => window.dispatchEvent(ev)).not.toThrow()
+    expect(mockFail).toHaveBeenCalledTimes(1)
+    expect(mockFail.mock.calls[0][0]).toBe('global')
+  })
+
+  it('passes the message string as detail when event.error is null', () => {
+    window.dispatchEvent(new ErrorEvent('error', { message: 'boom no-error', error: null }))
+    expect(mockFail).toHaveBeenCalledTimes(1)
+    expect(mockFail.mock.calls[0][2]).toBe('boom no-error')
+  })
+
+  it('filters cross-origin "Script error." to debug', () => {
+    window.dispatchEvent(new ErrorEvent('error', { message: 'Script error.' }))
+    expect(mockFail).not.toHaveBeenCalled()
+    expect(mockDebug).toHaveBeenCalled()
+  })
 })
