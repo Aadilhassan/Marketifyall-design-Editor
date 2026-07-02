@@ -122,7 +122,7 @@ The core engine. Injected clock + timers make it deterministic. `serialize()` re
 
 **Files:** Modify `src/utils/saveManager.ts`, `src/utils/saveManager.test.ts`.
 
-- [ ] **Step 1: Append the failing tests** to `saveManager.test.ts`:
+- [ ] **Step 1: Append the failing tests** to `saveManager.test.ts`. (Transcription note: the `flush()` helper below replaces the old `await Promise.resolve()` idiom — in every test in this file's two `createSaveManager` describe blocks, each settle point after `jest.advanceTimersByTime(...)` uses `await flush()`, not one or two `await Promise.resolve()`. The full corrected file is what shipped; the blocks below already reflect the first test.)
 ```ts
 import { createSaveManager } from './saveManager'
 import type { SerializeResult } from './saveManager'
@@ -145,6 +145,14 @@ function makeDeps(overrides: Partial<Parameters<typeof createSaveManager>[0]> = 
   }
 }
 
+// IMPORTANT (this repo's toolchain): babel-preset-react-app applies the
+// regenerator transform to async/await UNCONDITIONALLY, so each `await` in the
+// module under test costs several microtask hops to settle — more than a fixed
+// 1–2 `await Promise.resolve()`. Drain a generous number of microtask ticks
+// after advancing fake timers. Fake timers still advance via advanceTimersByTime;
+// flush() only drains the microtask queue the resolved timers/persist enqueue.
+const flush = async () => { for (let i = 0; i < 12; i++) await Promise.resolve() }
+
 describe('createSaveManager scheduling + change detection', () => {
   beforeEach(() => jest.useFakeTimers('modern'))
   afterEach(() => { jest.clearAllTimers(); jest.useRealTimers() })
@@ -155,7 +163,7 @@ describe('createSaveManager scheduling + change detection', () => {
     m.markDirty(); m.markDirty(); m.markDirty()
     expect(d.persist).not.toHaveBeenCalled()
     jest.advanceTimersByTime(600)
-    await Promise.resolve()
+    await flush()
     expect(d.persist).toHaveBeenCalledTimes(1)
   })
 
@@ -303,7 +311,13 @@ export function createSaveManager(deps: SaveManagerDeps): SaveManager {
     const result = deps.serialize()
     if (!result) return
     const hash = fnv1a(result.changeKey)
-    if (hash === lastHash && state.status === 'saved') return
+    if (hash === lastHash) {
+      // Content is byte-identical to the last successful save — nothing to
+      // persist. markDirty() flips status to 'dirty' before run(), so a no-op
+      // edit lands here; settle the chip back to 'saved'.
+      if (state.status !== 'saved') set({ status: 'saved' })
+      return
+    }
     saving = true
     set({ status: 'saving' })
     try {
