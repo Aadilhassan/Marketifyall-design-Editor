@@ -54,6 +54,7 @@ export interface SaveManager {
   getState: () => SaveState
   subscribe: (fn: (s: SaveState) => void) => () => void
   writeRecoverySync: () => boolean
+  installUnloadHandlers: () => (() => void)
   dispose: () => void
 }
 
@@ -133,6 +134,27 @@ export function createSaveManager(deps: SaveManagerDeps): SaveManager {
   async function flushNow() { await run() }
   function retryNow() { if (backoffTimer) clearTimeout(backoffTimer); void run() }
 
+  function installUnloadHandlers(): () => void {
+    const onHide = () => {
+      // Best-effort async flush (may not finish) + guaranteed sync snapshot.
+      if (state.status !== 'saved') { void run(); writeRecoverySync(deps.projectId, deps.serialize) }
+    }
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (state.status === 'saved') return
+      const wrote = writeRecoverySync(deps.projectId, deps.serialize)
+      if (!wrote) { e.preventDefault(); e.returnValue = '' } // payload too big → native confirm
+    }
+    const onVisibility = () => { if (typeof document !== 'undefined' && document.visibilityState === 'hidden') onHide() }
+    window.addEventListener('pagehide', onHide)
+    window.addEventListener('beforeunload', onBeforeUnload)
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility)
+    return () => {
+      window.removeEventListener('pagehide', onHide)
+      window.removeEventListener('beforeunload', onBeforeUnload)
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility)
+    }
+  }
+
   return {
     markDirty,
     flushNow,
@@ -140,6 +162,7 @@ export function createSaveManager(deps: SaveManagerDeps): SaveManager {
     getState: () => state,
     subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn) },
     writeRecoverySync: () => writeRecoverySync(deps.projectId, deps.serialize),
+    installUnloadHandlers,
     dispose: () => { disposed = true; clearTimers(); if (backoffTimer) clearTimeout(backoffTimer); listeners.clear() },
   }
 }
