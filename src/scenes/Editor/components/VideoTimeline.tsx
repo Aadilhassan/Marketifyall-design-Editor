@@ -8,7 +8,7 @@ import { useEditorContext, useEditor } from '@nkyo/scenify-sdk'
 import useAppContext from '@/hooks/useAppContext'
 import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
 import { notify } from '@/lib/notify'
-import { ignoreError } from '@/lib/logger'
+import { ignoreError, log } from '@/lib/logger'
 
 // True when an object is driven by the keyframe AnimationDriver (so other
 // time-based opacity effects must leave it alone).
@@ -1503,7 +1503,7 @@ const VideoTimeline: React.FC = () => {
           if (isPlaying) {
             masterVideo.play().catch(err => {
               if (err.name !== 'AbortError') {
-                // silently handled
+                log.warn('timeline', 'master video play() failed on loadeddata', err)
               }
             })
           }
