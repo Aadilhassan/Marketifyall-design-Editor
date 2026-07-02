@@ -28,6 +28,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit -p tsconfig.json
 
+      - name: Typecheck (strict ratchet — src/lib)
+        run: npx tsc --noEmit -p tsconfig.strict.json
+
       - name: Tests
         run: npx craco test --watchAll=false
 
