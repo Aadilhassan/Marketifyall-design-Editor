@@ -28,7 +28,7 @@ import { addStarterContent, StarterKind } from '@/utils/starterContent'
 import { loadGoogleFont } from '@/utils/fontLoader'
 import { applyWhiteboardBackground } from '@/utils/whiteboard'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
-import { createSaveManager } from '@/utils/saveManager'
+import { createSaveManager, readRecovery, clearRecovery } from '@/utils/saveManager'
 import type { SaveManager } from '@/utils/saveManager'
 import { log, ignoreError, fail } from '@/lib/logger'
 
@@ -528,11 +528,24 @@ function App() {
         .then(project => {
           const ed = editor as any
           const restoreCanvas = getFabricCanvas(editor)
+          // If a recovery snapshot (written on the last tab-close while dirty) is
+          // newer than the persisted project, offer to restore it. Merge it OVER
+          // the project so frame/kind (which the snapshot doesn't capture) come
+          // from the saved project while the fresher content wins. Decline clears
+          // the stale snapshot so it isn't re-offered.
+          const snap = readRecovery(routeId)
+          const projectUpdatedAt = (project as any)?.updatedAt || 0
+          const useSnapshot =
+            !!snap && snap.savedAt > projectUpdatedAt &&
+            // eslint-disable-next-line no-restricted-globals
+            window.confirm('You have unsaved changes from your last session. Restore them?')
+          if (snap && !useSnapshot) clearRecovery(routeId)
+          const source: any = useSnapshot ? { ...project, ...snap!.payload } : project
           // Apply the chosen format size with setSize() (resizes BOTH frame and
           // background — update() leaves the background, stacking a 2nd rect).
           // Only while the design is still blank, so real content / a user resize wins.
           const applyFormatIfBlank = () => {
-            const frame = project?.frame
+            const frame = source?.frame
             if (!frame) {
               frameReadyRef.current = true
               return
@@ -564,8 +577,8 @@ function App() {
           // the persisted clips back into VideoContext — so a reloaded design keeps
           // its timeline and live video instead of degrading to a static poster.
           const restoreVideoClips = () => {
-            const savedClips: any[] = (project as any)?.clips || []
-            const savedAudio: any[] = (project as any)?.audioClips || []
+            const savedClips: any[] = (source as any)?.clips || []
+            const savedAudio: any[] = (source as any)?.audioClips || []
             if (!savedClips.length && !savedAudio.length) return
             let tries = 0
             const attempt = () => {
@@ -604,15 +617,15 @@ function App() {
           // Initialise multi-page state. Legacy single-page projects (no `pages`)
           // are migrated to a single page wrapping their json.
           const initialPages: PageEntry[] =
-            project?.pages && project.pages.length
-              ? project.pages
-              : [{ id: genProjectId(), json: project?.json ?? null, thumbnail: project?.thumbnail }]
-          const initActive = Math.min(Math.max(0, project?.activePage ?? 0), initialPages.length - 1)
+            source?.pages && source.pages.length
+              ? source.pages
+              : [{ id: genProjectId(), json: source?.json ?? null, thumbnail: source?.thumbnail }]
+          const initActive = Math.min(Math.max(0, source?.activePage ?? 0), initialPages.length - 1)
           pagesRef.current = initialPages
           activePageRef.current = initActive
           setActivePage(initActive)
           setPages([...initialPages])
-          if (project?.kind === 'whiteboard') setIsWhiteboard(true)
+          if (source?.kind === 'whiteboard') setIsWhiteboard(true)
 
           const json = initialPages[initActive]?.json
           // Defensively drop any null/undefined/typeless objects — a single bad
