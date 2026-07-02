@@ -114,9 +114,10 @@ CI workflow running what exists today (base tsc, tests, build), `.nvmrc` (26) + 
 All 117 inventoried sites migrated per D4 taxonomy. ESLint rules flip to **error** in CI (the AST selectors also catch comment-only bodies, which `no-empty` alone would miss).
 **Accept:** `grep` finds zero bare/comment-only catches in `src/`; CI fails on a deliberately-introduced `catch {}`; every migrated user-facing path shows a toast when its failure is induced.
 
-### Phase 3 — Data integrity
+### Phase 3 — Data integrity ✅ IMPLEMENTED (2026-07-03)
 `saveManager.ts` extraction, content-hash change detection, `SaveStatusChip` in Navbar, three-layer unload protection, recovery-snapshot offer on open, `canva_clone_*` key migration.
 **Accept:** same-length edit now saves (hash test); blocked IndexedDB → chip shows "Save failed" within one cycle + retry works; kill-tab-while-dirty → reopen offers restore and restores; snapshot clears after next successful save.
+> Shipped on `feat/stability-phase-3-data-integrity` (own plan: `docs/superpowers/plans/2026-07-03-...-savemanager.md`). Engine is unit-tested (72 tests incl. a concurrency-stranded-save regression found in review); the four **Accept** drills are browser-based and remain a manual pre-merge confirmation (no canvas in the node test env). During implementation a separate critical data-loss bug (panel-adds dropped on reload) was found and fixed — see `2026-07-03-panel-add-data-loss-fix-design.md`.
 
 ### Phase 4 — Media safety
 SDK `onerror` patch (all three bundles); `loadMedia.ts`; migrate the ~16 temp-element sites and remaining unguarded loader calls; outside-in import timeout + object-count surfacing.
