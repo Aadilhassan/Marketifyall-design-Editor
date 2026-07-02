@@ -60,7 +60,24 @@
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "no-restricted-syntax": [
+        "warn",
+        {
+          "selector": "CatchClause > BlockStatement[body.length=0]",
+          "message": "Silent catch. Route it: fail() for failed user actions, log.warn() for fallbacks, ignoreError(err, reason) for genuinely-benign cases (src/lib/logger)."
+        },
+        {
+          "selector": "CallExpression[callee.property.name='catch'] > ArrowFunctionExpression[body.body.length=0]",
+          "message": "Empty .catch(). Route through fail()/log.warn()/ignoreError() from src/lib/logger."
+        },
+        {
+          "selector": "CallExpression[callee.property.name='catch'] > FunctionExpression[body.body.length=0]",
+          "message": "Empty .catch(). Route through fail()/log.warn()/ignoreError() from src/lib/logger."
+        }
+      ]
+    }
   },
   "browserslist": {
     "production": [
