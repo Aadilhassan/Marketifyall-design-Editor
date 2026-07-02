@@ -83,7 +83,7 @@
 | `src/lib/loadMedia.ts` | `loadImage/loadVideo/loadAudio(url, {timeoutMs})` — element creation, `onload`/`onerror`, timeout via existing `promiseWithTimeout`, guaranteed handler cleanup + element teardown; `withTempVideo(url, fn)` for extract-and-discard uses; typed `MediaLoadError`. |
 | `src/components/SafeSvg.tsx` | Renders remote SVG through `DOMPurify.sanitize(svg, {USE_PROFILES: {svg: true, svgFilters: true}})`, memoized; the only file allowed `dangerouslySetInnerHTML`. |
 | `patches/@nkyo+scenify-sdk+0.3.4.patch` | `loadImageFromURL`: promise gains `reject`; `image.onerror = () => reject(new Error('Failed to load image: ' + src))`. Applied to `scenify-sdk.cjs.development.js`, `scenify-sdk.cjs.production.min.js`, `scenify-sdk.esm.js`. |
-| `.github/workflows/ci.yml` | Node from `.nvmrc` (26) → `npm ci` (runs postinstall/patch-package) → `tsc` (base) → `tsc -p tsconfig.strict.json` → `craco test --watchAll=false` → ESLint safety rules → `craco build` → bundle secret-grep. |
+| `.github/workflows/ci.yml` | Node from `.nvmrc` (26) → `yarn install --frozen-lockfile` (runs postinstall/patch-package) → `tsc` (base) → `tsc -p tsconfig.strict.json` → `craco test --watchAll=false` → ESLint safety rules → `craco build` → bundle secret-grep. |
 
 **Data flow (save path):** canvas/page/timeline events → `saveManager.markDirty()` → debounced serialize + hash → changed? → `patchProject()` → state `saved` | `error` → chip renders state; `error` → backoff retry; hidden/pagehide → immediate flush; beforeunload+dirty → sync snapshot or confirm dialog.
 
@@ -148,7 +148,7 @@ Playhead re-render isolation; styletron shorthand/longhand fixes until a normal 
 
 **Unit (node-env, relative imports — repo convention):** logger dedupe/rate-limit + ring buffer; saveManager state machine, hashing (same-length-different-content case), retry/backoff, snapshot size guard (fake timers, mocked `patchProject`); loadMedia timeout + cleanup (jsdom elements, manually dispatched events); SafeSvg sanitization (script/onload stripped, benign SVG preserved); blob-registry revocation (mocked `URL`).
 
-**CI-level:** bundle secret-grep; ESLint safety rules; strict-tsconfig typecheck; patch application (implicit — `npm ci` fails if the patch drifts).
+**CI-level:** bundle secret-grep; ESLint safety rules; strict-tsconfig typecheck; patch application (implicit — the frozen yarn install fails if the patch drifts).
 
 **Induced-failure drill matrix (manual, port 3005, both dev and prod build):**
 1. Template with a dead image URL → toast + live editor (the old behavior was an infinite hang).
