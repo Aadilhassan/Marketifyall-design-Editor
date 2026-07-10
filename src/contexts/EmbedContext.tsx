@@ -17,7 +17,6 @@ interface EmbedConfig {
 
 interface EmbedContextType {
   config: EmbedConfig
-  sendImageToParent: (imageDataUrl: string, metadata?: Record<string, any>) => void
   sendEventToParent: (eventType: string, data?: Record<string, any>) => void
   notifyReady: () => void
   notifyCancel: () => void
@@ -39,7 +38,6 @@ const defaultConfig: EmbedConfig = {
 
 const EmbedContext = createContext<EmbedContextType>({
   config: defaultConfig,
-  sendImageToParent: () => {},
   sendEventToParent: () => {},
   notifyReady: () => {},
   notifyCancel: () => {},
@@ -189,10 +187,6 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
           }
           break
 
-        case 'mfa:export':
-          window.dispatchEvent(new CustomEvent('embed:request-export'))
-          break
-
         case 'mfa:close':
           // Parent requests close -- treated as cancel
           // notifyCancel is called via the ref-based approach below
@@ -221,15 +215,19 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
     (eventType: string, data?: Record<string, any>) => {
       if (!config.isEmbedMode) return
 
-      const targetOrigin = validatedOriginRef.current
+      // Same fallback as notifySaved: the app's iframe page doesn't perform
+      // the `mfa:init` nonce handshake, so a handshake-validated origin may
+      // never exist — fall back to the app's own origin so events like
+      // `mfa:closed` (Cancel) still reach it. Always explicit, never '*'.
+      let targetOrigin = validatedOriginRef.current
       if (!targetOrigin) {
-        // No validated origin yet -- cannot send in production
-        if (isDev) {
-          // In dev, allow fallback to '*' only if explicitly no origin set
-          // But prefer not to -- just skip
+        try {
+          targetOrigin = new URL(APP_URL).origin
+        } catch {
+          targetOrigin = null
         }
-        return
       }
+      if (!targetOrigin) return
 
       try {
         window.parent.postMessage(
@@ -246,22 +244,6 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
       }
     },
     [config.isEmbedMode]
-  )
-
-  const sendImageToParent = useCallback(
-    (imageDataUrl: string, metadata?: Record<string, any>) => {
-      sendEventToParent('export', {
-        asset: {
-          url: imageDataUrl,
-          blob: null,
-          width: metadata?.width || null,
-          height: metadata?.height || null,
-          format: imageDataUrl.startsWith('data:image/png') ? 'png' : 'jpeg',
-          name: metadata?.name || 'design',
-        },
-      })
-    },
-    [sendEventToParent]
   )
 
   const notifyReady = useCallback(() => {
@@ -322,7 +304,6 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
     <EmbedContext.Provider
       value={{
         config,
-        sendImageToParent,
         sendEventToParent,
         notifyReady,
         notifyCancel,

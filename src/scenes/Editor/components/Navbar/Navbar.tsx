@@ -10,7 +10,7 @@ import { fail, ignoreError } from '@/lib/logger'
 import { notify } from '@/lib/notify'
 import { APP_URL } from '@/lib/supabase'
 import { resolveEditorSession, demoBlocked } from '@/lib/workspaceContext'
-import { saveDesignProject, uploadPreview, isUuid } from '@/services/designProjects'
+import { saveDesignProject, uploadPreview, isUuid, wasLoadedFromServer } from '@/services/designProjects'
 import { useSaveManager } from '@/contexts/SaveManagerContext'
 import SaveStatusChip from '@/components/SaveStatusChip'
 import Resize from './components/Resize'
@@ -275,7 +275,12 @@ function NavbarEditor() {
         ignoreError(err, 'design preview upload is best-effort')
       }
 
-      const projectId = savedProjectId ?? (routeId && isUuid(routeId) ? routeId : null)
+      // Only UPDATE a row this session actually saw: either we inserted it
+      // (savedProjectId) or the load path fetched it from the server
+      // (wasLoadedFromServer). A UUID route whose load failed or found no row
+      // must INSERT a new copy instead of overwriting an unconfirmed id.
+      const projectId =
+        savedProjectId ?? (routeId && isUuid(routeId) && wasLoadedFromServer(routeId) ? routeId : null)
       const savedId = await saveDesignProject({
         id: projectId,
         workspaceId: session.workspaceId,

@@ -23,6 +23,12 @@ export function demoBlocked(isDemo: boolean): boolean {
   return true
 }
 
+/** Synchronous demo check straight from the URL — usable before (or without)
+ *  an async session resolve, so demo gating can't race session loading. */
+export function isDemoRequest(): boolean {
+  return new URLSearchParams(window.location.search).get('demo') === 'true'
+}
+
 export async function resolveEditorSession(): Promise<EditorSession | null> {
   const {
     data: { user },
@@ -39,6 +45,7 @@ export async function resolveEditorSession(): Promise<EditorSession | null> {
       .select('workspace_id')
       .eq('user_id', user.id)
       .eq('status', 'active')
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle()
     workspaceId = data?.workspace_id ?? ''

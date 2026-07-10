@@ -28,8 +28,8 @@ import { addStarterContent, StarterKind } from '@/utils/starterContent'
 import { loadGoogleFont } from '@/utils/fontLoader'
 import { applyWhiteboardBackground } from '@/utils/whiteboard'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
-import { fetchDesignProject, isUuid } from '@/services/designProjects'
-import { resolveEditorSession } from '@/lib/workspaceContext'
+import { fetchDesignProject, isUuid, markLoadedFromServer } from '@/services/designProjects'
+import { resolveEditorSession, isDemoRequest } from '@/lib/workspaceContext'
 import { createSaveManager, readRecovery, clearRecovery } from '@/utils/saveManager'
 import type { SaveManager } from '@/utils/saveManager'
 import { log, ignoreError, fail } from '@/lib/logger'
@@ -317,10 +317,13 @@ function App() {
   const prebuiltJsonUrl = searchParams.get('prebuilt_json_url')
 
   // A plain /design (no project id, no external content) gets a fresh project id
-  // pushed into the URL so the work auto-saves and survives reloads.
+  // pushed into the URL so the work auto-saves and survives reloads. Keep the
+  // query string: save-time code reads ?workspace_id/&embed/&demo from
+  // window.location.search (resolveEditorSession), so dropping it here would
+  // silently save fresh embed designs into the wrong workspace.
   useEffect(() => {
     if (!routeId && !prebuiltJsonUrl && !imgUrl) {
-      history.replace(`/design/${genProjectId()}/edit`)
+      history.replace(`/design/${genProjectId()}/edit${window.location.search}`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -535,8 +538,19 @@ function App() {
       const loadRemoteDesign = async (): Promise<boolean> => {
         const session = await resolveEditorSession()
         if (!session) return true // resolveEditorSession is redirecting to login
-        const record = await fetchDesignProject(routeId)
-        if (!record) return false
+        const result = await fetchDesignProject(routeId)
+        if (!result.ok) {
+          // Transient fetch error: do NOT mark the id as loaded-from-server —
+          // a later save must INSERT a copy rather than blindly UPDATE (and
+          // possibly blank-overwrite) a row we never saw. Warn, then fall
+          // through to the local IndexedDB restore.
+          fail('editor', "Couldn't load this design — a new copy will be created if you save")
+          return false
+        }
+        const record = result.record
+        if (!record) return false // genuinely no row — local restore; save will INSERT
+        // Confirmed to exist on the server: saves may UPDATE this id in place.
+        markLoadedFromServer(routeId)
         const ed = editor as any
         // Seed the navbar name from the saved record (Navbar mirrors
         // currentTemplate.name into its name input).
@@ -728,6 +742,13 @@ function App() {
             restoreFromLocal()
           })
       } else {
+        // Redirect logged-out standalone visitors to login on load, not only
+        // at save time (resolveEditorSession redirects internally). Fire-and-
+        // forget so canvas init never blocks on it. Demo visits are
+        // intentionally unauthenticated — don't kick them to login.
+        if (!isDemoRequest()) {
+          resolveEditorSession().catch(err => log.warn('editor', 'session resolve on load failed', err))
+        }
         restoreFromLocal()
       }
     }

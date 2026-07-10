@@ -12,13 +12,35 @@ export function isUuid(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
 }
 
-export async function fetchDesignProject(id: string): Promise<DesignProjectRecord | null> {
-  const { data } = await supabase
+/** Discriminates "the fetch failed" (transient/network/RLS error) from
+ *  "the fetch worked and there is genuinely no such row". Callers must NOT
+ *  treat ok:false as "no row" — saving over an unconfirmed id can overwrite
+ *  or fake-succeed. */
+export type FetchDesignResult = { ok: true; record: DesignProjectRecord | null } | { ok: false }
+
+export async function fetchDesignProject(id: string): Promise<FetchDesignResult> {
+  const { data, error } = await supabase
     .from('design_projects')
     .select('id, name, design_json, preview_url')
     .eq('id', id)
     .maybeSingle()
-  return (data as DesignProjectRecord | null) ?? null
+  if (error) return { ok: false }
+  return { ok: true, record: (data as DesignProjectRecord | null) ?? null }
+}
+
+// Design ids confirmed to exist on the server this session (fetched ok with a
+// record). Save handlers only UPDATE ids in this set (or ids returned by their
+// own insert); anything else INSERTs a new row. This is what prevents a
+// transient load error from being silently overwritten by a blank canvas, and
+// a deleted row from producing a fake-success save.
+const serverLoadedIds = new Set<string>()
+
+export function markLoadedFromServer(id: string): void {
+  serverLoadedIds.add(id)
+}
+
+export function wasLoadedFromServer(id: string): boolean {
+  return serverLoadedIds.has(id)
 }
 
 export async function saveDesignProject(opts: {
@@ -30,7 +52,11 @@ export async function saveDesignProject(opts: {
   previewUrl: string | null
 }): Promise<string | null> {
   if (opts.id) {
-    const { error } = await supabase
+    // .select('id') makes a 0-row update (row deleted / not visible) detectable
+    // instead of a silent fake success. Callers only pass ids confirmed via
+    // fetch or a prior insert, so 0 rows here should be near-impossible — but
+    // when it happens the null return surfaces the save-failed toast.
+    const { data: rows, error } = await supabase
       .from('design_projects')
       .update({
         name: opts.name,
@@ -39,7 +65,8 @@ export async function saveDesignProject(opts: {
         updated_at: new Date().toISOString(),
       })
       .eq('id', opts.id)
-    return error ? null : opts.id
+      .select('id')
+    return error || !rows || rows.length === 0 ? null : opts.id
   }
   const { data, error } = await supabase
     .from('design_projects')

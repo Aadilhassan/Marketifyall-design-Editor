@@ -118,8 +118,10 @@ function EmbedNavbar() {
   const { balance } = useCredits()
   const [name, setName] = useState('Untitled design')
   const [isExporting, setIsExporting] = useState(false)
-  // Set after the first successful insert so repeated saves update in place
-  // (the /embed route has no design id in the URL).
+  // Set after the first successful insert so repeated saves update in place.
+  // The /embed route has no design id in the URL and never loads one from the
+  // server, so the save target is always `savedProjectId ?? null` (insert) —
+  // this navbar can never UPDATE a row it didn't itself create this session.
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null)
 
   useEffect(() => {

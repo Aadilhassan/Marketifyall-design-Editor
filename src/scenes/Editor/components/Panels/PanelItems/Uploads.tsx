@@ -5,7 +5,7 @@ import DropZone from '@components/Dropzone'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
 import { log } from '@/lib/logger'
 import { supabase, APP_URL } from '@/lib/supabase'
-import { resolveEditorSession, demoBlocked, EditorSession } from '@/lib/workspaceContext'
+import { resolveEditorSession, demoBlocked, isDemoRequest, EditorSession } from '@/lib/workspaceContext'
 import { uploadMediaFile } from '@/services/designProjects'
 
 // ─── Local uploads storage ───────────────────────────────────
@@ -66,11 +66,20 @@ const gridStyle: React.CSSProperties = {
   gridTemplateColumns: '1fr 1fr',
 }
 
+const mediaNoteStyle: React.CSSProperties = {
+  padding: '0 2rem 2rem',
+  fontSize: '12px',
+  color: '#999',
+}
+
 // ─── Component ───────────────────────────────────────────────
 
 function Uploads() {
   const [uploads, setUploads] = useState<LocalUpload[]>(() => loadLocalUploads())
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
+  const [mediaError, setMediaError] = useState(false)
+  // Distinguishes "fetch hasn't run yet" from "fetched, genuinely empty".
+  const [mediaLoaded, setMediaLoaded] = useState(false)
   const [session, setSession] = useState<EditorSession | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [copiedId, setCopiedId] = useState<string | null>(null)
@@ -85,16 +94,19 @@ function Uploads() {
 
   // media_files RLS is per-user, so this lists the signed-in user's media.
   const refreshMedia = useCallback(async () => {
-    try {
-      const { data } = await supabase
-        .from('media_files')
-        .select('id, file_name, file_type, public_url, thumbnail_url')
-        .order('created_at', { ascending: false })
-        .limit(100)
+    const { data, error } = await supabase
+      .from('media_files')
+      .select('id, file_name, file_type, public_url, thumbnail_url')
+      .order('created_at', { ascending: false })
+      .limit(100)
+    if (error) {
+      log.warn('uploads', 'could not load workspace media', error)
+      setMediaError(true)
+    } else {
+      setMediaError(false)
       setMediaFiles((data as MediaFile[] | null) ?? [])
-    } catch (err) {
-      log.warn('uploads', 'could not load workspace media', err)
     }
+    setMediaLoaded(true)
   }, [])
 
   useEffect(() => {
@@ -130,7 +142,9 @@ function Uploads() {
   const processFile = useCallback(async (file: File) => {
     if (!file || !file.type.startsWith('image/')) return
     // Demo uploads must not hit the media API — prompt sign-up instead.
-    if (session && demoBlocked(session.isDemo)) return
+    // Synchronous URL check: the async session may still be resolving, and a
+    // session-based check would silently no-op the demo gate during that window.
+    if (demoBlocked(isDemoRequest())) return
     setIsProcessing(true)
     try {
       // Upload through the app so the file lands in workspace media…
@@ -236,9 +250,16 @@ function Uploads() {
               </div>
             )}
 
-            {(imageMedia.length > 0 || videoMedia.length > 0) && (
+            {mediaLoaded && (
               <>
                 <div style={sectionHeaderStyle}>Your media</div>
+                {mediaError ? (
+                  <div style={{ ...mediaNoteStyle, color: '#b91c1c' }}>
+                    Couldn't load your media — please try again.
+                  </div>
+                ) : imageMedia.length === 0 && videoMedia.length === 0 ? (
+                  <div style={mediaNoteStyle}>No media in your workspace yet.</div>
+                ) : (
                 <div style={gridStyle}>
                   {imageMedia.map(media => (
                     <div
@@ -329,6 +350,7 @@ function Uploads() {
                     </div>
                   ))}
                 </div>
+                )}
               </>
             )}
 
