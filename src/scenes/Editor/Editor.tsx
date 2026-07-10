@@ -28,6 +28,8 @@ import { addStarterContent, StarterKind } from '@/utils/starterContent'
 import { loadGoogleFont } from '@/utils/fontLoader'
 import { applyWhiteboardBackground } from '@/utils/whiteboard'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
+import { fetchDesignProject, isUuid } from '@/services/designProjects'
+import { resolveEditorSession } from '@/lib/workspaceContext'
 import { createSaveManager, readRecovery, clearRecovery } from '@/utils/saveManager'
 import type { SaveManager } from '@/utils/saveManager'
 import { log, ignoreError, fail } from '@/lib/logger'
@@ -520,11 +522,57 @@ function App() {
     } else if (imgUrl) {
       handleLoadImageTemplate(imgUrl)
     } else if (routeId) {
-      // Restore a saved design from local storage (IndexedDB). Pause auto-save
-      // (frameReadyRef) until the frame is settled, so it can't persist the
-      // editor's default 1280x720 frame before the chosen format is applied.
+      // Pause auto-save (frameReadyRef) until the frame is settled, so it can't
+      // persist the editor's default 1280x720 frame before the chosen format is
+      // applied. Authoritative load order: design_projects (server) →
+      // IndexedDB (incl. recovery snapshot) → blank. IndexedDB autosave keeps
+      // running for server-backed designs too (crash recovery).
       frameReadyRef.current = false
-      getProject(routeId)
+
+      // Server-backed design (UUID route ids come from the app's project grid).
+      // Resolves true when handled (loaded or redirecting to login); false lets
+      // the local IndexedDB restore below take over.
+      const loadRemoteDesign = async (): Promise<boolean> => {
+        const session = await resolveEditorSession()
+        if (!session) return true // resolveEditorSession is redirecting to login
+        const record = await fetchDesignProject(routeId)
+        if (!record) return false
+        const ed = editor as any
+        // Seed the navbar name from the saved record (Navbar mirrors
+        // currentTemplate.name into its name input).
+        setCurrentTemplate(prev => ({ ...(prev ?? {}), name: record.name || 'Untitled design' }))
+        const json: any = record.design_json ?? null
+        // Defensively drop null/typeless objects (same guard as the local restore).
+        if (json && Array.isArray(json.objects)) {
+          json.objects = json.objects.filter((o: any) => o && o.type)
+        }
+        const initialPages: PageEntry[] = [{ id: genProjectId(), json }]
+        pagesRef.current = initialPages
+        activePageRef.current = 0
+        setActivePage(0)
+        setPages([...initialPages])
+        if (json && json.frame && typeof ed.importFromJSON === 'function') {
+          // Same scenify import the local restore below uses — rebuilds frame,
+          // clipping, zoom & animations.
+          try {
+            const r = ed.importFromJSON(json)
+            const done = () => {
+              frameReadyRef.current = true
+              setTimeout(fitDesignToView, 450)
+            }
+            if (r && typeof r.then === 'function') r.then(done).catch(done)
+            else setTimeout(done, 500)
+          } catch {
+            frameReadyRef.current = true
+          }
+        } else {
+          frameReadyRef.current = true
+        }
+        return true
+      }
+
+      // Restore a saved design from local storage (IndexedDB).
+      const restoreFromLocal = () => getProject(routeId)
         .then(project => {
           const ed = editor as any
           const restoreCanvas = getFabricCanvas(editor)
@@ -669,6 +717,19 @@ function App() {
         .catch(() => {
           frameReadyRef.current = true
         })
+
+      if (isUuid(routeId)) {
+        loadRemoteDesign()
+          .then(handled => {
+            if (!handled) restoreFromLocal()
+          })
+          .catch(err => {
+            log.warn('editor', 'server design load failed — falling back to local restore', err)
+            restoreFromLocal()
+          })
+      } else {
+        restoreFromLocal()
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])

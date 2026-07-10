@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
 import { log } from '@/lib/logger'
+import { APP_URL } from '@/lib/supabase'
 
 interface EmbedConfig {
   isEmbedMode: boolean
@@ -20,6 +21,7 @@ interface EmbedContextType {
   sendEventToParent: (eventType: string, data?: Record<string, any>) => void
   notifyReady: () => void
   notifyCancel: () => void
+  notifySaved: (projectId: string) => void
 }
 
 const defaultConfig: EmbedConfig = {
@@ -41,6 +43,7 @@ const EmbedContext = createContext<EmbedContextType>({
   sendEventToParent: () => {},
   notifyReady: () => {},
   notifyCancel: () => {},
+  notifySaved: () => {},
 })
 
 export const useEmbedMode = () => useContext(EmbedContext)
@@ -272,6 +275,40 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
     sendEventToParent('closed')
   }, [sendEventToParent])
 
+  // Tell the parent a design was persisted to design_projects. Same
+  // origin-locked postMessage as `mfa:closed`, but with a fallback to the
+  // app's own origin: the app's iframe page doesn't perform the `mfa:init`
+  // nonce handshake, so a handshake-validated origin may never exist. The
+  // target origin is always explicit (never '*').
+  const notifySaved = useCallback(
+    (projectId: string) => {
+      if (!config.isEmbedMode) return
+      let targetOrigin = validatedOriginRef.current
+      if (!targetOrigin) {
+        try {
+          targetOrigin = new URL(APP_URL).origin
+        } catch {
+          targetOrigin = null
+        }
+      }
+      if (!targetOrigin) return
+      try {
+        window.parent.postMessage(
+          {
+            type: 'mfa:saved',
+            projectId,
+            nonce: nonceRef.current,
+            timestamp: Date.now(),
+          },
+          targetOrigin
+        )
+      } catch (error) {
+        log.warn('embed', 'failed to notify parent frame of save', error)
+      }
+    },
+    [config.isEmbedMode]
+  )
+
   // Notify parent when embed is ready
   useEffect(() => {
     if (config.isEmbedMode) {
@@ -289,6 +326,7 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
         sendEventToParent,
         notifyReady,
         notifyCancel,
+        notifySaved,
       }}
     >
       {children}

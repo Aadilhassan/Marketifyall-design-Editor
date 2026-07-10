@@ -1,12 +1,16 @@
 import { styled } from 'baseui'
 import { useEditor } from '@nkyo/scenify-sdk'
 import { useEffect, useState } from 'react'
-import { useHistory } from 'react-router-dom'
+import { useHistory, useParams } from 'react-router-dom'
 import useAppContext from '@/hooks/useAppContext'
 import { PanelType } from '@/constants/app-options'
 import { useEmbedMode } from '@/contexts/EmbedContext'
 import { useCredits } from '@/contexts/CreditsContext'
-import { fail } from '@/lib/logger'
+import { fail, ignoreError } from '@/lib/logger'
+import { notify } from '@/lib/notify'
+import { APP_URL } from '@/lib/supabase'
+import { resolveEditorSession } from '@/lib/workspaceContext'
+import { saveDesignProject, uploadPreview, isUuid } from '@/services/designProjects'
 import { useSaveManager } from '@/contexts/SaveManagerContext'
 import SaveStatusChip from '@/components/SaveStatusChip'
 import Resize from './components/Resize'
@@ -219,12 +223,15 @@ function NavbarEditor() {
   const editor = useEditor()
   const history = useHistory()
   const { currentTemplate, setActivePanel } = useAppContext()
-  const { config, sendImageToParent, notifyCancel } = useEmbedMode()
+  const { config, notifySaved, notifyCancel } = useEmbedMode()
   const { balance } = useCredits()
   const saveManager = useSaveManager()
+  const { id: routeId } = useParams<{ id?: string }>()
   const [name, setName] = useState('Untitled design')
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
+  // Set after the first successful insert so repeated saves update in place.
+  const [savedProjectId, setSavedProjectId] = useState<string | null>(null)
 
   const handleGoHome = () => {
     history.push('/dashboard')
@@ -236,23 +243,61 @@ function NavbarEditor() {
     }
   }, [currentTemplate])
 
-  // Handle "Done" button click in embed mode
-  const handleEmbedDone = async () => {
+  // Persist the design to the app's design_projects table (Done in embed mode,
+  // Save in standalone mode). Updates in place when the design came from the
+  // server (UUID route id) or was already saved once this session.
+  const handleSaveDesign = async () => {
     if (!editor) return
 
     setIsExporting(true)
     try {
-      // Export canvas as data URL using the SDK's toPNG method
-      const dataUrl = await (editor as any).toPNG({})
+      const session = await resolveEditorSession()
+      if (!session) return // resolveEditorSession is redirecting to login
+      // NOTE(Task 8): demo-mode guard goes here (session.isDemo → demo prompt).
+      if (!session.workspaceId) {
+        fail('navbar', 'Could not save — no workspace found for your account')
+        return
+      }
 
-      // Send image to parent window
-      sendImageToParent(dataUrl, {
-        name: name,
-        width: (editor as any).frame?.width,
-        height: (editor as any).frame?.height,
+      // Same scenify export the IndexedDB autosave uses (Editor.tsx buildSerialize).
+      const designJson = (editor as any).exportToJSON?.()
+      if (!designJson) {
+        fail('navbar', 'Could not save your design — please try again')
+        return
+      }
+
+      // Preview is best-effort: the save proceeds without it on failure.
+      let previewUrl: string | null = null
+      try {
+        const dataUrl = await (editor as any).toPNG({})
+        previewUrl = await uploadPreview(APP_URL, session.workspaceId, dataUrl, name)
+      } catch (err) {
+        ignoreError(err, 'design preview upload is best-effort')
+      }
+
+      const projectId = savedProjectId ?? (routeId && isUuid(routeId) ? routeId : null)
+      const savedId = await saveDesignProject({
+        id: projectId,
+        workspaceId: session.workspaceId,
+        userId: session.userId,
+        name,
+        designJson,
+        previewUrl,
       })
+      if (!savedId) {
+        fail('navbar', 'Could not save your design — please try again')
+        return
+      }
+      setSavedProjectId(savedId)
+
+      if (config.isEmbedMode) {
+        notifySaved(savedId)
+      } else {
+        notify('Design saved', 'positive')
+        if (routeId !== savedId) history.push(`/design/${savedId}/edit`)
+      }
     } catch (error) {
-      fail('navbar', 'Could not export your design — please try again', error)
+      fail('navbar', 'Could not save your design — please try again', error)
     } finally {
       setIsExporting(false)
     }
@@ -301,7 +346,7 @@ function NavbarEditor() {
             </svg>
             Cancel
           </CancelButton>
-          <DoneButton onClick={handleEmbedDone} disabled={isExporting}>
+          <DoneButton onClick={handleSaveDesign} disabled={isExporting}>
             {isExporting ? (
               <>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ animation: 'spin 1s linear infinite' }}>
@@ -372,6 +417,14 @@ function NavbarEditor() {
           </svg>
           Join Discord
         </PrimaryButton>
+        <SecondaryButton onClick={handleSaveDesign} disabled={isExporting}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+            <polyline points="17 21 17 13 7 13 7 21" />
+            <polyline points="7 3 7 8 15 8" />
+          </svg>
+          {isExporting ? 'Saving…' : 'Save'}
+        </SecondaryButton>
         <SecondaryButton onClick={() => setIsExportModalOpen(true)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
