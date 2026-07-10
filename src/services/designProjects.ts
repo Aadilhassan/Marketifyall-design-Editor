@@ -55,12 +55,11 @@ export async function saveDesignProject(opts: {
   return error ? null : data.id
 }
 
-/** Upload the preview PNG through the app's media API (cookie credentials). */
-export async function uploadPreview(appUrl: string, workspaceId: string, dataUrl: string, name: string): Promise<string | null> {
+/** Upload a file through the app's media API (cookie credentials). Returns the public URL. */
+export async function uploadMediaFile(appUrl: string, workspaceId: string, file: File): Promise<string | null> {
   try {
-    const blob = await (await fetch(dataUrl)).blob()
     const form = new FormData()
-    form.append('file', new File([blob], `${name || 'design'}.png`, { type: 'image/png' }))
+    form.append('file', file)
     form.append('workspaceId', workspaceId)
     const res = await fetch(`${appUrl}/api/media/upload`, {
       method: 'POST',
@@ -70,6 +69,17 @@ export async function uploadPreview(appUrl: string, workspaceId: string, dataUrl
     if (!res.ok) return null
     const uploaded = await res.json()
     return uploaded?.url || uploaded?.file?.url || uploaded?.path || null
+  } catch {
+    return null
+  }
+}
+
+/** Upload the preview PNG through the app's media API (cookie credentials). */
+export async function uploadPreview(appUrl: string, workspaceId: string, dataUrl: string, name: string): Promise<string | null> {
+  try {
+    const blob = await (await fetch(dataUrl)).blob()
+    const file = new File([blob], `${name || 'design'}.png`, { type: 'image/png' })
+    return await uploadMediaFile(appUrl, workspaceId, file)
   } catch {
     return null // preview is best-effort; never fail the save on it
   }

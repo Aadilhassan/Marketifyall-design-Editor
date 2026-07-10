@@ -4,6 +4,9 @@ import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import DropZone from '@components/Dropzone'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
 import { log } from '@/lib/logger'
+import { supabase, APP_URL } from '@/lib/supabase'
+import { resolveEditorSession, EditorSession } from '@/lib/workspaceContext'
+import { uploadMediaFile } from '@/services/designProjects'
 
 // ─── Local uploads storage ───────────────────────────────────
 
@@ -37,11 +40,40 @@ function saveLocalUploads(uploads: LocalUpload[]) {
   }
 }
 
+// ─── Workspace media (Media Manager) ─────────────────────────
+
+interface MediaFile {
+  id: string
+  file_name: string
+  file_type: string | null
+  public_url: string
+  thumbnail_url: string | null
+}
+
+const sectionHeaderStyle: React.CSSProperties = {
+  padding: '0 2rem 0.5rem',
+  fontSize: '12px',
+  fontWeight: 600,
+  color: '#666',
+  textTransform: 'uppercase',
+  letterSpacing: '0.04em',
+}
+
+const gridStyle: React.CSSProperties = {
+  display: 'grid',
+  gap: '0.5rem',
+  padding: '0 2rem 2rem',
+  gridTemplateColumns: '1fr 1fr',
+}
+
 // ─── Component ───────────────────────────────────────────────
 
 function Uploads() {
   const [uploads, setUploads] = useState<LocalUpload[]>(() => loadLocalUploads())
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([])
+  const [session, setSession] = useState<EditorSession | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
   const inputFileRef = useRef<HTMLInputElement>(null)
   const editor = useEditor()
   const { canvas } = useEditorContext() as any
@@ -51,10 +83,34 @@ function Uploads() {
     saveLocalUploads(uploads)
   }, [uploads])
 
-  const processFile = useCallback((file: File) => {
-    if (!file || !file.type.startsWith('image/')) return
-    setIsProcessing(true)
+  // media_files RLS is per-user, so this lists the signed-in user's media.
+  const refreshMedia = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('media_files')
+        .select('id, file_name, file_type, public_url, thumbnail_url')
+        .order('created_at', { ascending: false })
+        .limit(100)
+      setMediaFiles((data as MediaFile[] | null) ?? [])
+    } catch (err) {
+      log.warn('uploads', 'could not load workspace media', err)
+    }
+  }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      // The editor only renders signed-in (resolveEditorSession redirects otherwise).
+      const s = await resolveEditorSession()
+      if (cancelled || !s) return
+      setSession(s)
+      await refreshMedia()
+    })()
+    return () => { cancelled = true }
+  }, [refreshMedia])
+
+  // Existing local-only flow: FileReader data URL into localStorage.
+  const storeLocally = useCallback((file: File) => new Promise<void>(resolve => {
     const reader = new FileReader()
     reader.onload = () => {
       const dataUrl = reader.result as string
@@ -65,11 +121,30 @@ function Uploads() {
         timestamp: Date.now(),
       }
       setUploads(prev => [newUpload, ...prev])
+      resolve()
+    }
+    reader.onerror = () => resolve()
+    reader.readAsDataURL(file)
+  }), [])
+
+  const processFile = useCallback(async (file: File) => {
+    if (!file || !file.type.startsWith('image/')) return
+    setIsProcessing(true)
+    try {
+      // Upload through the app so the file lands in workspace media…
+      if (session?.workspaceId) {
+        const url = await uploadMediaFile(APP_URL, session.workspaceId, file)
+        if (url) {
+          await refreshMedia()
+          return
+        }
+      }
+      // …falling back to the local-only copy when the upload fails (offline-friendly).
+      await storeLocally(file)
+    } finally {
       setIsProcessing(false)
     }
-    reader.onerror = () => setIsProcessing(false)
-    reader.readAsDataURL(file)
-  }, [])
+  }, [session, refreshMedia, storeLocally])
 
   const handleDropFiles = useCallback((files: FileList) => {
     for (let i = 0; i < files.length; i++) {
@@ -98,6 +173,21 @@ function Uploads() {
   const handleRemove = useCallback((id: string) => {
     setUploads(prev => prev.filter(u => u.id !== id))
   }, [])
+
+  // The Uploads panel places images only (video needs the timeline flow in
+  // StockVideos/Video panels), so video media gets a copy-URL affordance.
+  const handleCopyUrl = useCallback(async (media: MediaFile) => {
+    try {
+      await navigator.clipboard.writeText(media.public_url)
+      setCopiedId(media.id)
+      setTimeout(() => setCopiedId(prev => (prev === media.id ? null : prev)), 1500)
+    } catch (err) {
+      log.warn('uploads', 'could not copy media URL to clipboard', err)
+    }
+  }, [])
+
+  const imageMedia = mediaFiles.filter(m => (m.file_type ?? '').startsWith('image/'))
+  const videoMedia = mediaFiles.filter(m => (m.file_type ?? '').startsWith('video/'))
 
   return (
     <DropZone handleDropFiles={handleDropFiles}>
@@ -130,29 +220,118 @@ function Uploads() {
         </div>
         <div style={{ flex: 1 }}>
           <Scrollbars>
-            <div
-              style={{
-                display: 'grid',
-                gap: '0.5rem',
-                padding: '0 2rem 2rem',
-                gridTemplateColumns: '1fr 1fr',
-              }}
-            >
-              {isProcessing && (
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  aspectRatio: '1',
-                  background: '#f5f5f5',
-                  borderRadius: '8px',
-                  color: '#999',
-                  fontSize: '12px',
-                }}>
-                  Processing...
-                </div>
-              )}
+            {isProcessing && (
+              <div style={{
+                margin: '0 2rem 1rem',
+                padding: '0.75rem',
+                textAlign: 'center',
+                background: '#f5f5f5',
+                borderRadius: '8px',
+                color: '#999',
+                fontSize: '12px',
+              }}>
+                Uploading...
+              </div>
+            )}
 
+            {(imageMedia.length > 0 || videoMedia.length > 0) && (
+              <>
+                <div style={sectionHeaderStyle}>Your media</div>
+                <div style={gridStyle}>
+                  {imageMedia.map(media => (
+                    <div
+                      key={media.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: '1px solid #eee',
+                      }}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, media.public_url)}
+                      onClick={() => addImageToCanvas(media.public_url)}
+                      title={media.file_name}
+                    >
+                      <img
+                        width="100%"
+                        src={media.thumbnail_url || media.public_url}
+                        alt={media.file_name}
+                        style={{ display: 'block', pointerEvents: 'none' }}
+                      />
+                    </div>
+                  ))}
+                  {videoMedia.map(media => (
+                    <div
+                      key={media.id}
+                      style={{
+                        position: 'relative',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        border: '1px solid #eee',
+                        background: '#1a1a2a',
+                        aspectRatio: '1',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        padding: '0.5rem',
+                      }}
+                      title={media.file_name}
+                    >
+                      {media.thumbnail_url && (
+                        <img
+                          src={media.thumbnail_url}
+                          alt={media.file_name}
+                          style={{
+                            position: 'absolute',
+                            inset: 0,
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            opacity: 0.55,
+                            pointerEvents: 'none',
+                          }}
+                        />
+                      )}
+                      <div style={{
+                        position: 'relative',
+                        color: '#fff',
+                        fontSize: '11px',
+                        maxWidth: '100%',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {media.file_name}
+                      </div>
+                      <button
+                        onClick={() => handleCopyUrl(media)}
+                        style={{
+                          position: 'relative',
+                          border: 'none',
+                          borderRadius: '4px',
+                          background: 'rgba(255,255,255,0.9)',
+                          color: '#333',
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          cursor: 'pointer',
+                        }}
+                        title="Copy video URL"
+                      >
+                        {copiedId === media.id ? 'Copied' : 'Copy URL'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {uploads.length > 0 && <div style={sectionHeaderStyle}>This device</div>}
+            <div style={gridStyle}>
               {uploads.map(upload => (
                 <div
                   key={upload.id}
