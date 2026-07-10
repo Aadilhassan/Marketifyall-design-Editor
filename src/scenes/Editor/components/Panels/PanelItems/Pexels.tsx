@@ -5,6 +5,7 @@ import Icons from '@components/icons'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { searchPexelsImages, getCuratedImages, isApiKeyConfigured, PexelsImage } from '@/services/pexels'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
+import { fail } from '@/lib/logger'
 import { useDebounce } from 'use-debounce'
 import { styled } from 'baseui'
 
@@ -262,7 +263,7 @@ function Pexels() {
       }, 500)
 
     } catch (error) {
-      // silently handled
+      fail('photos', 'Could not add this photo', error)
     } finally {
       setAddingImage(null)
     }

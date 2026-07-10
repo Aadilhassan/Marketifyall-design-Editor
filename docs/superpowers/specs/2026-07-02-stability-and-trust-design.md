@@ -83,7 +83,7 @@
 | `src/lib/loadMedia.ts` | `loadImage/loadVideo/loadAudio(url, {timeoutMs})` — element creation, `onload`/`onerror`, timeout via existing `promiseWithTimeout`, guaranteed handler cleanup + element teardown; `withTempVideo(url, fn)` for extract-and-discard uses; typed `MediaLoadError`. |
 | `src/components/SafeSvg.tsx` | Renders remote SVG through `DOMPurify.sanitize(svg, {USE_PROFILES: {svg: true, svgFilters: true}})`, memoized; the only file allowed `dangerouslySetInnerHTML`. |
 | `patches/@nkyo+scenify-sdk+0.3.4.patch` | `loadImageFromURL`: promise gains `reject`; `image.onerror = () => reject(new Error('Failed to load image: ' + src))`. Applied to `scenify-sdk.cjs.development.js`, `scenify-sdk.cjs.production.min.js`, `scenify-sdk.esm.js`. |
-| `.github/workflows/ci.yml` | Node from `.nvmrc` (26) → `npm ci` (runs postinstall/patch-package) → `tsc` (base) → `tsc -p tsconfig.strict.json` → `craco test --watchAll=false` → ESLint safety rules → `craco build` → bundle secret-grep. |
+| `.github/workflows/ci.yml` | Node from `.nvmrc` (26) → `yarn install --frozen-lockfile` (runs postinstall/patch-package) → `tsc` (base) → `tsc -p tsconfig.strict.json` → `craco test --watchAll=false` → ESLint safety rules → `craco build` → bundle secret-grep. |
 
 **Data flow (save path):** canvas/page/timeline events → `saveManager.markDirty()` → debounced serialize + hash → changed? → `patchProject()` → state `saved` | `error` → chip renders state; `error` → backoff retry; hidden/pagehide → immediate flush; beforeunload+dirty → sync snapshot or confirm dialog.
 
@@ -104,7 +104,7 @@ Each phase lands independently green.
 
 ### Phase 0 — Gates & pins
 CI workflow running what exists today (base tsc, tests, build), `.nvmrc` (26) + `engines`, `patch-package` dependency + `postinstall` wired (empty patch dir).
-**Accept:** CI green on a no-op PR; `npm ci` runs `patch-package` in postinstall without error (no-op while the patch dir is empty — the fail-loudly-on-drift behavior is exercised in Phase 4 when the patch lands).
+**Accept:** CI green on a no-op PR; `yarn install --frozen-lockfile` runs `patch-package` in postinstall without error (no-op while the patch dir is empty — the fail-loudly-on-drift behavior is exercised in Phase 4 when the patch lands).
 
 ### Phase 1 — Observability core
 `logger.ts` (+ dedupe/rate-limit), `fail()`, `ignoreError()`, `globalErrors.ts` in `index.tsx`, `tsconfig.strict.json` covering `src/lib/**` added to CI. ESLint safety rules added as **warnings**.
@@ -114,9 +114,10 @@ CI workflow running what exists today (base tsc, tests, build), `.nvmrc` (26) + 
 All 117 inventoried sites migrated per D4 taxonomy. ESLint rules flip to **error** in CI (the AST selectors also catch comment-only bodies, which `no-empty` alone would miss).
 **Accept:** `grep` finds zero bare/comment-only catches in `src/`; CI fails on a deliberately-introduced `catch {}`; every migrated user-facing path shows a toast when its failure is induced.
 
-### Phase 3 — Data integrity
+### Phase 3 — Data integrity ✅ IMPLEMENTED (2026-07-03)
 `saveManager.ts` extraction, content-hash change detection, `SaveStatusChip` in Navbar, three-layer unload protection, recovery-snapshot offer on open, `canva_clone_*` key migration.
 **Accept:** same-length edit now saves (hash test); blocked IndexedDB → chip shows "Save failed" within one cycle + retry works; kill-tab-while-dirty → reopen offers restore and restores; snapshot clears after next successful save.
+> Shipped on `feat/stability-phase-3-data-integrity` (own plan: `docs/superpowers/plans/2026-07-03-...-savemanager.md`). Engine is unit-tested (72 tests incl. a concurrency-stranded-save regression found in review); the four **Accept** drills are browser-based and remain a manual pre-merge confirmation (no canvas in the node test env). During implementation a separate critical data-loss bug (panel-adds dropped on reload) was found and fixed — see `2026-07-03-panel-add-data-loss-fix-design.md`.
 
 ### Phase 4 — Media safety
 SDK `onerror` patch (all three bundles); `loadMedia.ts`; migrate the ~16 temp-element sites and remaining unguarded loader calls; outside-in import timeout + object-count surfacing.
@@ -148,7 +149,7 @@ Playhead re-render isolation; styletron shorthand/longhand fixes until a normal 
 
 **Unit (node-env, relative imports — repo convention):** logger dedupe/rate-limit + ring buffer; saveManager state machine, hashing (same-length-different-content case), retry/backoff, snapshot size guard (fake timers, mocked `patchProject`); loadMedia timeout + cleanup (jsdom elements, manually dispatched events); SafeSvg sanitization (script/onload stripped, benign SVG preserved); blob-registry revocation (mocked `URL`).
 
-**CI-level:** bundle secret-grep; ESLint safety rules; strict-tsconfig typecheck; patch application (implicit — `npm ci` fails if the patch drifts).
+**CI-level:** bundle secret-grep; ESLint safety rules; strict-tsconfig typecheck; patch application (implicit — the frozen yarn install fails if the patch drifts).
 
 **Induced-failure drill matrix (manual, port 3005, both dev and prod build):**
 1. Template with a dead image URL → toast + live editor (the old behavior was an infinite hang).

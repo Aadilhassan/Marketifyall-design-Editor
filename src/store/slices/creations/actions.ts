@@ -1,6 +1,7 @@
 import { Template } from '@/interfaces/editor'
 import { createAsyncThunk, createAction } from '@reduxjs/toolkit'
 import api from '@services/api'
+import { log } from '@/lib/logger'
 
 export const setCreations = createAction<Template[]>('creations/setCreations')
 export const updateCreationsList = createAction<Template>('creations/updateCreationList')
@@ -12,7 +13,7 @@ export const getCreations = createAsyncThunk(
       const creations = await api.getCreations()
       dispatch(setCreations(creations as unknown as Template[]))
     } catch (err) {
-      // silently fail
+      log.warn('store', 'creations load failed', err)
     }
   }
 )

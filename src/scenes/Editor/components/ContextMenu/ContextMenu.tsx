@@ -3,6 +3,7 @@ import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { selectObject } from '@/utils/selectObject'
 import { sendToBackSafe, sendBackwardsSafe } from '@/utils/layering'
+import { fail, log } from '@/lib/logger'
 import {
   Copy,
   Clipboard,
@@ -158,7 +159,7 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
         try {
           editor.add({ ...clipboard, left: (clipboard.left || 0) + 20, top: (clipboard.top || 0) + 20 })
         } catch (err) {
-          // silently handled
+          fail('edit', 'Paste failed — check clipboard permissions', err)
         }
         handled = true
       } else if (ctrlKey && e.key === 'd' && activeObject) {
@@ -172,8 +173,8 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
               cv.fire('object:modified', { target: o })
               selectObject(cv, o)
             }
-          } catch {
-            /* ignore */
+          } catch (err) {
+            fail('edit', 'Duplicate failed', err)
           }
         }, 80)
         handled = true
@@ -232,7 +233,7 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
         }
         editor.add(pastedObject)
       } catch (err) {
-        // silently handled
+        log.warn('edit', 'context-menu action failed', err)
       }
     }
     setVisible(false)

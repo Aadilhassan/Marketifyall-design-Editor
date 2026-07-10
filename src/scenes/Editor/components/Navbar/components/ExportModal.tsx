@@ -9,6 +9,7 @@ import { notify } from '@/lib/notify'
 import { hasActiveAnimation, getObjectAnimation } from '@/utils/animation'
 import { marketifyallApi } from '@/services/marketifyall-api'
 import { exportCanvasToPdf } from '@/utils/pdfExport'
+import { ignoreError, log } from '@/lib/logger'
 
 /**
  * Re-encodes a captured PNG data URL into JPG/WebP using `canvas.toBlob`, which
@@ -424,8 +425,8 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           maxEnd = Math.max(maxEnd, start + dur)
         }
       })
-    } catch {
-      /* ignore */
+    } catch (err) {
+      ignoreError(err, 'export cleanup best-effort')
     }
     if (maxEnd > 0) {
       const next = Math.ceil(maxEnd)
@@ -508,7 +509,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
         try {
           seek(0)
           setCurrentTime(0)
-        } catch { /* ignore */ }
+        } catch (err) { ignoreError(err, 'export cleanup best-effort') }
 
         // Build live video targets (clips -> <video> element + design-space rect).
         // Each <video> is created fresh and preloaded here so EVERY clip is decoded
@@ -597,7 +598,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
         try {
           seek(0)
           setCurrentTime(0)
-        } catch { /* ignore */ }
+        } catch (err) { ignoreError(err, 'export cleanup best-effort') }
 
       } else {
         // STATIC IMAGE EXPORT
@@ -714,7 +715,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           try {
             fabricCanvas.renderAll?.()
           } catch (renderError) {
-            // silently handled
+            log.warn('export', 'pre-capture render failed — capture may be stale', renderError)
           }
 
           // Export using toDataURL cropped to the design area
@@ -775,7 +776,7 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           try {
             fabricCanvas.renderAll?.()
           } catch (renderError) {
-            // silently handled
+            ignoreError(renderError, 'post-export view restore render')
           }
         }
       }
@@ -791,8 +792,8 @@ function ExportModal({ isOpen, onClose, designName }: ExportModalProps) {
           el.removeAttribute('src')
           el.load()
           el.remove()
-        } catch {
-          /* ignore */
+        } catch (err) {
+          ignoreError(err, 'export modal teardown')
         }
       })
       setIsExporting(false)

@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
+import { fail, ignoreError } from '@/lib/logger'
 import { Scrollbars } from 'react-custom-scrollbars'
 
 const Container = styled('div', {
@@ -771,7 +772,7 @@ function Video() {
         }
       }
     } catch (error) {
-      // silently handled
+      fail('video', 'Could not add the video', error)
     }
   }, [editor, uploadedVideo, frameTime])
 
@@ -907,7 +908,7 @@ function Video() {
       setActiveClip(clipId)
       setTimelineOpen(true)
     } catch (error) {
-      // silently handled
+      fail('video', 'Could not add the video', error)
     }
   }, [editor, addClip, setActiveClip, setTimelineOpen, frameSize?.width, frameSize?.height, getNextVideoStartTime])
 
@@ -1121,7 +1122,7 @@ function Video() {
 
       if (previewVideoRef.current) {
         previewVideoRef.current.srcObject = stream
-        previewVideoRef.current.play()
+        previewVideoRef.current.play().catch((err) => ignoreError(err, 'preview play() interrupted'))
       }
 
       const mediaRecorder = new MediaRecorder(stream, {
@@ -1286,7 +1287,7 @@ function Video() {
       if (isPlaying) {
         videoRef.current.pause()
       } else {
-        videoRef.current.play()
+        videoRef.current.play().catch((err) => ignoreError(err, 'play() interrupted by pause'))
       }
       setIsPlaying(!isPlaying)
     }

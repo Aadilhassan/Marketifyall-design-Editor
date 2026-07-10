@@ -42,6 +42,7 @@ const applyFabricPatch = (f: any) => {
                 if (msg.includes('null') || msg.includes('save') || msg.includes('clearRect')) {
                     return this
                 }
+                // exception: polyfills stay dependency-free — raw console is intentional
                 console.error('Fabric handler crash caught:', eventName, e)
                 return this
             }
@@ -75,6 +76,7 @@ const applyFabricPatch = (f: any) => {
                 try {
                     return originalToDataURL.call(this, options)
                 } catch (e) {
+                    // exception: polyfills stay dependency-free — raw console is intentional
                     console.error('Fabric toDataURL internal crash caught:', e)
                     // Return a transparent 1x1 pixel base64 fallback
                     return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="

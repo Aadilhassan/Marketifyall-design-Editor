@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { styled } from 'baseui'
 import { marketifyallApi } from '@/services/marketifyall-api'
+import { fail } from '@/lib/logger'
 
 // ─── Props ──────────────────────────────────────────────────
 
@@ -234,7 +235,7 @@ const InsufficientCreditsModal: React.FC<InsufficientCreditsModalProps> = ({
       const { checkout_url } = await marketifyallApi.createSubscriptionCheckout(plan)
       window.location.href = checkout_url
     } catch (err) {
-      console.error('Failed to create subscription checkout:', err)
+      fail('credits', 'Could not open the checkout page', err)
     } finally {
       setLoadingAction(null)
     }
@@ -246,7 +247,7 @@ const InsufficientCreditsModal: React.FC<InsufficientCreditsModalProps> = ({
       const { checkout_url } = await marketifyallApi.createTopupCheckout(pack)
       window.location.href = checkout_url
     } catch (err) {
-      console.error('Failed to create topup checkout:', err)
+      fail('credits', 'Could not open the checkout page', err)
     } finally {
       setLoadingAction(null)
     }

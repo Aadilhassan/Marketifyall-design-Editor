@@ -1,4 +1,5 @@
 import React, { createContext, useCallback, useContext, useMemo, useState, useRef } from 'react'
+import { ignoreError } from '@/lib/logger'
 
 export type TimelineLayer = {
   id: string
@@ -243,8 +244,8 @@ export const VideoProvider: React.FC = ({ children }) => {
         if (p && p.then) {
           p.then(() => { playPromiseRef.current = null }).catch(() => { playPromiseRef.current = null })
         }
-      } catch {
-        /* ignore — the canvas player will (re)start the element */
+      } catch (err) {
+        ignoreError(err, 'canvas player restarts the element')
       }
     }
     setIsPlaying(true)
@@ -259,7 +260,7 @@ export const VideoProvider: React.FC = ({ children }) => {
         try {
           await playPromiseRef.current
         } catch (error) {
-          // Ignore abort errors
+          ignoreError(error, 'abort during seek')
         }
         playPromiseRef.current = null
       }

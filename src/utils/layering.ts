@@ -6,6 +6,8 @@
  * element disappears off the back of the design. These helpers send an element
  * to the back of the USER content but never below the frame/background.
  */
+import { ignoreError } from '@/lib/logger'
+
 type AnyObj = any
 
 const isBackgroundObj = (o: AnyObj): boolean =>
@@ -31,8 +33,8 @@ export const sendToBackSafe = (canvas: AnyObj, obj: AnyObj): void => {
     if (typeof canvas.moveTo === 'function') canvas.moveTo(obj, floor)
     else canvas.sendToBack?.(obj)
     canvas.requestRenderAll?.()
-  } catch {
-    /* ignore */
+  } catch (err) {
+    ignoreError(err, 'layering guard — object not layerable right now')
   }
 }
 
@@ -47,7 +49,7 @@ export const sendBackwardsSafe = (canvas: AnyObj, obj: AnyObj): void => {
     const idx = objects.indexOf(obj)
     if (idx > floor && typeof canvas.moveTo === 'function') canvas.moveTo(obj, idx - 1)
     canvas.requestRenderAll?.()
-  } catch {
-    /* ignore */
+  } catch (err) {
+    ignoreError(err, 'layering guard — object not layerable right now')
   }
 }

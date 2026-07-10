@@ -10,6 +10,7 @@ import { useCredits } from '@/contexts/CreditsContext'
 import { searchPexelsImages } from '@/services/pexels'
 import { getIconsByCategory, svgToBase64 } from '@/utils/lucideIconsManager'
 import { searchIconify, fetchIconifySvg } from '@/services/illustrations'
+import { fail, ignoreError } from '@/lib/logger'
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -690,7 +691,7 @@ function AiStudio() {
 
         case 'setBackground': {
           const color = p.gradient?.colors?.[0] || p.color || '#ffffff'
-          try { editor.background.setBackgroundColor(color) } catch { /* skip */ }
+          try { editor.background.setBackgroundColor(color) } catch (err) { ignoreError(err, 'background color set failed') }
           return true
         }
 
@@ -835,8 +836,11 @@ function AiStudio() {
       const improved = await improvePrompt(genPrompt)
       setGenPrompt(improved)
       await refresh()
-    } catch { /* 402 handled */ }
-    finally { setGenLoading(false) }
+    } catch (err: any) {
+      // 402 (out of credits) is surfaced by the credits modal upstream; only
+      // network/server failures need their own signal (mirrors handleGenImage).
+      if (err?.response?.status !== 402) fail('aiStudio', 'Could not improve the prompt — please try again', err)
+    } finally { setGenLoading(false) }
   }, [genPrompt, genLoading, canAfford, refresh])
 
   const handleGenSave = useCallback(() => {
@@ -927,7 +931,7 @@ function AiStudio() {
       try {
         const jsonMatch = raw.match(/\{[\s\S]*\}/)
         if (jsonMatch) parsed = JSON.parse(jsonMatch[0])
-      } catch { /* skip */ }
+      } catch (err) { ignoreError(err, 'AI response JSON parse failed — using defaults') }
 
       const aiMsg: ChatMessage = {
         id: `msg-${Date.now()}-ai`,

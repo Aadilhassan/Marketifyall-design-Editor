@@ -4,6 +4,7 @@
  */
 import { invalidateBase } from './driver'
 import { ANIM_VERSION, ElementAnimation, PresetCategory, PresetInstance, TextRevealInstance } from './types'
+import { log } from '@/lib/logger'
 
 type AnyObj = any
 
@@ -24,8 +25,8 @@ function writeMetadata(obj: AnyObj, patch: Record<string, any>): void {
     // Even reassigning failed (object fully frozen) — fall back to defineProperty.
     try {
       Object.defineProperty(obj, 'metadata', { value: next, configurable: true, writable: true, enumerable: true })
-    } catch {
-      /* give up silently */
+    } catch (err) {
+      log.warn('animation', 'could not write animation metadata', err)
     }
   }
 }

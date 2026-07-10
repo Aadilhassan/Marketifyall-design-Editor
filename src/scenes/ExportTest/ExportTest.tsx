@@ -6,6 +6,7 @@ import { getPopularVideos, isApiKeyConfigured, PexelsVideo, getBestVideoFile } f
 import useVideoContext from '@/hooks/useVideoContext'
 import VideoTimeline from '../Editor/components/VideoTimeline'
 import VideoCanvasPlayer from '../Editor/components/VideoCanvasPlayer'
+import { log } from '@/lib/logger'
 
 function ExportTest() {
   const editor = useEditor()
@@ -49,7 +50,7 @@ function ExportTest() {
           setPexelsVideo(videos[0])
         }
       } catch (error) {
-        // silently handled
+        log.warn('exportTest', 'Pexels video fetch failed', error)
       } finally {
         setLoadingVideo(false)
       }
@@ -159,7 +160,7 @@ function ExportTest() {
           )
           posterUrl = posterCanvas.toDataURL('image/png')
                   } catch (drawError) {
-          // silently handled
+          log.warn('exportTest', 'poster frame extraction failed — using thumbnail fallback', drawError)
                   }
       }
 
@@ -227,7 +228,7 @@ function ExportTest() {
               }
             }
           } catch (e) {
-            // silently handled
+            log.warn('exportTest', 'canvas deselect after add failed', e)
           }
         }, 200)
         
@@ -263,7 +264,7 @@ function ExportTest() {
       // Open timeline automatically when video is added
       setTimelineOpen(true)
           } catch (error) {
-      // silently handled
+      log.warn('exportTest', 'add video to canvas failed', error)
           } finally {
       setAddingVideo(false)
           }
@@ -492,7 +493,7 @@ function ExportTest() {
                 canvas.renderAll()
               }
             } catch (err) {
-              // Ignore errors
+              log.warn('exportTest', 'canvas deselect on background click failed', err)
             }
           }
         }}

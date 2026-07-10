@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # webpack 4 (CRA 4) needs the legacy OpenSSL provider on modern Node
+      NODE_OPTIONS: --openssl-legacy-provider
+      # react-snap's puppeteer is never run in CI — skip its chromium download
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true'
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+
+      - name: Install (frozen lockfile; postinstall runs patch-package)
+        run: yarn install --frozen-lockfile --ignore-optional
+
+      - name: Assert scenify round-trip patch applied
+        run: |
+          set -e
+          grep -q "object = item;" node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.development.js
+          grep -q "enlivenObjects(\[raw\]" node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.development.js
+          grep -q "break;default:r=t}return r" node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.production.min.js
+          node --check node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.development.js
+          node --check node_modules/@nkyo/scenify-sdk/dist/scenify-sdk.cjs.production.min.js
+          echo "scenify round-trip patch present and both CJS bundles parse"
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Typecheck (strict ratchet — src/lib)
+        run: npx tsc --noEmit -p tsconfig.strict.json
+
+      - name: Lint (safety rules — silent catches are errors)
+        run: npx eslint src --ext .ts,.tsx --max-warnings 9999
+
+      - name: Tests
+        run: npx craco test --watchAll=false
+
+      - name: Build
+        env:
+          CI: 'false'
+        run: npx craco build

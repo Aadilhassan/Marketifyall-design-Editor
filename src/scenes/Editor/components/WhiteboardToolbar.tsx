@@ -13,6 +13,7 @@ import {
   Table as TableIcon,
 } from 'lucide-react'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
+import { fail, log, ignoreError } from '@/lib/logger'
 
 // The interactive fabric canvas is editor.handlers.canvas (same resolver the
 // editor uses). layering's getFabricCanvas returns a different wrapper that
@@ -76,8 +77,8 @@ function WhiteboardToolbar({ editor }: { editor: any }) {
         brush.width = size
       }
       canvas.freeDrawingBrush = brush
-    } catch {
-      /* ignore */
+    } catch (err) {
+      log.warn('whiteboard', 'tool switch failed', err)
     }
   }
 
@@ -139,12 +140,12 @@ function WhiteboardToolbar({ editor }: { editor: any }) {
       canvas.setActiveObject(line)
       try {
         canvas.fire('object:modified', { target: line })
-      } catch {
-        /* ignore */
+      } catch (err) {
+        ignoreError(err, 'line insert history sync best-effort')
       }
       canvas.requestRenderAll()
-    } catch {
-      /* ignore */
+    } catch (err) {
+      fail('whiteboard', 'Could not add that to the board', err)
     }
   }
 

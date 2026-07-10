@@ -4,6 +4,7 @@
  * no developer API key required). For canvas rendering we then wait on the
  * Font Loading API so fabric only draws text once the face is actually ready.
  */
+import { log } from '@/lib/logger'
 /* google-fonts ships no type declarations */
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const GoogleFonts: any = require('google-fonts')
@@ -18,8 +19,8 @@ export function injectGoogleFont(family: string): void {
   injected.add(family)
   try {
     GoogleFonts.add({ [family]: [400, 700] })
-  } catch {
-    /* ignore */
+  } catch (err) {
+    log.warn('fonts', 'font stylesheet injection failed', err)
   }
 }
 
@@ -46,8 +47,8 @@ export function loadGoogleFont(family: string): Promise<boolean> {
           await fonts.load(spec)
           // eslint-disable-next-line no-await-in-loop
           await fonts.load(`700 ${spec}`)
-        } catch {
-          /* ignore */
+        } catch (err) {
+          log.warn('fonts', 'font load failed', err)
         }
         try {
           if (fonts.check && fonts.check(spec)) break

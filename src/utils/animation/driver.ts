@@ -14,6 +14,7 @@ import { fabric } from 'fabric'
 import { computeTextReveal, evaluateAnimation, hasActiveAnimation } from './engine'
 import { PresetContext } from './presets'
 import { AnimTransform, ElementAnimation, PresetDirection } from './types'
+import { ignoreError } from '@/lib/logger'
 
 const TEXT_TYPES = ['textbox', 'text', 'i-text', 'StaticText', 'DynamicText']
 function isTextObject(obj: any): boolean {
@@ -92,8 +93,8 @@ function ensureState(obj: AnyObj): AnimState {
     // stale cache canvas. Wrapped because some objects are frozen.
     try {
       obj.objectCaching = false
-    } catch {
-      /* frozen object — fabric will still render it each frame */
+    } catch (err) {
+      ignoreError(err, 'frozen object still renders each frame')
     }
     stateMap.set(obj, s)
   }
@@ -190,8 +191,8 @@ export function applyAnimationsToCanvas(canvas: AnyObj, globalTime: number, play
           restoreText(obj, s)
           restoreBase(obj, s.base)
           obj.objectCaching = s.cachingWas
-        } catch {
-          /* ignore */
+        } catch (err) {
+          ignoreError(err, 'per-frame apply must never break the render loop')
         }
         stateMap.delete(obj)
         touched = true
@@ -237,8 +238,8 @@ export function applyAnimationsToCanvas(canvas: AnyObj, globalTime: number, play
 
     s.opacity = obj.opacity
     touched = true
-   } catch {
-    /* never let one object break the whole pass */
+   } catch (err) {
+    ignoreError(err, 'one object must not break the animation pass')
    }
   }
 
@@ -258,8 +259,8 @@ export function restoreAllBases(canvas: AnyObj): void {
         restoreText(obj, s)
         restoreBase(obj, s.base)
         obj.objectCaching = s.cachingWas
-      } catch {
-        /* ignore */
+      } catch (err) {
+        ignoreError(err, 'per-frame cleanup')
       }
     }
   }

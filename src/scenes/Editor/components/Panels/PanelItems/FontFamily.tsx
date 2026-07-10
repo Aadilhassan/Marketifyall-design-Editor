@@ -9,6 +9,7 @@ import { IFontFamily } from '@/interfaces/editor'
 import Icons from '@components/icons'
 import { GOOGLE_FONTS } from '@/constants/googleFonts'
 import { injectGoogleFont, loadGoogleFont } from '@/utils/fontLoader'
+import { fail, ignoreError } from '@/lib/logger'
 
 type Category = string
 
@@ -80,7 +81,7 @@ function FontFamily() {
         })
         setDocumentFonts(Array.from(fonts))
       } catch (err) {
-        // Silently fail if canvas not ready
+        ignoreError(err, 'canvas not ready for font preview')
       }
     }
 
@@ -191,8 +192,8 @@ function FontFamily() {
             fontFamily,
             metadata: { fontFamily, googleFont: true },
           })
-        } catch {
-          /* font change failed */
+        } catch (err) {
+          fail('fonts', 'Could not apply this font', err)
         }
         return
       }
@@ -207,8 +208,8 @@ function FontFamily() {
       try {
         await loadFontFace(fontFamily, fontUrl)
         editor.update({ fontFamily, metadata: { fontURL: fontUrl } })
-      } catch {
-        /* font change failed */
+      } catch (err) {
+        fail('fonts', 'Could not apply this font', err)
       }
     },
     [editor, loadFontFace],

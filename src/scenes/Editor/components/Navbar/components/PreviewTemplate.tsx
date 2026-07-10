@@ -8,6 +8,7 @@ import { FormControl } from 'baseui/form-control'
 import { Input } from 'baseui/input'
 import ExportModal from './ExportModal'
 import useAppContext from '@/hooks/useAppContext'
+import { log } from '@/lib/logger'
 
 function PreviewTemplate() {
   const [isOpen, setIsOpen] = useState(false)
@@ -31,9 +32,9 @@ function PreviewTemplate() {
           template.objects = validObjects;
 
           try {
-            localStorage.setItem('canva_clone_temp_state', JSON.stringify(template));
+            localStorage.setItem('mfa-preview-template-state', JSON.stringify(template));
           } catch (err) {
-            // silently handled
+            log.warn('preview', 'template preview state save failed', err)
           }
         }
 
@@ -77,7 +78,7 @@ function PreviewTemplate() {
       const image = await (editor as any).toPNG(options);
       setPreviewImage(image);
     } catch (err) {
-      // silently handled
+      log.warn('preview', 'preview image render (toPNG) failed', err)
     } finally {
       setIsProcessing(false);
     }
@@ -129,8 +130,8 @@ function PreviewTemplate() {
 
     try {
       setIsProcessing(true);
-      const savedState = localStorage.getItem('canva_clone_temp_state') ||
-        localStorage.getItem('canva_clone_autosave');
+      const savedState = localStorage.getItem('mfa-preview-template-state') ||
+        localStorage.getItem('canva_clone_temp_state') // fall back to the pre-migration key once
 
       if (savedState) {
         const template = JSON.parse(savedState);

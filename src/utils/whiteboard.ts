@@ -8,6 +8,7 @@
  * background) and keep the page large so it fills the view.
  */
 import { fabric } from 'fabric'
+import { ignoreError } from '@/lib/logger'
 
 let dotPattern: any = null
 
@@ -49,7 +50,7 @@ export function applyWhiteboardBackground(canvas: any): void {
       changed = true
     }
     if (changed && canvas.requestRenderAll) canvas.requestRenderAll()
-  } catch {
-    /* ignore */
+  } catch (err) {
+    ignoreError(err, 'whiteboard surface repaint')
   }
 }

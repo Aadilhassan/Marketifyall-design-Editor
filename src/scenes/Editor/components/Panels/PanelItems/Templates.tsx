@@ -5,6 +5,7 @@ import Icons from '@components/icons'
 import { useEditor } from '@nkyo/scenify-sdk'
 import { useSelector } from 'react-redux'
 import { selectTemplates } from '@/store/slices/templates/selectors'
+import { log } from '@/lib/logger'
 
 const CATEGORIES = [
   'All',
@@ -84,8 +85,8 @@ function Templates() {
         if (uniqueFont && (uniqueFont as FontFace).family) {
           try {
             document.fonts.add(uniqueFont as FontFace)
-          } catch {
-            /* ignore */
+          } catch (err) {
+            log.warn('templates', 'font registration failed during template load — template still loads', err)
           }
         }
       })

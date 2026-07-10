@@ -4,6 +4,7 @@ import useVideoContext from '@/hooks/useVideoContext'
 import { usePlaybackTime } from '@/contexts/VideoContext'
 import { useEditorContext } from '@nkyo/scenify-sdk'
 import { hasActiveAnimation, getObjectAnimation, getAnimOpacity } from '@/utils/animation'
+import { ignoreError } from '@/lib/logger'
 
 const isAnimatedObject = (obj: any): boolean => hasActiveAnimation(getObjectAnimation(obj))
 
@@ -353,7 +354,7 @@ const VideoCanvasPlayer: React.FC = () => {
                                     src = obj.toDataURL()
                                     obj.__overlaySrc = src
                                 } catch (e) {
-                                    // silently handled
+                                    ignoreError(e, 'player/canvas sync best-effort')
                                 }
                                 if (prevOpacity !== 1) obj.set('opacity', prevOpacity)
                             }
@@ -389,7 +390,7 @@ const VideoCanvasPlayer: React.FC = () => {
                 setOverlayItems(newOverlayItems)
             }
         } catch (err) {
-            // silently handled
+            ignoreError(err, 'player/canvas sync best-effort')
         }
     }, [canvas, clips, getCanvasFrameBounds])
 
@@ -455,7 +456,7 @@ const VideoCanvasPlayer: React.FC = () => {
                     .catch(() => {
                         // Keep it muted but playing so the video is at least visible.
                         activeVideo.muted = true
-                        activeVideo.play().catch(() => { /* AbortError during seek */ })
+                        activeVideo.play().catch((err) => ignoreError(err, 'video play() interrupted during seek'))
                     })
             }
         } else {

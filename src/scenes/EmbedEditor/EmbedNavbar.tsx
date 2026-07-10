@@ -4,6 +4,10 @@ import { useEditor } from '@nkyo/scenify-sdk'
 import useAppContext from '@/hooks/useAppContext'
 import { useEmbedMode } from '@/contexts/EmbedContext'
 import { useCredits } from '@/contexts/CreditsContext'
+import { fail, ignoreError } from '@/lib/logger'
+import { APP_URL } from '@/lib/supabase'
+import { resolveEditorSession, demoBlocked } from '@/lib/workspaceContext'
+import { saveDesignProject, uploadPreview } from '@/services/designProjects'
 
 const Container = styled('div', {
   height: '64px',
@@ -110,10 +114,15 @@ const CancelButton = styled('button', {
 function EmbedNavbar() {
   const editor = useEditor()
   const { currentTemplate } = useAppContext()
-  const { sendImageToParent, notifyCancel } = useEmbedMode()
+  const { notifySaved, notifyCancel } = useEmbedMode()
   const { balance } = useCredits()
   const [name, setName] = useState('Untitled design')
   const [isExporting, setIsExporting] = useState(false)
+  // Set after the first successful insert so repeated saves update in place.
+  // The /embed route has no design id in the URL and never loads one from the
+  // server, so the save target is always `savedProjectId ?? null` (insert) —
+  // this navbar can never UPDATE a row it didn't itself create this session.
+  const [savedProjectId, setSavedProjectId] = useState<string | null>(null)
 
   useEffect(() => {
     if (currentTemplate) {
@@ -121,20 +130,53 @@ function EmbedNavbar() {
     }
   }, [currentTemplate])
 
+  // Persist the design to the app's design_projects table, then notify the
+  // parent frame (`mfa:saved`) so it can navigate back to the project grid.
   const handleDone = async () => {
     if (!editor) return
 
     setIsExporting(true)
     try {
-      const dataUrl = await (editor as any).toPNG({})
+      const session = await resolveEditorSession()
+      if (!session) return // resolveEditorSession is redirecting to login
+      if (demoBlocked(session.isDemo)) return
+      if (!session.workspaceId) {
+        fail('embed', 'Could not save — no workspace found for your account')
+        return
+      }
 
-      sendImageToParent(dataUrl, {
-        name: name,
-        width: (editor as any).frame?.width,
-        height: (editor as any).frame?.height,
+      // Same scenify export the IndexedDB autosave uses (Editor.tsx buildSerialize).
+      const designJson = (editor as any).exportToJSON?.()
+      if (!designJson) {
+        fail('embed', 'Could not save the design')
+        return
+      }
+
+      // Preview is best-effort: the save proceeds without it on failure.
+      let previewUrl: string | null = null
+      try {
+        const dataUrl = await (editor as any).toPNG({})
+        previewUrl = await uploadPreview(APP_URL, session.workspaceId, dataUrl, name)
+      } catch (err) {
+        ignoreError(err, 'design preview upload is best-effort')
+      }
+
+      const savedId = await saveDesignProject({
+        id: savedProjectId,
+        workspaceId: session.workspaceId,
+        userId: session.userId,
+        name,
+        designJson,
+        previewUrl,
       })
+      if (!savedId) {
+        fail('embed', 'Could not save the design')
+        return
+      }
+      setSavedProjectId(savedId)
+      notifySaved(savedId)
     } catch (error) {
-      // silently handled
+      fail('embed', 'Could not save the design', error)
     } finally {
       setIsExporting(false)
     }

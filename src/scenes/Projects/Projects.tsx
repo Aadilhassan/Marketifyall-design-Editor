@@ -15,6 +15,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react'
 import { Project, listProjects, createProject, deleteProject, duplicateProject, patchProject } from '@/utils/projectStore'
+import { log, ignoreError } from '@/lib/logger'
 import CreateModal from './CreateModal'
 import '../../styles/editorial.css'
 
@@ -136,13 +137,13 @@ function Projects() {
             ctx.drawImage(img, 0, 0, w, h)
             stored = c.toDataURL('image/png')
           }
-        } catch {
-          /* keep original */
+        } catch (err) {
+          ignoreError(err, 'thumbnail regeneration — original kept')
         }
         try {
           sessionStorage.setItem('mfa:pendingUpload', stored)
-        } catch {
-          /* image too large for sessionStorage — design still opens */
+        } catch (err) {
+          log.warn('projects', 'thumbnail too large for sessionStorage — design still opens', err)
         }
         const baseName = file.name.replace(/\.[^.]+$/, '') || 'Uploaded image'
         handleCreate(baseName, w, h)

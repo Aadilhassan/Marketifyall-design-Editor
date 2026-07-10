@@ -12,6 +12,7 @@
  * history and frame-clipping in Editor.tsx stay in sync.
  */
 import { Adjustments, applyAdjustments, readAdjustments } from './filters'
+import { ignoreError, log } from '@/lib/logger'
 
 export interface CropInsets {
   left: number // 0..1 fraction of natural width trimmed from the left
@@ -49,14 +50,14 @@ function naturalSize(obj: any): { w: number; h: number } {
 function fire(canvas: any, obj: any) {
   try {
     obj.setCoords && obj.setCoords()
-  } catch {
-    /* ignore */
+  } catch (err) {
+    ignoreError(err, 'image-edit best-effort cleanup')
   }
   if (canvas) {
     try {
       canvas.fire && canvas.fire('object:modified', { target: obj })
-    } catch {
-      /* ignore */
+    } catch (err) {
+      ignoreError(err, 'image-edit best-effort cleanup')
     }
     canvas.requestRenderAll && canvas.requestRenderAll()
   }
@@ -218,8 +219,8 @@ export function replaceImageSource(canvas: any, obj: any, src: string): Promise<
         delete obj.metadata.cropOrigin
         try {
           obj.applyFilters && obj.applyFilters()
-        } catch {
-          /* ignore */
+        } catch (err) {
+          ignoreError(err, 'image-edit best-effort cleanup')
         }
         fire(canvas, obj)
         resolve()
@@ -313,8 +314,8 @@ export function autoEnhance(canvas: any, obj: any): Adjustments | null {
         break
       }
     }
-  } catch {
-    // tainted canvas — fall back to a gentle generic boost
+  } catch (err) {
+    log.warn('imageEdits', 'canvas tainted — using generic enhance fallback', err)
   }
 
   const range = Math.max(1, hi - lo)
@@ -588,8 +589,8 @@ export async function upscaleImage(
         obj.set({ scaleX: displayedW / targetW, scaleY: displayedH / targetH })
         try {
           obj.applyFilters && obj.applyFilters()
-        } catch {
-          /* ignore */
+        } catch (err) {
+          ignoreError(err, 'image-edit best-effort cleanup')
         }
         fire(canvas, obj)
         resolve()

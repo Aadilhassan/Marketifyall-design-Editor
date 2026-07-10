@@ -1,4 +1,5 @@
 import { marketifyallApi } from './marketifyall-api'
+import { log } from '@/lib/logger'
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -89,7 +90,7 @@ export async function sendDesignRequest(
         }
       }
     } catch (parseError) {
-      // silently handled
+      log.warn('ai', 'openrouter response parse fallback', parseError)
     }
 
     return {

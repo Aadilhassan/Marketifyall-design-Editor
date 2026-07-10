@@ -1,5 +1,7 @@
 # Stability & Trust — Phase 0 (Gates & Pins) + Phase 1 (Observability Core) + Phase 2 (The Sweep) Implementation Plan
 
+> **STATUS: COMPLETE ✅ (2026-07-03)** — All 14 tasks executed subagent-driven on branch `feat/stability-phase-0-2` (commits `3bb2fcf..1e6f9d7`), shipped as PR #1 → `main`. Silent-catch lint count driven **119 → 0** and now enforced as CI errors. Final holistic review: ready-to-merge, zero blockers. Known follow-ups (non-empty silent patterns outside the empty-catch scope: `pexels.ts` `return []` catches, `Video.tsx` `onerror`, settle-all idioms) captured in the PR body for a later observability pass. The unchecked `- [ ]` boxes below are the original plan-time checklist, left as the historical record.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** After this plan, no failure in the editor is silent — every catch routes through a logger taxonomy (`fail` / `log.warn` / `ignoreError`), uncaught errors surface globally with toast dedupe, and a brand-new CI pipeline (typecheck + strict-ratchet + tests + safety lint rules + build) enforces it on every push so it cannot regress.
@@ -38,6 +40,7 @@
 3. Catch clauses without a binding (`catch {`) gain one (`catch (err) {`) so the error can be forwarded.
 4. **Do not toast from autosave paths** (`Editor.tsx` save loop) — spec D5 routes those to the Phase 3 status chip; until then they get `log.warn` only.
 5. Line numbers in the tables were measured at plan time — verify with the quoted snippet, and search for the snippet if the file has drifted.
+6. **`fail()` user messages are static strings** — no interpolated filenames/IDs/URLs (dynamic text defeats toast dedupe and churns the eviction map). Put the dynamic part in the `err` argument; it lands in the log entry's `detail`.
 
 ---
 
@@ -336,14 +339,14 @@ const lastToastAt = new Map<string, number>()
 let rateWindowStart = 0
 let rateCount = 0
 
-function describe(err: unknown): string | undefined {
+function describeError(err: unknown): string | undefined {
   if (err instanceof Error) return `${err.name}: ${err.message}`
   if (err === undefined || err === null) return undefined
   return String(err)
 }
 
 function record(level: LogEntry['level'], scope: string, message: string, err?: unknown): void {
-  entries.push({ time: Date.now(), level, scope, message, detail: describe(err) })
+  entries.push({ time: Date.now(), level, scope, message, detail: describeError(err) })
   if (entries.length > RING_SIZE) entries.shift()
   const line = `[${scope}] ${message}`
   if (level === 'error') console.error(line, err !== undefined ? err : '')
@@ -423,6 +426,8 @@ Run the strict typecheck and the full test suite (Conventions). Expected: exit 0
 git add src/lib/logger.ts src/lib/logger.test.ts
 git commit -m "feat(observability): logger core — ring buffer, fail()/ignoreError(), toast dedupe + rate cap"
 ```
+
+> **Post-review hardening (landed as a follow-up commit):** the shipped `logger.ts` additionally guards the `notify()` call in a try/catch (BaseUI's toaster THROWS in dev when no `ToasterContainer` is mounted — i.e. every non-editor route), hardens `describeError` against unstringifiable values (`'[unstringifiable value]'`), wraps `record`'s entire output section (console + beacon) in a never-throw guard with the ring-buffer push outside it, LRU-refreshes the dedupe map (delete-before-set), and adds a dev-only swapped-args warning to `ignoreError`. Test suite grew to 8 (never-throws + exotic-values pinning tests; rate-cap test also asserts suppressed toasts still record). The blocks above show the pre-review core; the shipped files supersede them.
 
 ---
 
@@ -527,7 +532,16 @@ export function installGlobalErrorHandlers(): void {
 
   window.addEventListener('unhandledrejection', (event: Event) => {
     const reason: unknown = (event as PromiseRejectionEvent).reason
-    const message = reason instanceof Error ? reason.message : String(reason)
+    let message = ''
+    if (reason instanceof Error) message = reason.message
+    else {
+      try {
+        message = String(reason)
+      } catch (coerceErr) {
+        void coerceErr
+        message = '' // exotic reason — benign filter simply won't match
+      }
+    }
     if (isBenign(message)) {
       log.debug('global', `benign rejection: ${message}`)
       return
@@ -730,6 +744,8 @@ User-action-dense cluster — most sites become `fail()`.
 | `Templates.tsx:87` | `/* ignore */` | `fail('templates', 'Could not load this template', err)` |
 | `Uploads.tsx:35` | `/* ignore */` | `log.warn('uploads', 'stored uploads unreadable — starting empty', err)` |
 | `Video.tsx:773,909` | `// silently handled` | `fail('video', 'Could not add the video', err)` (both are add/insert paths; verify with context rule) |
+| `Video.tsx:1289` | bare `videoEl.play()` (play/pause toggle — rapid toggling rejects with AbortError, reaching the global handler as a false "Something went wrong" toast) | append `.catch((err) => ignoreError(err, 'play() interrupted by pause'))` |
+| `Video.tsx:1124` | bare `video.play()` (webcam preview) | append `.catch((err) => ignoreError(err, 'preview play() interrupted'))` |
 | `Navbar.tsx:250` | `// silently handled` | context rule — user-triggered (e.g. rename/save action) → `fail('navbar', '<action> failed', err)`; else `log.warn('navbar', …)` |
 | `ExportModal.tsx:427,511,600` | `/* ignore */` | `ignoreError(err, 'export cleanup best-effort')` |
 | `ExportModal.tsx:716,777` | `// silently handled` | `fail('export', 'Export failed', err)` (export steps — user must know) |
@@ -773,6 +789,7 @@ git commit -m "refactor(observability): sweep <cluster> — route silent catches
 **Files:**
 - Modify: `package.json` (`eslintConfig` — `"warn"` → `"error"`)
 - Modify: `.github/workflows/ci.yml`
+- Modify: `src/lib/globalErrors.test.ts` (four review-requested branch tests: benign-rejection path, exotic `Object.create(null)` reason, `error: null` + real-message fallback passing the string as err, and the `Script error.` pattern)
 
 - [ ] **Step 1: Verify zero remaining hits**
 

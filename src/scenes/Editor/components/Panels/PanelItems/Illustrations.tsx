@@ -12,6 +12,7 @@ import {
   LocalIllustration,
 } from '@/services/illustrations'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
+import { fail } from '@/lib/logger'
 import { styled } from 'baseui'
 
 // ── Styled Components ─────────────────────────────────
@@ -196,8 +197,8 @@ function Illustrations() {
         type: 'StaticVector',
         metadata: { svg },
       }, undefined, canvas)
-    } catch {
-      // silently handled
+    } catch (err) {
+      fail('elements', 'Could not add the illustration', err)
     }
 
     setTimeout(() => setAddingId(null), 500)

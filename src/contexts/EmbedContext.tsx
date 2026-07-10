@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
+import { log } from '@/lib/logger'
+import { APP_URL } from '@/lib/supabase'
 
 interface EmbedConfig {
   isEmbedMode: boolean
@@ -15,10 +17,10 @@ interface EmbedConfig {
 
 interface EmbedContextType {
   config: EmbedConfig
-  sendImageToParent: (imageDataUrl: string, metadata?: Record<string, any>) => void
   sendEventToParent: (eventType: string, data?: Record<string, any>) => void
   notifyReady: () => void
   notifyCancel: () => void
+  notifySaved: (projectId: string) => void
 }
 
 const defaultConfig: EmbedConfig = {
@@ -36,10 +38,10 @@ const defaultConfig: EmbedConfig = {
 
 const EmbedContext = createContext<EmbedContextType>({
   config: defaultConfig,
-  sendImageToParent: () => {},
   sendEventToParent: () => {},
   notifyReady: () => {},
   notifyCancel: () => {},
+  notifySaved: () => {},
 })
 
 export const useEmbedMode = () => useContext(EmbedContext)
@@ -103,7 +105,7 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
       try {
         initialImage = decodeURIComponent(imageParam)
       } catch (e) {
-        // silently handled
+        log.warn('embed', 'failed to parse initial image URL parameter', e)
       }
     }
 
@@ -185,10 +187,6 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
           }
           break
 
-        case 'mfa:export':
-          window.dispatchEvent(new CustomEvent('embed:request-export'))
-          break
-
         case 'mfa:close':
           // Parent requests close -- treated as cancel
           // notifyCancel is called via the ref-based approach below
@@ -217,15 +215,19 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
     (eventType: string, data?: Record<string, any>) => {
       if (!config.isEmbedMode) return
 
-      const targetOrigin = validatedOriginRef.current
+      // Same fallback as notifySaved: the app's iframe page doesn't perform
+      // the `mfa:init` nonce handshake, so a handshake-validated origin may
+      // never exist — fall back to the app's own origin so events like
+      // `mfa:closed` (Cancel) still reach it. Always explicit, never '*'.
+      let targetOrigin = validatedOriginRef.current
       if (!targetOrigin) {
-        // No validated origin yet -- cannot send in production
-        if (isDev) {
-          // In dev, allow fallback to '*' only if explicitly no origin set
-          // But prefer not to -- just skip
+        try {
+          targetOrigin = new URL(APP_URL).origin
+        } catch {
+          targetOrigin = null
         }
-        return
       }
+      if (!targetOrigin) return
 
       try {
         window.parent.postMessage(
@@ -238,26 +240,10 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
           targetOrigin
         )
       } catch (error) {
-        // silently handled
+        log.warn('embed', 'failed to dispatch message to parent frame', error)
       }
     },
     [config.isEmbedMode]
-  )
-
-  const sendImageToParent = useCallback(
-    (imageDataUrl: string, metadata?: Record<string, any>) => {
-      sendEventToParent('export', {
-        asset: {
-          url: imageDataUrl,
-          blob: null,
-          width: metadata?.width || null,
-          height: metadata?.height || null,
-          format: imageDataUrl.startsWith('data:image/png') ? 'png' : 'jpeg',
-          name: metadata?.name || 'design',
-        },
-      })
-    },
-    [sendEventToParent]
   )
 
   const notifyReady = useCallback(() => {
@@ -270,6 +256,40 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
   const notifyCancel = useCallback(() => {
     sendEventToParent('closed')
   }, [sendEventToParent])
+
+  // Tell the parent a design was persisted to design_projects. Same
+  // origin-locked postMessage as `mfa:closed`, but with a fallback to the
+  // app's own origin: the app's iframe page doesn't perform the `mfa:init`
+  // nonce handshake, so a handshake-validated origin may never exist. The
+  // target origin is always explicit (never '*').
+  const notifySaved = useCallback(
+    (projectId: string) => {
+      if (!config.isEmbedMode) return
+      let targetOrigin = validatedOriginRef.current
+      if (!targetOrigin) {
+        try {
+          targetOrigin = new URL(APP_URL).origin
+        } catch {
+          targetOrigin = null
+        }
+      }
+      if (!targetOrigin) return
+      try {
+        window.parent.postMessage(
+          {
+            type: 'mfa:saved',
+            projectId,
+            nonce: nonceRef.current,
+            timestamp: Date.now(),
+          },
+          targetOrigin
+        )
+      } catch (error) {
+        log.warn('embed', 'failed to notify parent frame of save', error)
+      }
+    },
+    [config.isEmbedMode]
+  )
 
   // Notify parent when embed is ready
   useEffect(() => {
@@ -284,10 +304,10 @@ export const EmbedProvider: React.FC<EmbedProviderProps> = ({ children }) => {
     <EmbedContext.Provider
       value={{
         config,
-        sendImageToParent,
         sendEventToParent,
         notifyReady,
         notifyCancel,
+        notifySaved,
       }}
     >
       {children}

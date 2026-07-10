@@ -2,6 +2,9 @@
   "name": "marketifyall-design-editor",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
     "@craco/craco": "^6.4.5",
     "@nkyo/scenify-sdk": "^0.3.4",
@@ -9,6 +12,7 @@
     "@samuelmeuli/font-manager": "^1.4.0",
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/auth-ui-react": "^0.4.7",
+    "@supabase/ssr": "0.6.1",
     "@supabase/supabase-js": "^2.50.2",
     "@types/css-font-loading-module": "^0.0.6",
     "@types/i18next": "^13.0.0",
@@ -28,6 +32,7 @@
     "jspdf": "^2.5.2",
     "lucide-react": "^0.555.0",
     "nanoid": "^3.1.22",
+    "patch-package": "^8.0.1",
     "react": "^17.0.2",
     "react-colorful": "^5.4.0",
     "react-custom-scrollbars": "^4.2.1",
@@ -49,12 +54,41 @@
     "test": "craco test",
     "eject": "craco eject",
     "format": "prettier --write src",
-    "postbuild": "react-snap || true; [ -s build/200.html ] || cp build/index.html build/200.html"
+    "postbuild": "react-snap || true; [ -s build/200.html ] || cp build/index.html build/200.html",
+    "postinstall": "patch-package"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
       "react-app/jest"
+    ],
+    "rules": {
+      "no-restricted-syntax": [
+        "error",
+        {
+          "selector": "CatchClause > BlockStatement[body.length=0]",
+          "message": "Silent catch. Route it: fail() for failed user actions, log.warn() for fallbacks, ignoreError(err, reason) for genuinely-benign cases (src/lib/logger)."
+        },
+        {
+          "selector": "CallExpression[callee.property.name='catch'] > ArrowFunctionExpression[body.body.length=0]",
+          "message": "Empty .catch(). Route through fail()/log.warn()/ignoreError() from src/lib/logger."
+        },
+        {
+          "selector": "CallExpression[callee.property.name='catch'] > FunctionExpression[body.body.length=0]",
+          "message": "Empty .catch(). Route through fail()/log.warn()/ignoreError() from src/lib/logger."
+        }
+      ]
+    },
+    "overrides": [
+      {
+        "files": [
+          "**/*.test.ts",
+          "**/*.test.tsx"
+        ],
+        "rules": {
+          "import/first": "off"
+        }
+      }
     ]
   },
   "browserslist": {

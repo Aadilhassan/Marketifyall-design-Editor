@@ -20,6 +20,7 @@ import AnimationDriver from './components/AnimationDriver'
 import ErrorBoundary from '@/components/ErrorBoundary/ErrorBoundary'
 import InsufficientCreditsModal from '@/components/InsufficientCreditsModal'
 import { useCredits } from '@/contexts/CreditsContext'
+import { SaveManagerContext } from '@/contexts/SaveManagerContext'
 import Editor, { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { fabric } from 'fabric'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
@@ -27,6 +28,11 @@ import { addStarterContent, StarterKind } from '@/utils/starterContent'
 import { loadGoogleFont } from '@/utils/fontLoader'
 import { applyWhiteboardBackground } from '@/utils/whiteboard'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
+import { fetchDesignProject, isUuid, markLoadedFromServer, setServerBaseline, contentHashOf } from '@/services/designProjects'
+import { resolveEditorSession, isDemoRequest } from '@/lib/workspaceContext'
+import { createSaveManager, readRecovery, clearRecovery } from '@/utils/saveManager'
+import type { SaveManager } from '@/utils/saveManager'
+import { log, ignoreError, fail } from '@/lib/logger'
 
 interface CanvasObject {
   name?: string
@@ -140,6 +146,8 @@ function App() {
   const [activePage, setActivePage] = useState(0)
   const pagesRef = useRef<PageEntry[]>([])
   const activePageRef = useRef(0)
+  const saveManagerRef = useRef<SaveManager | null>(null)
+  const [saveManager, setSaveManager] = useState<SaveManager | null>(null)
 
   const refreshPages = useCallback(() => setPages([...pagesRef.current]), [])
 
@@ -151,7 +159,8 @@ function App() {
       activePage: idx,
       json: pagesRef.current[idx]?.json ?? null,
       thumbnail: pagesRef.current[idx]?.thumbnail,
-    }).catch(() => {})
+    }).catch((err) => log.warn('autosave', 'failed to persist pages after navigation', err))
+    saveManagerRef.current?.markDirty()
   }, [routeId])
 
   // Snapshot the live canvas into the active page entry.
@@ -169,8 +178,8 @@ function App() {
           thumbnail: cv ? makeThumbnail(cv) : pagesRef.current[idx].thumbnail,
         }
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      log.warn('editor', 'failed to capture current page snapshot before switching pages', err)
     }
   }, [editor])
 
@@ -187,13 +196,13 @@ function App() {
         frameReadyRef.current = true
         try {
           if (opts?.frame && ed.frame?.setSize) ed.frame.setSize(opts.frame)
-        } catch {
-          /* ignore */
+        } catch (err) {
+          log.warn('editor', 'failed to apply frame size to new page', err)
         }
         try {
           ed.zoomToFit?.()
-        } catch {
-          /* ignore */
+        } catch (err) {
+          log.warn('editor', 'zoom-to-fit failed after loading page', err)
         }
         if (opts?.starter) {
           setTimeout(() => {
@@ -240,8 +249,8 @@ function App() {
     try {
       const cur = ed?.exportToJSON?.()
       blank = cur ? { ...cur, objects: [] } : null
-    } catch {
-      /* ignore */
+    } catch (err) {
+      log.warn('editor', 'failed to derive blank page template from current canvas', err)
     }
     pagesRef.current = [...pagesRef.current, { id: genProjectId(), json: blank }]
     loadPageContent(pagesRef.current.length - 1)
@@ -293,7 +302,7 @@ function App() {
   // zoomToFit (keeps all content visible); the delays let the layout + the SDK's
   // resize observer settle before re-fitting.
   const fitDesignToView = useCallback(() => {
-    try { (editor as any)?.zoomToFit?.() } catch { /* ignore */ }
+    try { (editor as any)?.zoomToFit?.() } catch (err) { log.warn('editor', 'zoom-to-fit failed', err) }
   }, [editor])
 
   useEffect(() => {
@@ -308,10 +317,13 @@ function App() {
   const prebuiltJsonUrl = searchParams.get('prebuilt_json_url')
 
   // A plain /design (no project id, no external content) gets a fresh project id
-  // pushed into the URL so the work auto-saves and survives reloads.
+  // pushed into the URL so the work auto-saves and survives reloads. Keep the
+  // query string: save-time code reads ?workspace_id/&embed/&demo from
+  // window.location.search (resolveEditorSession), so dropping it here would
+  // silently save fresh embed designs into the wrong workspace.
   useEffect(() => {
     if (!routeId && !prebuiltJsonUrl && !imgUrl) {
-      history.replace(`/design/${genProjectId()}/edit`)
+      history.replace(`/design/${genProjectId()}/edit${window.location.search}`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -331,16 +343,16 @@ function App() {
     if (panel) {
       try {
         setActivePanel(panel as any)
-      } catch {
-        /* ignore unknown panel */
+      } catch (err) {
+        ignoreError(err, 'unknown panel name from URL param')
       }
     }
     let pendingUpload: string | null = null
     try {
       pendingUpload = sessionStorage.getItem('mfa:pendingUpload')
       if (pendingUpload) sessionStorage.removeItem('mfa:pendingUpload')
-    } catch {
-      /* sessionStorage unavailable */
+    } catch (err) {
+      ignoreError(err, 'sessionStorage unavailable')
     }
     if (pendingUpload) {
       const addWhenReady = (tries = 0) => {
@@ -360,7 +372,7 @@ function App() {
     const starter = searchParams.get('starter') as StarterKind | null
     if (starter === 'whiteboard') {
       setIsWhiteboard(true)
-      if (routeId) patchProject(routeId, { kind: 'whiteboard' }).catch(() => {})
+      if (routeId) patchProject(routeId, { kind: 'whiteboard' }).catch((err) => log.warn('autosave', 'could not persist whiteboard kind', err))
     }
     if (starter === 'doc' || starter === 'whiteboard') {
       const addStarterWhenReady = (tries = 0) => {
@@ -392,8 +404,8 @@ function App() {
             try {
               obj.dirty = true
               cv.requestRenderAll()
-            } catch {
-              /* ignore */
+            } catch (err) {
+              log.warn('editor', 'failed to re-render canvas after font load', err)
             }
           })
         }
@@ -513,19 +525,98 @@ function App() {
     } else if (imgUrl) {
       handleLoadImageTemplate(imgUrl)
     } else if (routeId) {
-      // Restore a saved design from local storage (IndexedDB). Pause auto-save
-      // (frameReadyRef) until the frame is settled, so it can't persist the
-      // editor's default 1280x720 frame before the chosen format is applied.
+      // Pause auto-save (frameReadyRef) until the frame is settled, so it can't
+      // persist the editor's default 1280x720 frame before the chosen format is
+      // applied. Authoritative load order: design_projects (server) →
+      // IndexedDB (incl. recovery snapshot) → blank. IndexedDB autosave keeps
+      // running for server-backed designs too (crash recovery).
       frameReadyRef.current = false
-      getProject(routeId)
+
+      // Server-backed design (UUID route ids come from the app's project grid).
+      // Resolves true when handled (loaded or redirecting to login); false lets
+      // the local IndexedDB restore below take over.
+      const loadRemoteDesign = async (): Promise<boolean> => {
+        const session = await resolveEditorSession()
+        if (!session) return true // resolveEditorSession is redirecting to login
+        const result = await fetchDesignProject(routeId)
+        if (!result.ok) {
+          // Transient fetch error: do NOT mark the id as loaded-from-server —
+          // a later save must INSERT a copy rather than blindly UPDATE (and
+          // possibly blank-overwrite) a row we never saw. Warn, then fall
+          // through to the local IndexedDB restore.
+          fail('editor', "Couldn't load this design — a new copy will be created if you save")
+          return false
+        }
+        const record = result.record
+        if (!record) return false // genuinely no row — local restore; save will INSERT
+        // Confirmed to exist on the server: saves may UPDATE this id in place.
+        markLoadedFromServer(routeId)
+        const ed = editor as any
+        // Seed the navbar name from the saved record (Navbar mirrors
+        // currentTemplate.name into its name input).
+        setCurrentTemplate(prev => ({ ...(prev ?? {}), name: record.name || 'Untitled design' }))
+        const json: any = record.design_json ?? null
+        // Defensively drop null/typeless objects (same guard as the local restore).
+        if (json && Array.isArray(json.objects)) {
+          json.objects = json.objects.filter((o: any) => o && o.type)
+        }
+        const initialPages: PageEntry[] = [{ id: genProjectId(), json }]
+        pagesRef.current = initialPages
+        activePageRef.current = 0
+        setActivePage(0)
+        setPages([...initialPages])
+        if (json && json.frame && typeof ed.importFromJSON === 'function') {
+          // Same scenify import the local restore below uses — rebuilds frame,
+          // clipping, zoom & animations.
+          try {
+            const r = ed.importFromJSON(json)
+            const done = () => {
+              frameReadyRef.current = true
+              setTimeout(fitDesignToView, 450)
+              // Baseline for the navbar's unsaved-changes check, captured in
+              // exportToJSON space (the import normalizes objects, so hashing
+              // the raw record json would always read as "dirty").
+              try {
+                const exported = ed.exportToJSON?.()
+                if (exported) setServerBaseline(routeId, contentHashOf(exported))
+              } catch (err) {
+                ignoreError(err, 'unsaved-changes baseline is best-effort')
+              }
+            }
+            if (r && typeof r.then === 'function') r.then(done).catch(done)
+            else setTimeout(done, 500)
+          } catch {
+            frameReadyRef.current = true
+          }
+        } else {
+          frameReadyRef.current = true
+        }
+        return true
+      }
+
+      // Restore a saved design from local storage (IndexedDB).
+      const restoreFromLocal = () => getProject(routeId)
         .then(project => {
           const ed = editor as any
           const restoreCanvas = getFabricCanvas(editor)
+          // If a recovery snapshot (written on the last tab-close while dirty) is
+          // newer than the persisted project, offer to restore it. Merge it OVER
+          // the project so frame/kind (which the snapshot doesn't capture) come
+          // from the saved project while the fresher content wins. Decline clears
+          // the stale snapshot so it isn't re-offered.
+          const snap = readRecovery(routeId)
+          const projectUpdatedAt = (project as any)?.updatedAt || 0
+          const useSnapshot =
+            !!snap && snap.savedAt > projectUpdatedAt &&
+            // eslint-disable-next-line no-restricted-globals
+            window.confirm('You have unsaved changes from your last session. Restore them?')
+          if (snap && !useSnapshot) clearRecovery(routeId)
+          const source: any = useSnapshot ? { ...project, ...snap!.payload } : project
           // Apply the chosen format size with setSize() (resizes BOTH frame and
           // background — update() leaves the background, stacking a 2nd rect).
           // Only while the design is still blank, so real content / a user resize wins.
           const applyFormatIfBlank = () => {
-            const frame = project?.frame
+            const frame = source?.frame
             if (!frame) {
               frameReadyRef.current = true
               return
@@ -539,8 +630,8 @@ function App() {
                 if (userObjs === 0) {
                   try {
                     ed.frame.setSize(frame)
-                  } catch {
-                    /* ignore */
+                  } catch (err) {
+                    log.warn('editor', 'failed to apply saved frame size on restore', err)
                   }
                 }
                 frameReadyRef.current = true
@@ -557,8 +648,8 @@ function App() {
           // the persisted clips back into VideoContext — so a reloaded design keeps
           // its timeline and live video instead of degrading to a static poster.
           const restoreVideoClips = () => {
-            const savedClips: any[] = (project as any)?.clips || []
-            const savedAudio: any[] = (project as any)?.audioClips || []
+            const savedClips: any[] = (source as any)?.clips || []
+            const savedAudio: any[] = (source as any)?.audioClips || []
             if (!savedClips.length && !savedAudio.length) return
             let tries = 0
             const attempt = () => {
@@ -586,7 +677,7 @@ function App() {
                 obj.metadata.duration = clip.duration
                 if (!clip.poster && obj.metadata.src) clip.poster = obj.metadata.src
                 obj.id = clip.id
-                try { obj.set('selectable', false); obj.set('hasControls', false); obj.set('hasBorders', false) } catch { /* ignore */ }
+                try { obj.set('selectable', false); obj.set('hasControls', false); obj.set('hasBorders', false) } catch (err) { log.warn('editor', 'failed to lock relinked video object controls', err) }
               })
               cv?.requestRenderAll?.()
               restoreState(savedClips as any, savedAudio as any)
@@ -597,15 +688,15 @@ function App() {
           // Initialise multi-page state. Legacy single-page projects (no `pages`)
           // are migrated to a single page wrapping their json.
           const initialPages: PageEntry[] =
-            project?.pages && project.pages.length
-              ? project.pages
-              : [{ id: genProjectId(), json: project?.json ?? null, thumbnail: project?.thumbnail }]
-          const initActive = Math.min(Math.max(0, project?.activePage ?? 0), initialPages.length - 1)
+            source?.pages && source.pages.length
+              ? source.pages
+              : [{ id: genProjectId(), json: source?.json ?? null, thumbnail: source?.thumbnail }]
+          const initActive = Math.min(Math.max(0, source?.activePage ?? 0), initialPages.length - 1)
           pagesRef.current = initialPages
           activePageRef.current = initActive
           setActivePage(initActive)
           setPages([...initialPages])
-          if (project?.kind === 'whiteboard') setIsWhiteboard(true)
+          if (source?.kind === 'whiteboard') setIsWhiteboard(true)
 
           const json = initialPages[initActive]?.json
           // Defensively drop any null/undefined/typeless objects — a single bad
@@ -636,8 +727,8 @@ function App() {
               restoreCanvas.renderAll?.()
               try {
                 ed.zoomToFit?.()
-              } catch {
-                /* ignore */
+              } catch (err) {
+                log.warn('editor', 'zoom-to-fit failed after legacy restore', err)
               }
               applyFormatIfBlank()
               restoreVideoClips()
@@ -649,81 +740,96 @@ function App() {
         .catch(() => {
           frameReadyRef.current = true
         })
+
+      if (isUuid(routeId)) {
+        loadRemoteDesign()
+          .then(handled => {
+            if (!handled) restoreFromLocal()
+          })
+          .catch(err => {
+            log.warn('editor', 'server design load failed — falling back to local restore', err)
+            restoreFromLocal()
+          })
+      } else {
+        // Redirect logged-out standalone visitors to login on load, not only
+        // at save time (resolveEditorSession redirects internally). Fire-and-
+        // forget so canvas init never blocks on it. Demo visits are
+        // intentionally unauthenticated — don't kick them to login.
+        if (!isDemoRequest()) {
+          resolveEditorSession().catch(err => log.warn('editor', 'session resolve on load failed', err))
+        }
+        restoreFromLocal()
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
-  // Auto-save the design so reloads never lose work: a periodic safety-net
-  // interval (canvas events can be missed) plus a debounced save on changes.
+  // Auto-save via saveManager: content-hash change detection, a status chip,
+  // retry/backoff, and unload-time recovery snapshots (replaces the old inline
+  // length-signature loop). All editor-specific serialization stays here.
   useEffect(() => {
     if (!editor || !routeId) return
-    let timer: ReturnType<typeof setTimeout> | undefined
-    let cancelled = false
-    let lastSig = ''
-
-    const save = () => {
-      if (cancelled || !frameReadyRef.current) return
-      try {
-        const ed = editor as any
-        // Use scenify's exportToJSON (frame + objects + background) so importFromJSON
-        // can rebuild the design — frame, clipping, zoom and animations — on restore.
-        const json = typeof ed.exportToJSON === 'function' ? ed.exportToJSON() : null
-        if (!json) return
-        const objs = json.objects || []
-        const cv = getFabricCanvas(editor)
-        const liveObjs: any[] = cv?.getObjects?.() || []
-        // Persist the timeline clips with the design. exportToJSON strips our video
-        // metadata and clips live only in React state, so without this a reload
-        // loses the timeline and the video reverts to a static image. Tag each clip
-        // with its canvas object id so it can be relinked to its object on load.
-        const clipsToSave = clipsRef.current.map(c => {
-          const obj = liveObjs.find(o => o.metadata?.id === c.id || o.id === c.id)
-          return { ...c, canvasObjectId: obj?.id || (c as any).canvasObjectId }
-        })
-        const audioToSave = audioClipsRef.current
-        // Lightweight clip/audio signature (id + position + duration) — avoids
-        // re-stringifying the large poster data-URLs on every 2s save tick.
-        const clipSig = clipsToSave.map(c => `${c.id}:${c.start}:${c.duration}:${c.canvasObjectId || ''}`).join(',')
-        const audioSig = audioToSave.map((a: any) => `${a.id}:${a.start}:${a.duration}:${a.volume}`).join(',')
-        const sig = objs.length + ':' + JSON.stringify(objs).length + '|' + clipSig + '|' + audioSig
-        if (sig === lastSig) return
-        lastSig = sig
-        // Write the live canvas into the active page, then persist the whole
-        // pages array so multi-page designs survive reloads.
-        const thumb = cv ? makeThumbnail(cv) : undefined
-        if (pagesRef.current.length === 0) pagesRef.current = [{ id: genProjectId(), json: null }]
-        const idx = Math.min(activePageRef.current, pagesRef.current.length - 1)
-        pagesRef.current[idx] = { ...pagesRef.current[idx], json, thumbnail: thumb }
-        patchProject(routeId, {
-          pages: pagesRef.current,
-          activePage: idx,
-          json,
-          clips: clipsToSave,
-          audioClips: audioToSave,
-          thumbnail: thumb,
-        }).catch(() => {})
-      } catch {
-        /* ignore save errors */
+    const buildSerialize = () => {
+      if (!frameReadyRef.current) return null
+      const ed = editor as any
+      // Use scenify's exportToJSON (frame + objects + background) so importFromJSON
+      // can rebuild the design — frame, clipping, zoom and animations — on restore.
+      const json = typeof ed.exportToJSON === 'function' ? ed.exportToJSON() : null
+      if (!json) return null
+      const objs = json.objects || []
+      const cv = getFabricCanvas(editor)
+      const liveObjs: any[] = cv?.getObjects?.() || []
+      // Persist the timeline clips with the design. exportToJSON strips our video
+      // metadata and clips live only in React state, so without this a reload
+      // loses the timeline and the video reverts to a static image. Tag each clip
+      // with its canvas object id so it can be relinked to its object on load.
+      const clipsToSave = clipsRef.current.map(c => {
+        const obj = liveObjs.find(o => o.metadata?.id === c.id || o.id === c.id)
+        return { ...c, canvasObjectId: obj?.id || (c as any).canvasObjectId }
+      })
+      const audioToSave = audioClipsRef.current
+      const clipSig = clipsToSave.map(c => `${c.id}:${c.start}:${c.duration}:${c.canvasObjectId || ''}`).join(',')
+      const audioSig = audioToSave.map((a: any) => `${a.id}:${a.start}:${a.duration}:${a.volume}`).join(',')
+      // changeKey hashes CONTENT (objects JSON), not byte-length — catches
+      // same-length edits the old signature skipped.
+      const changeKey = JSON.stringify(objs) + '|' + clipSig + '|' + audioSig
+      // Write the live canvas into the active page, then persist the whole
+      // pages array so multi-page designs survive reloads.
+      const thumb = cv ? makeThumbnail(cv) : undefined
+      if (pagesRef.current.length === 0) pagesRef.current = [{ id: genProjectId(), json: null }]
+      const idx = Math.min(activePageRef.current, pagesRef.current.length - 1)
+      pagesRef.current[idx] = { ...pagesRef.current[idx], json, thumbnail: thumb }
+      return {
+        payload: { pages: pagesRef.current, activePage: idx, json, clips: clipsToSave, audioClips: audioToSave, thumbnail: thumb },
+        changeKey,
       }
     }
-    const schedule = () => {
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(save, 600)
-    }
+
+    let escalated = false
+    const manager = createSaveManager({
+      serialize: buildSerialize,
+      persist: (payload) => patchProject(routeId, payload).then(() => undefined),
+      projectId: routeId,
+      onEscalate: (msg) => { if (!escalated) { escalated = true; fail('autosave', msg) } },
+    })
+    saveManagerRef.current = manager
+    setSaveManager(manager)
+    const removeUnload = manager.installUnloadHandlers()
 
     const cv = getFabricCanvas(editor)
-    cv?.on?.('object:added', schedule)
-    cv?.on?.('object:modified', schedule)
-    cv?.on?.('object:removed', schedule)
-    const interval = setInterval(save, 2000)
+    const onChange = () => manager.markDirty()
+    cv?.on?.('object:added', onChange)
+    cv?.on?.('object:modified', onChange)
+    cv?.on?.('object:removed', onChange)
 
     return () => {
-      cancelled = true
-      if (timer) clearTimeout(timer)
-      clearInterval(interval)
-      cv?.off?.('object:added', schedule)
-      cv?.off?.('object:modified', schedule)
-      cv?.off?.('object:removed', schedule)
+      removeUnload()
+      cv?.off?.('object:added', onChange)
+      cv?.off?.('object:modified', onChange)
+      cv?.off?.('object:removed', onChange)
+      manager.dispose()
+      saveManagerRef.current = null
+      setSaveManager(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, routeId])
@@ -788,8 +894,8 @@ function App() {
           obj.setCoords()
           canvas.requestRenderAll?.()
         }
-      } catch {
-        // Canvas not ready or object invalid
+      } catch (err) {
+        ignoreError(err, 'canvas not ready for constrain pass')
       }
     }
 
@@ -845,8 +951,8 @@ function App() {
         }
         ;(canvas as any).controlsAboveOverlay = true
         canvas.requestRenderAll?.()
-      } catch {
-        // Clipping setup failed
+      } catch (err) {
+        log.warn('editor', 'frame clipping setup failed', err)
       }
     }
 
@@ -886,7 +992,9 @@ function App() {
     >
       <ToasterContainer placement={PLACEMENT.bottomRight} autoHideDuration={4500} />
       <div style={{ position: 'relative', zIndex: 100 }}>
-        <Navbar />
+        <SaveManagerContext.Provider value={saveManager}>
+          <Navbar />
+        </SaveManagerContext.Provider>
       </div>
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         <ErrorBoundary fallback={<div style={{ padding: 20, color: '#ef4444' }}>Panel failed to load</div>}>
