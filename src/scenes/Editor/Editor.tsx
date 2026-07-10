@@ -28,7 +28,7 @@ import { addStarterContent, StarterKind } from '@/utils/starterContent'
 import { loadGoogleFont } from '@/utils/fontLoader'
 import { applyWhiteboardBackground } from '@/utils/whiteboard'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
-import { fetchDesignProject, isUuid, markLoadedFromServer } from '@/services/designProjects'
+import { fetchDesignProject, isUuid, markLoadedFromServer, setServerBaseline, contentHashOf } from '@/services/designProjects'
 import { resolveEditorSession, isDemoRequest } from '@/lib/workspaceContext'
 import { createSaveManager, readRecovery, clearRecovery } from '@/utils/saveManager'
 import type { SaveManager } from '@/utils/saveManager'
@@ -573,6 +573,15 @@ function App() {
             const done = () => {
               frameReadyRef.current = true
               setTimeout(fitDesignToView, 450)
+              // Baseline for the navbar's unsaved-changes check, captured in
+              // exportToJSON space (the import normalizes objects, so hashing
+              // the raw record json would always read as "dirty").
+              try {
+                const exported = ed.exportToJSON?.()
+                if (exported) setServerBaseline(routeId, contentHashOf(exported))
+              } catch (err) {
+                ignoreError(err, 'unsaved-changes baseline is best-effort')
+              }
             }
             if (r && typeof r.then === 'function') r.then(done).catch(done)
             else setTimeout(done, 500)

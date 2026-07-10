@@ -9,8 +9,16 @@ import { useCredits } from '@/contexts/CreditsContext'
 import { fail, ignoreError } from '@/lib/logger'
 import { notify } from '@/lib/notify'
 import { APP_URL } from '@/lib/supabase'
-import { resolveEditorSession, demoBlocked } from '@/lib/workspaceContext'
-import { saveDesignProject, uploadPreview, isUuid, wasLoadedFromServer } from '@/services/designProjects'
+import { resolveEditorSession, demoBlocked, isDemoRequest } from '@/lib/workspaceContext'
+import {
+  saveDesignProject,
+  uploadPreview,
+  isUuid,
+  wasLoadedFromServer,
+  setServerBaseline,
+  getServerBaseline,
+  contentHashOf,
+} from '@/services/designProjects'
 import { useSaveManager } from '@/contexts/SaveManagerContext'
 import SaveStatusChip from '@/components/SaveStatusChip'
 import Resize from './components/Resize'
@@ -223,7 +231,7 @@ function NavbarEditor() {
   const editor = useEditor()
   const history = useHistory()
   const { currentTemplate, setActivePanel } = useAppContext()
-  const { config, notifySaved, notifyCancel } = useEmbedMode()
+  const { config, notifyCancel } = useEmbedMode()
   const { balance } = useCredits()
   const saveManager = useSaveManager()
   const { id: routeId } = useParams<{ id?: string }>()
@@ -294,12 +302,15 @@ function NavbarEditor() {
         return
       }
       setSavedProjectId(savedId)
+      // What the server now holds — the Back button's unsaved-changes check
+      // compares against this.
+      setServerBaseline(savedId, contentHashOf(designJson))
 
-      if (config.isEmbedMode) {
-        notifySaved(savedId)
-      } else {
-        notify('Design saved', 'positive')
-        if (routeId !== savedId) history.push(`/design/${savedId}/edit`)
+      notify('Design saved', 'positive')
+      // Move a fresh design onto its server id, keeping the query string —
+      // embed=true/demo=true/workspace_id all live there.
+      if (routeId !== savedId) {
+        history.replace(`/design/${savedId}/edit${window.location.search}`)
       }
     } catch (error) {
       fail('navbar', 'Could not save your design — please try again', error)
@@ -308,16 +319,47 @@ function NavbarEditor() {
     }
   }
 
-  // Handle cancel in embed mode
-  const handleEmbedCancel = () => {
+  // Back to the dashboard grid (embed mode). Warns when the canvas has
+  // changed since the last save; demo sessions skip the warning since they
+  // can't save anyway.
+  const handleEmbedBack = () => {
+    if (!isDemoRequest()) {
+      let dirty = false
+      try {
+        const exported = (editor as any)?.exportToJSON?.()
+        if (exported) {
+          const id = savedProjectId ?? (routeId && isUuid(routeId) ? routeId : null)
+          const baseline = id ? getServerBaseline(id) : null
+          dirty =
+            baseline !== null
+              ? contentHashOf(exported) !== baseline
+              : (exported.objects?.length ?? 0) > 0
+        }
+      } catch (err) {
+        ignoreError(err, 'unsaved-changes check is best-effort')
+      }
+      if (dirty && !window.confirm('You have unsaved changes. Leave without saving?')) {
+        return
+      }
+    }
     notifyCancel()
   }
 
-  // If in embed mode, show simplified navbar with Done button
+  // Embed mode: an editor navbar, not an export dialog — Back returns to the
+  // dashboard grid (with an unsaved-changes warning), Save persists and stays
+  // in the editor.
   if (config.isEmbedMode) {
     return (
       <Container>
         <LeftSection>
+          <CancelButton onClick={handleEmbedBack}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+            Back
+          </CancelButton>
+          <Divider />
           {config.showBranding && (
             <>
               <Logo style={{ cursor: 'default' }}>
@@ -344,13 +386,6 @@ function NavbarEditor() {
         </CenterSection>
 
         <RightSection>
-          <CancelButton onClick={handleEmbedCancel}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-            Cancel
-          </CancelButton>
           <DoneButton onClick={handleSaveDesign} disabled={isExporting}>
             {isExporting ? (
               <>
@@ -364,7 +399,7 @@ function NavbarEditor() {
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
-                Done
+                Save
               </>
             )}
           </DoneButton>

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { fnv1a } from '../utils/saveManager'
 
 export interface DesignProjectRecord {
   id: string
@@ -41,6 +42,25 @@ export function markLoadedFromServer(id: string): void {
 
 export function wasLoadedFromServer(id: string): boolean {
   return serverLoadedIds.has(id)
+}
+
+// Content hash of what the server last saw for a design id, in exportToJSON
+// space (captured after import settles, and again on every successful save).
+// The embed navbar's Back button compares against this to warn about unsaved
+// changes. Hash both sides with contentHashOf so the comparison is apples to
+// apples.
+const serverBaselines = new Map<string, string>()
+
+export function contentHashOf(designJson: unknown): string {
+  return fnv1a(JSON.stringify(designJson ?? null))
+}
+
+export function setServerBaseline(id: string, contentHash: string): void {
+  serverBaselines.set(id, contentHash)
+}
+
+export function getServerBaseline(id: string): string | null {
+  return serverBaselines.get(id) ?? null
 }
 
 export async function saveDesignProject(opts: {
