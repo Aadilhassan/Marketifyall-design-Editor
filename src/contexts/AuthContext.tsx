@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { ignoreError } from '@/lib/logger'
 
 interface AuthContextType {
   user: User | null
@@ -42,28 +43,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     getInitialSession()
 
+    // Create user profile if signing up. Deferred out of the auth callback:
+    // supabase-js emits auth events while holding its exclusive auth lock
+    // (lock:sb-*-auth-token), and any awaited supabase call inside the
+    // callback needs that same lock to attach the access token — deadlocking
+    // the client (every later getUser/getSession queues forever).
+    const ensureProfile = async (authedUser: User) => {
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', authedUser.id)
+        .single()
+
+      if (!existingUser) {
+        await supabase.from('users').insert({
+          id: authedUser.id,
+          email: authedUser.email,
+          name: authedUser.user_metadata?.name || authedUser.email?.split('@')[0],
+        })
+      }
+    }
+
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
 
-        // Create user profile if signing up
         if (event === 'SIGNED_IN' && session?.user) {
-          const { data: existingUser } = await supabase
-            .from('users')
-            .select('id')
-            .eq('id', session.user.id)
-            .single()
-
-          if (!existingUser) {
-            await supabase.from('users').insert({
-              id: session.user.id,
-              email: session.user.email,
-              name: session.user.user_metadata?.name || session.user.email?.split('@')[0],
-            })
-          }
+          const authedUser = session.user
+          setTimeout(() => {
+            ensureProfile(authedUser).catch(err =>
+              ignoreError(err, 'profile creation is best-effort; the app repairs missing rows'),
+            )
+          }, 0)
         }
       }
     )
