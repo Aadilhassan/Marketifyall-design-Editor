@@ -9,7 +9,7 @@ import { useCredits } from '@/contexts/CreditsContext'
 import { fail, ignoreError } from '@/lib/logger'
 import { notify } from '@/lib/notify'
 import { APP_URL } from '@/lib/supabase'
-import { resolveEditorSession } from '@/lib/workspaceContext'
+import { resolveEditorSession, demoBlocked } from '@/lib/workspaceContext'
 import { saveDesignProject, uploadPreview, isUuid } from '@/services/designProjects'
 import { useSaveManager } from '@/contexts/SaveManagerContext'
 import SaveStatusChip from '@/components/SaveStatusChip'
@@ -253,7 +253,7 @@ function NavbarEditor() {
     try {
       const session = await resolveEditorSession()
       if (!session) return // resolveEditorSession is redirecting to login
-      // NOTE(Task 8): demo-mode guard goes here (session.isDemo → demo prompt).
+      if (demoBlocked(session.isDemo)) return
       if (!session.workspaceId) {
         fail('navbar', 'Could not save — no workspace found for your account')
         return

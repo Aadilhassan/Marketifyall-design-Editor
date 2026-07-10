@@ -6,7 +6,7 @@ import { useEmbedMode } from '@/contexts/EmbedContext'
 import { useCredits } from '@/contexts/CreditsContext'
 import { fail, ignoreError } from '@/lib/logger'
 import { APP_URL } from '@/lib/supabase'
-import { resolveEditorSession } from '@/lib/workspaceContext'
+import { resolveEditorSession, demoBlocked } from '@/lib/workspaceContext'
 import { saveDesignProject, uploadPreview } from '@/services/designProjects'
 
 const Container = styled('div', {
@@ -137,7 +137,7 @@ function EmbedNavbar() {
     try {
       const session = await resolveEditorSession()
       if (!session) return // resolveEditorSession is redirecting to login
-      // NOTE(Task 8): demo-mode guard goes here (session.isDemo → demo prompt).
+      if (demoBlocked(session.isDemo)) return
       if (!session.workspaceId) {
         fail('embed', 'Could not save — no workspace found for your account')
         return

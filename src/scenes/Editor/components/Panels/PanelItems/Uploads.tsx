@@ -5,7 +5,7 @@ import DropZone from '@components/Dropzone'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
 import { log } from '@/lib/logger'
 import { supabase, APP_URL } from '@/lib/supabase'
-import { resolveEditorSession, EditorSession } from '@/lib/workspaceContext'
+import { resolveEditorSession, demoBlocked, EditorSession } from '@/lib/workspaceContext'
 import { uploadMediaFile } from '@/services/designProjects'
 
 // ─── Local uploads storage ───────────────────────────────────
@@ -129,6 +129,8 @@ function Uploads() {
 
   const processFile = useCallback(async (file: File) => {
     if (!file || !file.type.startsWith('image/')) return
+    // Demo uploads must not hit the media API — prompt sign-up instead.
+    if (session && demoBlocked(session.isDemo)) return
     setIsProcessing(true)
     try {
       // Upload through the app so the file lands in workspace media…

@@ -11,6 +11,18 @@ export interface EditorSession {
  * the embed query param; standalone visits fall back to the user's first
  * active membership. No session → redirect to the app login.
  */
+/**
+ * Demo sessions can't persist anything — prompt sign-up instead. Returns true
+ * when the caller should bail out (demo mode).
+ */
+export function demoBlocked(isDemo: boolean): boolean {
+  if (!isDemo) return false
+  if (window.confirm("You're exploring the demo. Sign up free to save designs — open the sign-up page?")) {
+    window.open(`${APP_URL}/auth/sign-up?from=demo`, '_blank')
+  }
+  return true
+}
+
 export async function resolveEditorSession(): Promise<EditorSession | null> {
   const {
     data: { user },
