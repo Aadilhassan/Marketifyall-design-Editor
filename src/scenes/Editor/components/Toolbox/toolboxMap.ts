@@ -22,6 +22,7 @@ export const toolboxOptions: Record<string, string> = {
   polyline: 'Shape',
   // grouped SVGs (icons / illustrations) and standalone paths get a real toolbar
   group: 'StaticVector',
+  vectorGroup: 'StaticVector',
   Group: 'StaticVector',
   path: 'StaticPath',
   Path: 'StaticPath',

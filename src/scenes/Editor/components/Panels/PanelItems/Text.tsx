@@ -440,7 +440,7 @@ function Panel() {
             height: '44px',
             borderRadius: '6px',
             background:
-              'linear-gradient(135deg, #5A3FFF 0%, #8A5BFF 40%, #C55BFF 100%)',
+              '#181410',
             color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
@@ -488,8 +488,8 @@ function Panel() {
                     style={{
                       padding: '1rem',
                       borderRadius: '10px',
-                      background: '#fafafa',
-                      color: '#6b6b6b',
+                      background: '#fbf9f4',
+                      color: '#736d5c',
                       fontSize: '0.85rem',
                     }}
                   >
@@ -505,7 +505,7 @@ function Panel() {
                     fontWeight: 600,
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
-                    color: '#6b6b6b',
+                    color: '#736d5c',
                     margin: '0.75rem 0 0.25rem',
                   }}
                 >
@@ -547,7 +547,7 @@ function Panel() {
                         <div
                           style={{
                             fontSize: '0.8rem',
-                            color: '#666666',
+                            color: '#736d5c',
                           }}
                         >
                           {preset.fontFamily}
@@ -563,7 +563,7 @@ function Panel() {
                     fontWeight: 600,
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
-                    color: '#6b6b6b',
+                    color: '#736d5c',
                     margin: '1.25rem 0 0.25rem',
                   }}
                 >
@@ -598,7 +598,7 @@ function Panel() {
                         <div
                           style={{
                             fontSize: '0.8rem',
-                            color: '#666666',
+                            color: '#736d5c',
                           }}
                         >
                           {preset.fontFamily}
@@ -627,7 +627,7 @@ function Panel() {
 const fontsLabelStyle: React.CSSProperties = {
   fontSize: '0.78rem',
   fontWeight: 600,
-  color: '#6b6b6b',
+  color: '#736d5c',
   margin: '0.75rem 0 0.25rem',
 }
 
@@ -642,18 +642,18 @@ function QuickButton({ icon, label, onClick }: { icon: React.ReactNode; label: s
         gap: 8,
         padding: '10px 12px',
         borderRadius: 8,
-        border: '1px solid #e5e7eb',
+        border: '1px solid #e6e0d2',
         background: '#fff',
-        color: '#374151',
+        color: '#3a352b',
         fontWeight: 600,
         fontSize: 13,
         cursor: 'pointer',
         transition: 'border-color .12s, background .12s',
       }}
     >
-      <span style={{ color: '#6366f1', display: 'flex' }}>{icon}</span>
+      <span style={{ color: '#d8401c', display: 'flex' }}>{icon}</span>
       {label}
-      <style>{`.mfa-quick-btn:hover{border-color:#6366f1 !important;background:#f8fafc !important}`}</style>
+      <style>{`.mfa-quick-btn:hover{border-color:#d8401c !important;background:#fbf9f4 !important}`}</style>
     </button>
   )
 }
@@ -673,10 +673,10 @@ function FontRow({ family, onClick }: { family: string; onClick: () => void }) {
         transition: 'box-shadow .12s',
       }}
     >
-      <div style={{ fontFamily: `'${family}', 'Helvetica Neue', sans-serif`, fontSize: 22, lineHeight: 1.2, color: '#1f2937' }}>
+      <div style={{ fontFamily: `'${family}', 'Helvetica Neue', sans-serif`, fontSize: 22, lineHeight: 1.2, color: '#181410' }}>
         {family}
       </div>
-      <style>{`.mfa-font-row:hover{box-shadow:0 0 0 1px #6366f1 !important}`}</style>
+      <style>{`.mfa-font-row:hover{box-shadow:0 0 0 1px #d8401c !important}`}</style>
     </div>
   )
 }

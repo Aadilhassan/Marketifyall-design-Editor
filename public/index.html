@@ -4,8 +4,8 @@
 <head>
   <meta charset="utf-8" />
   <link rel="icon" href="%PUBLIC_URL%/logo.png" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#7c3aed" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#181410" />
   <script>
     // Early polyfill for process used by some libraries
     window.process = window.process || {
@@ -14,6 +14,25 @@
       nextTick: function (cb) { setTimeout(cb, 0); }
     };
     var process = window.process;
+  </script>
+
+  <!-- Microsoft Clarity -->
+  <script type="text/javascript">
+    (function(c,l,a,r,i,t,y){
+        c[a] = c[a] || function () { (c[a].q = c[a].q || []).push(arguments) };
+        t=l.createElement(r); t.async=1; t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0]; y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "uksh0pa27e");
+  </script>
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-7FLSVG6EYK"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-7FLSVG6EYK');
   </script>
 
   <!-- Primary Meta Tags -->

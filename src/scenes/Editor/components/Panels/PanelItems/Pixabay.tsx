@@ -16,7 +16,7 @@ const Container = styled('div', {
 
 const SearchSection = styled('div', {
   padding: '16px 20px',
-  borderBottom: '1px solid #e8e8e8',
+  borderBottom: '1px solid #e6e0d2',
 })
 
 const ImageGrid = styled('div', {
@@ -32,7 +32,7 @@ const ImageItem = styled('div', ({ $loading }: { $loading?: boolean }) => ({
   overflow: 'hidden',
   cursor: $loading ? 'wait' : 'pointer',
   aspectRatio: '1',
-  backgroundColor: '#f5f5f5',
+  backgroundColor: '#f3efe4',
   transition: 'transform 0.15s, box-shadow 0.15s',
   opacity: $loading ? 0.6 : 1,
   ':hover': {
@@ -76,7 +76,7 @@ const PixabayBadge = styled('div', {
   padding: '8px 16px',
   fontSize: '11px',
   color: '#888',
-  borderTop: '1px solid #e8e8e8',
+  borderTop: '1px solid #e6e0d2',
 })
 
 function Pixabay() {
@@ -115,11 +115,6 @@ function Pixabay() {
     try {
       const imageUrl = image.largeImageURL || image.webformatURL
 
-      // Calculate scale to fit
-      const frameWidth = frameSize?.width || 900
-      const frameHeight = frameSize?.height || 1200
-      const maxWidth = frameWidth * 0.7
-      const maxHeight = frameHeight * 0.7
 
       // We don't have dimensions easily in the service without preloading
       // But we can let addObjectToCanvas handle it if we don't pass them,
@@ -127,17 +122,7 @@ function Pixabay() {
 
       const img = new Image()
       img.onload = () => {
-        const imgWidth = img.naturalWidth || 800
-        const imgHeight = img.naturalHeight || 600
 
-        let scaleX = 1
-        let scaleY = 1
-
-        if (imgWidth > maxWidth || imgHeight > maxHeight) {
-          const widthRatio = maxWidth / imgWidth
-          const heightRatio = maxHeight / imgHeight
-          scaleX = scaleY = Math.min(widthRatio, heightRatio)
-        }
 
         addObjectToCanvas(editor, {
           type: 'StaticImage',
@@ -145,11 +130,7 @@ function Pixabay() {
             src: imageUrl,
             tags: image.tags,
           },
-          width: imgWidth,
-          height: imgHeight,
-          scaleX,
-          scaleY,
-        }, imgWidth, canvas)
+        }, undefined, canvas)
         setAddingImage(null)
       }
       img.src = imageUrl

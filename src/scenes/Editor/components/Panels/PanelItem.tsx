@@ -2,21 +2,47 @@ import { SubMenuType } from '@/constants/editor'
 import useAppContext from '@/hooks/useAppContext'
 import { useEditorContext } from '@nkyo/scenify-sdk'
 import { styled } from 'baseui'
-import { useEffect, useRef } from 'react'
+import { color, shadow } from '@/theme/tokens'
+import { useCallback, useEffect, useRef } from 'react'
+import useBreakpoint from '@/hooks/useBreakpoint'
+import BottomSheet from '@/scenes/Editor/mobile/BottomSheet'
+import { panelTitle } from '@/scenes/Editor/mobile/tabs'
 import PanelItems from './PanelItems'
 
-const Container = styled('div', {
-  background: '#ffffff',
-  width: '340px',
-  flex: 'none',
-  borderRight: '1px solid #e5e7eb',
-  display: 'flex',
-  flexDirection: 'column',
-  overflow: 'hidden',
-})
+const RAIL_WIDTH = '76px'
+
+// Desktop: a column next to the rail that pushes the stage. Tablet ($overlay):
+// floats over the stage instead, so opening it never squeezes/refits the page.
+const Container = styled('div', ({ $overlay }: { $overlay?: boolean }) =>
+  $overlay
+    ? {
+        background: color.surface,
+        width: '340px',
+        maxWidth: `calc(100vw - ${RAIL_WIDTH} - 48px)`,
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: RAIL_WIDTH,
+        zIndex: 30,
+        borderRight: `1px solid ${color.line2}`,
+        boxShadow: shadow.pop,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }
+    : {
+        background: color.surface,
+        width: '340px',
+        flex: 'none',
+        borderRight: `1px solid ${color.line}`,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }
+)
 
 function PanelsList() {
-  const { activePanel, activeSubMenu, setActiveSubMenu } = useAppContext()
+  const { activePanel, activeSubMenu, setActiveSubMenu, isPanelOpen, setIsPanelOpen } = useAppContext()
   const { activeObject } = useEditorContext()
 
   // Only reset the contextual sub-menu (Adjust / Animate / Color) when a
@@ -36,12 +62,52 @@ function PanelsList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeObject])
 
-  const Component =
-    (activeObject && activeSubMenu) || (!activeObject && activeSubMenu === SubMenuType.COLOR)
-      ? PanelItems[activeSubMenu]
-      : PanelItems[activePanel]
 
-  return <Container>{Component && <Component />}</Container>
+  useEffect(() => {
+    if (activeSubMenu) setIsPanelOpen(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSubMenu])
+
+  const bp = useBreakpoint()
+  // Dismissing also drops the sub-menu, so tapping the same toolbar button
+  // (Effects, Position…) later re-opens it.
+  const close = useCallback(() => {
+    setIsPanelOpen(false)
+    setActiveSubMenu(null as any)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Tablet overlay: a tap on the stage closes it. Only the stage counts as
+  // "outside" — popovers/modals opened from the panel are portalled to <body>.
+  useEffect(() => {
+    if (bp !== 'tablet' || !isPanelOpen) return
+    const onDown = (e: PointerEvent) => {
+      if ((e.target as HTMLElement | null)?.closest?.('.canvas-container')) close()
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
+  }, [bp, isPanelOpen, close])
+
+  const showSub = (activeObject && activeSubMenu) || (!activeObject && activeSubMenu === SubMenuType.COLOR)
+  const Component = showSub ? PanelItems[activeSubMenu] : PanelItems[activePanel]
+  const name = (showSub ? activeSubMenu : activePanel) as string
+
+  if (bp === 'phone') {
+    return (
+      <BottomSheet open={isPanelOpen} onClose={close} title={panelTitle(name)} variant="panel">
+        <div key={name} className="mfa-panel-enter" style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {Component && <Component />}
+        </div>
+      </BottomSheet>
+    )
+  }
+
+  if (!isPanelOpen) return null
+  return (
+    <Container key={activeSubMenu || activePanel} className="mfa-panel-enter" $overlay={bp === 'tablet'}>
+      {Component && <Component />}
+    </Container>
+  )
 }
 
 export default PanelsList

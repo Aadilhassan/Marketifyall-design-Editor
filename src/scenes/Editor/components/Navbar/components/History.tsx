@@ -22,11 +22,11 @@ const HistoryButton = styled('button', {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  color: '#374151',
+  color: '#3a352b',
   padding: 0,
   ':hover': {
-    background: '#f3f4f6',
-    color: '#111827',
+    background: '#f3efe4',
+    color: '#181410',
   },
 })
 

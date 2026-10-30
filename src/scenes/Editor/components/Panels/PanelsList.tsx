@@ -1,22 +1,26 @@
 import { panelListItems } from '@/constants/app-options'
 import useAppContext from '@/hooks/useAppContext'
 import { styled } from 'baseui'
+import { color } from '@/theme/tokens'
 import PanelListItem from './PanelListItem'
 
-const Container = styled('div', {
-  width: '80px',
-  backgroundColor: '#ffffff',
+const Container = styled('nav', {
+  width: '76px',
+  flex: 'none',
+  backgroundColor: color.ink,
   display: 'flex',
   flexDirection: 'column',
-  paddingTop: '8px',
-  borderRight: '1px solid #e5e7eb',
-  boxShadow: '2px 0 8px rgba(0, 0, 0, 0.04)',
+  paddingTop: '6px',
+  paddingBottom: '6px',
+  overflowY: 'auto',
+  overflowX: 'hidden',
+  scrollbarWidth: 'none',
 })
 
 function PanelsList() {
   const { activePanel } = useAppContext()
   return (
-    <Container>
+    <Container aria-label="Editor panels">
       {panelListItems.map(panelListItem => (
         <PanelListItem
           label={panelListItem.name}

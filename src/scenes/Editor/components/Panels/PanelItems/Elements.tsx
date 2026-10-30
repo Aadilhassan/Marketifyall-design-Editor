@@ -13,6 +13,7 @@ import {
 import type { ElementItem } from '@/constants/elementLibrary'
 import { searchIcons } from '@/utils/lucideIconsManager'
 import { selectObject } from '@/utils/selectObject'
+import { asVectorGroup } from '@/utils/vectorGroup'
 import type { LucideIcon } from '@/utils/lucideIconsManager'
 import { useDebounce } from 'use-debounce'
 import {
@@ -130,7 +131,7 @@ const PanelRoot = styled('div', {
 
 const SearchArea = styled('div', {
   padding: '12px 16px',
-  borderBottom: '1px solid #f0f0f0',
+  borderBottom: '1px solid #f3efe4',
 })
 
 const CountBadge = styled('span', {
@@ -146,8 +147,8 @@ const CategoryNav = styled('div', {
   flexWrap: 'wrap',
   overflowX: 'auto',
   gap: '0',
-  borderBottom: '1px solid #e8e8e8',
-  backgroundColor: '#fafafa',
+  borderBottom: '1px solid #e6e0d2',
+  backgroundColor: '#fbf9f4',
   scrollBehavior: 'smooth',
   alignItems: 'stretch',
   '::-webkit-scrollbar': {
@@ -167,16 +168,16 @@ const CategoryNavItem = styled('button', ({ $active }: { $active: boolean }) => 
   cursor: 'pointer',
   fontSize: '10px',
   fontWeight: $active ? 600 : 500,
-  color: $active ? '#5A3FFF' : '#888',
+  color: $active ? '#d8401c' : '#888',
   whiteSpace: 'nowrap',
-  borderBottom: $active ? '2px solid #5A3FFF' : '2px solid transparent',
+  borderBottom: $active ? '2px solid #d8401c' : '2px solid transparent',
   transition: 'all 0.15s ease',
   minWidth: '48px',
   flexShrink: 0,
   lineHeight: '1.2',
   ':hover': {
-    color: '#5A3FFF',
-    background: $active ? '#fff' : '#f8f7ff',
+    color: '#d8401c',
+    background: $active ? '#fff' : '#fbe8e0',
   },
 }))
 
@@ -216,7 +217,7 @@ const SeeAllBtn = styled('button', {
   cursor: 'pointer',
   fontSize: '11px',
   fontWeight: 600,
-  color: '#5A3FFF',
+  color: '#d8401c',
   padding: '2px 6px',
   borderRadius: '4px',
   ':hover': {
@@ -240,15 +241,15 @@ const ElementCard = styled('div', ({ $loading }: { $loading?: boolean }) => ({
   border: '1px solid #eee',
   cursor: $loading ? 'wait' : 'pointer',
   transition: 'all 0.15s ease',
-  backgroundColor: '#fafafa',
+  backgroundColor: '#fbf9f4',
   opacity: $loading ? 0.5 : 1,
   overflow: 'hidden',
   position: 'relative',
   ':hover': {
-    borderColor: '#5A3FFF',
-    backgroundColor: '#f8f7ff',
+    borderColor: '#d8401c',
+    backgroundColor: '#fbe8e0',
     transform: 'scale(1.04)',
-    boxShadow: '0 2px 8px rgba(90,63,255,0.12)',
+    boxShadow: '0 2px 8px rgba(216, 64, 28,0.12)',
   },
 }))
 
@@ -285,10 +286,10 @@ const Chip = styled('button', ({ $active }: { $active: boolean }) => ({
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   transition: 'all 0.15s ease',
-  background: $active ? '#5A3FFF' : '#f0f0f0',
+  background: $active ? '#d8401c' : '#f3efe4',
   color: $active ? '#fff' : '#666',
   ':hover': {
-    background: $active ? '#4a2fef' : '#e5e5e5',
+    background: $active ? '#b8340f' : '#e6e0d2',
   },
 }))
 
@@ -324,9 +325,9 @@ const BackButton = styled('button', {
   cursor: 'pointer',
   fontSize: '12px',
   fontWeight: 600,
-  color: '#5A3FFF',
+  color: '#d8401c',
   ':hover': {
-    color: '#4a2fef',
+    color: '#b8340f',
   },
 })
 
@@ -336,7 +337,7 @@ const BackButton = styled('button', {
 
 const Spinner = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite' }}>
-    <circle cx="12" cy="12" r="10" stroke="#5A3FFF" strokeWidth="2" fill="none" strokeDasharray="31.4 31.4" />
+    <circle cx="12" cy="12" r="10" stroke="#d8401c" strokeWidth="2" fill="none" strokeDasharray="31.4 31.4" />
     <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
   </svg>
 )
@@ -518,7 +519,7 @@ function Panel() {
 
     fabric.loadSVGFromString(svgContent, (objects: any[], options: any) => {
       if (objects && objects.length > 0) {
-        const svgGroup = fabric.util.groupSVGElements(objects, options)
+        const svgGroup = asVectorGroup(fabric.util.groupSVGElements(objects, options))
         const svgW = svgGroup.width || 48
         const svgH = svgGroup.height || 48
         svgGroup.set({

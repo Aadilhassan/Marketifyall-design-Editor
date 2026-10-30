@@ -3,6 +3,8 @@ import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import useVideoContext from '@/hooks/useVideoContext'
 import { fail, ignoreError } from '@/lib/logger'
+import { addVideoFile } from '@/video/importMedia'
+import ProjectMedia from '@/scenes/Editor/components/timeline/ProjectMedia'
 import { Scrollbars } from 'react-custom-scrollbars'
 
 const Container = styled('div', {
@@ -14,20 +16,20 @@ const Container = styled('div', {
 
 const Header = styled('div', {
   padding: '20px',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: '1px solid #e6e0d2',
 })
 
 const Title = styled('h2', {
   fontSize: '18px',
   fontWeight: 600,
-  color: '#1f2937',
+  color: '#181410',
   margin: 0,
   marginBottom: '4px',
 })
 
 const Subtitle = styled('p', {
   fontSize: '13px',
-  color: '#6b7280',
+  color: '#736d5c',
   margin: 0,
 })
 
@@ -37,7 +39,7 @@ const Content = styled('div', {
 })
 
 const UploadArea = styled('div', {
-  border: '2px dashed #e5e7eb',
+  border: '2px dashed #e6e0d2',
   borderRadius: '12px',
   padding: '40px 20px',
   textAlign: 'center',
@@ -45,8 +47,8 @@ const UploadArea = styled('div', {
   transition: 'all 0.2s',
   marginBottom: '24px',
   ':hover': {
-    borderColor: '#667eea',
-    background: '#f9f9ff',
+    borderColor: '#d8401c',
+    background: '#fbe8e0',
   },
 })
 
@@ -54,7 +56,7 @@ const UploadIcon = styled('div', {
   width: '64px',
   height: '64px',
   borderRadius: '16px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#d8401c',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -65,13 +67,13 @@ const UploadIcon = styled('div', {
 const UploadText = styled('p', {
   fontSize: '14px',
   fontWeight: 500,
-  color: '#374151',
+  color: '#3a352b',
   margin: '0 0 8px',
 })
 
 const UploadHint = styled('p', {
   fontSize: '12px',
-  color: '#9ca3af',
+  color: '#a39d8c',
   margin: 0,
 })
 
@@ -82,7 +84,7 @@ const HiddenInput = styled('input', {
 const SectionTitle = styled('h3', {
   fontSize: '14px',
   fontWeight: 600,
-  color: '#374151',
+  color: '#3a352b',
   marginBottom: '16px',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
@@ -103,7 +105,7 @@ const VideoCard = styled('div', {
   border: '2px solid transparent',
   transition: 'all 0.2s',
   ':hover': {
-    borderColor: '#667eea',
+    borderColor: '#d8401c',
     transform: 'scale(1.02)',
   },
 })
@@ -146,8 +148,8 @@ const VideoLabel = styled('div', {
   padding: '8px',
   fontSize: '12px',
   fontWeight: 500,
-  color: '#374151',
-  background: '#f9fafb',
+  color: '#3a352b',
+  background: '#fbf9f4',
 })
 
 const ToolsSection = styled('div', {
@@ -158,8 +160,8 @@ const ToolButton = styled('button', ({ $active }: { $active?: boolean }) => ({
   width: '100%',
   padding: '14px 16px',
   borderRadius: '10px',
-  border: $active ? '2px solid #667eea' : '1px solid #e5e7eb',
-  background: $active ? '#f9f9ff' : '#ffffff',
+  border: $active ? '2px solid #d8401c' : '1px solid #e6e0d2',
+  background: $active ? '#fbe8e0' : '#ffffff',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
@@ -167,8 +169,8 @@ const ToolButton = styled('button', ({ $active }: { $active?: boolean }) => ({
   marginBottom: '10px',
   transition: 'all 0.2s',
   ':hover': {
-    borderColor: '#667eea',
-    background: '#f9f9ff',
+    borderColor: '#d8401c',
+    background: '#fbe8e0',
   },
 }))
 
@@ -191,13 +193,13 @@ const ToolInfo = styled('div', {
 const ToolName = styled('div', {
   fontSize: '14px',
   fontWeight: 600,
-  color: '#1f2937',
+  color: '#181410',
   marginBottom: '2px',
 })
 
 const ToolDesc = styled('div', {
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#736d5c',
 })
 
 const UploadedVideoContainer = styled('div', {
@@ -208,7 +210,7 @@ const UploadedVideo = styled('div', {
   position: 'relative',
   borderRadius: '12px',
   overflow: 'hidden',
-  border: '2px solid #e5e7eb',
+  border: '2px solid #e6e0d2',
   marginBottom: '12px',
 })
 
@@ -229,9 +231,9 @@ const ControlButton = styled('button', ({ $primary }: { $primary?: boolean }) =>
   minWidth: '100px',
   padding: '10px 16px',
   borderRadius: '8px',
-  border: $primary ? 'none' : '1px solid #e5e7eb',
-  background: $primary ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#ffffff',
-  color: $primary ? '#ffffff' : '#374151',
+  border: $primary ? 'none' : '1px solid #e6e0d2',
+  background: $primary ? '#d8401c' : '#ffffff',
+  color: $primary ? '#ffffff' : '#3a352b',
   fontSize: '13px',
   fontWeight: 500,
   cursor: 'pointer',
@@ -271,7 +273,7 @@ const ModalContent = styled('div', {
 
 const ModalHeader = styled('div', {
   padding: '20px 24px',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: '1px solid #e6e0d2',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -280,7 +282,7 @@ const ModalHeader = styled('div', {
 const ModalTitle = styled('h3', {
   fontSize: '18px',
   fontWeight: 600,
-  color: '#1f2937',
+  color: '#181410',
   margin: 0,
 })
 
@@ -290,9 +292,9 @@ const CloseButton = styled('button', {
   cursor: 'pointer',
   padding: '8px',
   borderRadius: '8px',
-  color: '#6b7280',
+  color: '#736d5c',
   ':hover': {
-    background: '#f3f4f6',
+    background: '#f3efe4',
   },
 })
 
@@ -311,13 +313,13 @@ const AnimationGrid = styled('div', {
 const AnimationCard = styled('div', ({ $selected }: { $selected?: boolean }) => ({
   padding: '16px',
   borderRadius: '12px',
-  border: $selected ? '2px solid #667eea' : '2px solid #e5e7eb',
-  background: $selected ? '#f9f9ff' : '#ffffff',
+  border: $selected ? '2px solid #d8401c' : '2px solid #e6e0d2',
+  background: $selected ? '#fbe8e0' : '#ffffff',
   cursor: 'pointer',
   textAlign: 'center',
   transition: 'all 0.2s',
   ':hover': {
-    borderColor: '#667eea',
+    borderColor: '#d8401c',
     transform: 'scale(1.02)',
   },
 }))
@@ -326,7 +328,7 @@ const AnimationIcon = styled('div', {
   width: '48px',
   height: '48px',
   borderRadius: '12px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#d8401c',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -338,12 +340,12 @@ const AnimationIcon = styled('div', {
 const AnimationName = styled('div', {
   fontSize: '13px',
   fontWeight: 500,
-  color: '#374151',
+  color: '#3a352b',
 })
 
 // Timeline styles
 const TimelineContainer = styled('div', {
-  background: '#1f2937',
+  background: '#181410',
   borderRadius: '12px',
   padding: '16px',
   marginTop: '16px',
@@ -351,7 +353,7 @@ const TimelineContainer = styled('div', {
 
 const TimelineTrack = styled('div', {
   height: '60px',
-  background: '#374151',
+  background: '#3a352b',
   borderRadius: '8px',
   position: 'relative',
   marginBottom: '12px',
@@ -363,7 +365,7 @@ const TimelineClip = styled('div', ({ $width, $left }: { $width: number; $left: 
   height: '100%',
   width: `${$width}%`,
   left: `${$left}%`,
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#d8401c',
   borderRadius: '6px',
   display: 'flex',
   alignItems: 'center',
@@ -387,7 +389,7 @@ const TimelineControls = styled('div', {
 })
 
 const TimelineButton = styled('button', {
-  background: '#374151',
+  background: '#3a352b',
   border: 'none',
   borderRadius: '8px',
   padding: '8px 12px',
@@ -398,19 +400,19 @@ const TimelineButton = styled('button', {
   gap: '6px',
   fontSize: '12px',
   ':hover': {
-    background: '#4b5563',
+    background: '#3a352b',
   },
 })
 
 const TimelineTime = styled('span', {
-  color: '#9ca3af',
+  color: '#a39d8c',
   fontSize: '12px',
   fontFamily: 'monospace',
 })
 
 // Screen Recording styles
 const RecordingPreview = styled('div', {
-  background: '#1f2937',
+  background: '#181410',
   borderRadius: '12px',
   padding: '20px',
   textAlign: 'center',
@@ -429,7 +431,7 @@ const RecordingStatus = styled('div', ({ $recording }: { $recording?: boolean })
   justifyContent: 'center',
   gap: '8px',
   marginTop: '16px',
-  color: $recording ? '#ef4444' : '#9ca3af',
+  color: $recording ? '#ef4444' : '#a39d8c',
   fontSize: '14px',
   fontWeight: 500,
 }))
@@ -438,7 +440,7 @@ const RecordingDot = styled('div', ({ $recording }: { $recording?: boolean }) =>
   width: '12px',
   height: '12px',
   borderRadius: '50%',
-  background: $recording ? '#ef4444' : '#9ca3af',
+  background: $recording ? '#ef4444' : '#a39d8c',
   animation: $recording ? 'pulse 1s infinite' : 'none',
 }))
 
@@ -454,7 +456,7 @@ const RecordButton = styled('button', ({ $recording }: { $recording?: boolean })
   padding: '12px 24px',
   borderRadius: '8px',
   border: 'none',
-  background: $recording ? '#ef4444' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: $recording ? '#ef4444' : '#d8401c',
   color: '#ffffff',
   fontSize: '14px',
   fontWeight: 500,
@@ -476,14 +478,14 @@ const SliderLabel = styled('div', {
   justifyContent: 'space-between',
   marginBottom: '8px',
   fontSize: '12px',
-  color: '#6b7280',
+  color: '#736d5c',
 })
 
 const Slider = styled('input', {
   width: '100%',
   height: '6px',
   borderRadius: '3px',
-  background: '#e5e7eb',
+  background: '#e6e0d2',
   outline: 'none',
   appearance: 'none',
   '::-webkit-slider-thumb': {
@@ -491,7 +493,7 @@ const Slider = styled('input', {
     width: '16px',
     height: '16px',
     borderRadius: '50%',
-    background: '#667eea',
+    background: '#d8401c',
     cursor: 'pointer',
   },
 })
@@ -502,7 +504,7 @@ const VIDEO_TEMPLATES = [
     id: 1,
     name: 'Intro Animation',
     duration: '0:05',
-    color: '#667eea',
+    color: '#d8401c',
     src: 'https://www.w3schools.com/html/mov_bbb.mp4'
   },
   {
@@ -576,167 +578,33 @@ function Video() {
   const [isPlaying, setIsPlaying] = useState(false)
   const [frameTime, setFrameTime] = useState(0)
 
-  const extractFrame = useCallback(async (src: string, at: number) => {
-    return new Promise<string | null>((resolve) => {
-      const video = document.createElement('video')
-      video.src = src
-      video.crossOrigin = 'anonymous'
-      video.currentTime = at
-      video.onloadeddata = () => {
-        video.currentTime = at
-      }
-      video.onseeked = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = video.videoWidth || 1920
-        canvas.height = video.videoHeight || 1080
-        const ctx = canvas.getContext('2d')
-        if (ctx) {
-          ctx.drawImage(video, 0, 0)
-          resolve(canvas.toDataURL('image/png'))
-        } else {
-          resolve(null)
-        }
-      }
-      video.onerror = () => resolve(null)
-    })
-  }, [])
-
   const handleUploadClick = () => {
     fileInputRef.current?.click()
   }
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file && file.type.startsWith('video/')) {
-      setVideoFile(file)
-      const url = URL.createObjectURL(file)
-      setUploadedVideo(url)
-
-      // Automatically add video to canvas
-      if (editor) {
-        const clipId = `clip-${Date.now()}`
-
-        // Create a video element to get dimensions and poster
-        const video = document.createElement('video')
-        video.src = url
-        video.crossOrigin = 'anonymous'
-        video.preload = 'metadata'
-
-        video.onloadedmetadata = () => {
-          const videoWidth = video.videoWidth || 1920
-          const videoHeight = video.videoHeight || 1080
-          const clipDuration = video.duration || 1
-
-          // Seek to get a poster frame
-          video.currentTime = 0.1
-
-          video.onseeked = () => {
-            const canvas = document.createElement('canvas')
-            canvas.width = videoWidth
-            canvas.height = videoHeight
-            const ctx = canvas.getContext('2d')
-
-            let posterUrl = ''
-            if (ctx) {
-              ctx.drawImage(video, 0, 0)
-              posterUrl = canvas.toDataURL('image/png')
-            }
-
-            // Get canvas frame dimensions from editor context
-            const frameWidth = frameSize?.width || 900
-            const frameHeight = frameSize?.height || 1200
-
-            let targetWidth = videoWidth
-            let targetHeight = videoHeight
-            let scaleX = 1
-            let scaleY = 1
-
-            // Scale down if video is too large for canvas
-            const maxWidth = frameWidth * 0.8
-            const maxHeight = frameHeight * 0.6
-
-            if (targetWidth > maxWidth || targetHeight > maxHeight) {
-              const widthRatio = maxWidth / targetWidth
-              const heightRatio = maxHeight / targetHeight
-              const scaleRatio = Math.min(widthRatio, heightRatio)
-
-              scaleX = scaleRatio
-              scaleY = scaleRatio
-              targetWidth = videoWidth * scaleX
-              targetHeight = videoHeight * scaleY
-            }
-
-            // Center the video on canvas frame (same approach as Images.tsx)
-            // Frame coordinates start at (0,0), so we just center relative to frame dimensions
-            const left = (frameWidth - targetWidth) / 2
-            const top = (frameHeight - targetHeight) / 2
-
-            // Add to Canvas as a native object
-            const videoObject = {
-              type: 'StaticImage',
-              metadata: {
-                src: posterUrl || url,
-                videoSrc: url,
-                name: file.name || 'Video clip',
-                duration: clipDuration,
-                id: clipId,
-                isVideo: true,
-              },
-              width: videoWidth,
-              height: videoHeight,
-              left,
-              top,
-              scaleX,
-              scaleY,
-              opacity: 1,
-              visible: true,
-              selectable: false, // Disable selection to hide blue handles
-              hasControls: false, // Hide resize controls
-              hasBorders: false, // Hide borders
-              hasCorners: false, // Hide corner handles
-            }
-            editor.add(videoObject)
-
-            // Disable selection handles after adding (in case they weren't applied)
-            setTimeout(() => {
-              // @ts-ignore
-              const objects = editor.canvas?.getObjects?.() || []
-              const videoObj = objects.find((obj: any) => obj.metadata?.id === clipId || (obj.metadata?.isVideo && obj.metadata?.videoSrc === url))
-              if (videoObj) {
-                videoObj.set('selectable', false)
-                videoObj.set('hasControls', false)
-                videoObj.set('hasBorders', false)
-                videoObj.set('hasCorners', false)
-                // @ts-ignore
-                editor.canvas?.requestRenderAll?.()
-              }
-            }, 100)
-
-            // Calculate start time to place video sequentially after existing videos
-            const startTime = getNextVideoStartTime()
-
-            // Add to Timeline
-            addClip({
-              id: clipId,
-              name: file.name || 'Video clip',
-              src: url,
-              duration: clipDuration,
-              start: startTime,
-              end: startTime + clipDuration,
-              poster: posterUrl || undefined,
-            })
-
-            setActiveClip(clipId)
-            setDuration(clipDuration)
-          }
-        }
-
-        video.onerror = () => {
-          // silently handled
-        }
-      }
-    }
-  }, [editor, addClip, setActiveClip, frameSize?.width, frameSize?.height, getNextVideoStartTime])
+    if (!file || !file.type.startsWith('video/')) return
+    setVideoFile(file)
+    // Local preview only; the clip itself plays from the IndexedDB copy.
+    const previewUrl = URL.createObjectURL(file)
+    setUploadedVideo(prev => {
+      if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev)
+      return previewUrl
+    })
+    if (!editor) return
+    // Stored in IndexedDB (survives reloads), real duration probed, selectable on the page.
+    addVideoFile(editor, file, addClip, {
+      frame: { width: frameSize?.width || 900, height: frameSize?.height || 1200 },
+      start: getNextVideoStartTime(),
+    })
+      .then(clipId => {
+        setActiveClip(clipId)
+        setDuration(clips.find(c => c.id === clipId)?.duration || 0)
+      })
+      .catch(err => fail('video', 'Could not add the video', err))
+    e.target.value = ''
+  }, [editor, addClip, setActiveClip, frameSize?.width, frameSize?.height, getNextVideoStartTime, clips])
 
   // Add video as image frame to canvas
   const handleAddFrame = useCallback(async () => {
@@ -782,10 +650,6 @@ function Video() {
     try {
       if (!editor) return
 
-      // Parse duration string "MM:SS" to seconds
-      const [mins, secs] = template.duration.split(':').map(Number)
-      const durationInSeconds = mins * 60 + secs
-
       const clipId = `template-${template.id}-${Date.now()}`
 
       // Extract poster frame from video source
@@ -804,6 +668,8 @@ function Video() {
 
       const videoWidth = video.videoWidth || 1920
       const videoHeight = video.videoHeight || 1080
+      // The file's real length — the template labels ("0:30") were wrong.
+      const durationInSeconds = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 5
 
       // Get canvas frame dimensions from editor context
       const frameWidth = frameSize?.width || 900
@@ -869,27 +735,8 @@ function Video() {
         scaleY: 1, // Explicitly set to 1 to ensure no scaling
         opacity: 1,
         visible: true,
-        selectable: false, // Disable selection to hide blue handles
-        hasControls: false, // Hide resize controls
-        hasBorders: false, // Hide borders
-        hasCorners: false, // Hide corner handles
       }
-      editor.add(templateVideoObject)
-
-      // Disable selection handles after adding (in case they weren't applied)
-      setTimeout(() => {
-        // @ts-ignore
-        const objects = editor.canvas?.getObjects?.() || []
-        const videoObj = objects.find((obj: any) => obj.metadata?.id === clipId || (obj.metadata?.isVideo && obj.metadata?.videoSrc === template.src))
-        if (videoObj) {
-          videoObj.set('selectable', false)
-          videoObj.set('hasControls', false)
-          videoObj.set('hasBorders', false)
-          videoObj.set('hasCorners', false)
-          // @ts-ignore
-          editor.canvas?.requestRenderAll?.()
-        }
-      }, 100)
+      await editor.add(templateVideoObject)
 
       // Calculate start time to place video sequentially after existing videos
       const startTime = getNextVideoStartTime()
@@ -903,6 +750,17 @@ function Video() {
         start: startTime,
         end: startTime + durationInSeconds,
         poster: posterUrl,
+        asset: {
+          id: `asset-${clipId}`,
+          kind: 'video' as const,
+          name: template.name,
+          duration: durationInSeconds,
+          width: videoWidth,
+          height: videoHeight,
+          src: { kind: 'url' as const, url: template.src },
+          poster: posterUrl,
+          needsProbe: false,
+        },
       })
 
       setActiveClip(clipId)
@@ -914,150 +772,18 @@ function Video() {
 
   // Add video to global timeline instead of flattening to an image
   const handleAddVideoToTimeline = useCallback(async () => {
-    if (!uploadedVideo || !editor) return
-
-    const clipId = `clip-${Date.now()}`
-    const clipDuration = duration || videoRef.current?.duration || 1
-
-    // Create a video element to get dimensions
-    const video = document.createElement('video')
-    video.src = uploadedVideo
-    video.crossOrigin = 'anonymous'
-    video.preload = 'metadata'
-
-    video.onloadedmetadata = async () => {
-      const videoWidth = video.videoWidth || 1920
-      const videoHeight = video.videoHeight || 1080
-
-      // Get canvas frame dimensions from editor context
-      const frameWidth = frameSize?.width || 900
-      const frameHeight = frameSize?.height || 1200
-
-      let targetWidth = videoWidth
-      let targetHeight = videoHeight
-      let scaleX = 1
-      let scaleY = 1
-
-      // Scale down if video is too large for canvas
-      const maxWidth = frameWidth * 0.8
-      const maxHeight = frameHeight * 0.6
-
-      if (targetWidth > maxWidth || targetHeight > maxHeight) {
-        const widthRatio = maxWidth / targetWidth
-        const heightRatio = maxHeight / targetHeight
-        const scaleRatio = Math.min(widthRatio, heightRatio)
-
-        scaleX = scaleRatio
-        scaleY = scaleRatio
-        targetWidth = videoWidth * scaleX
-        targetHeight = videoHeight * scaleY
-      }
-
-      // Center the video on canvas frame (same approach as Images.tsx)
-      // Frame coordinates start at (0,0), so we just center relative to frame dimensions
-      const left = (frameWidth - targetWidth) / 2
-      const top = (frameHeight - targetHeight) / 2
-
-      // Extract poster frame at TARGET dimensions (not original video dimensions)
-      video.currentTime = 0.1 // Seek a bit to get a proper frame
-
-      video.onseeked = () => {
-        // Create poster image at TARGET dimensions to match video playback size
-        const canvas = document.createElement('canvas')
-        canvas.width = targetWidth
-        canvas.height = targetHeight
-        const ctx = canvas.getContext('2d')
-
-        let posterUrl = ''
-        if (ctx) {
-          // Draw video frame scaled to target dimensions
-          ctx.drawImage(video, 0, 0, videoWidth, videoHeight, 0, 0, targetWidth, targetHeight)
-          posterUrl = canvas.toDataURL('image/png')
-        }
-
-        // Add to Canvas with scaled dimensions directly
-        // Explicitly set scaleX: 1 and scaleY: 1 to ensure no additional scaling
-        // This ensures the poster image matches the video playback size exactly
-        const options: any = {
-          type: 'StaticImage',
-          metadata: {
-            src: posterUrl || uploadedVideo,
-            videoSrc: uploadedVideo,
-            name: videoFile?.name || 'Video clip',
-            duration: clipDuration,
-            id: clipId,
-            isVideo: true,
-          },
-          width: targetWidth, // Use scaled width directly
-          height: targetHeight, // Use scaled height directly
-          left,
-          top,
-          scaleX: 1, // Explicitly set to 1 to ensure no scaling
-          scaleY: 1, // Explicitly set to 1 to ensure no scaling
-          opacity: 1,
-          visible: true,
-          selectable: false, // Disable selection to hide blue handles
-          hasControls: false, // Hide resize controls
-          hasBorders: false, // Hide borders
-          hasCorners: false, // Hide corner handles
-        }
-
-        editor.add(options)
-
-        // Calculate start time to place video sequentially after existing videos
-        const startTime = getNextVideoStartTime()
-
-        // Add to Timeline
-        addClip({
-          id: clipId,
-          name: videoFile?.name || 'Video clip',
-          src: uploadedVideo,
-          duration: clipDuration,
-          start: startTime,
-          end: startTime + clipDuration,
-          poster: posterUrl || undefined,
-        })
-
-        setActiveClip(clipId)
-        setTimelineOpen(true)
-      }
-    }
-
-    video.onerror = async () => {
-      // Fallback if video metadata fails to load
-      const poster = await extractFrame(uploadedVideo, 0)
-
-      editor.add({
-        type: 'StaticImage',
-        metadata: {
-          src: poster || uploadedVideo,
-          videoSrc: uploadedVideo,
-          name: videoFile?.name || 'Video clip',
-          duration: clipDuration,
-          id: clipId,
-          isVideo: true,
-        },
-        opacity: 1,
-        visible: true,
+    if (!videoFile || !editor) return
+    try {
+      const clipId = await addVideoFile(editor, videoFile, addClip, {
+        frame: { width: frameSize?.width || 900, height: frameSize?.height || 1200 },
+        start: getNextVideoStartTime(),
       })
-
-      // Calculate start time to place video sequentially after existing videos
-      const startTime = getNextVideoStartTime()
-
-      addClip({
-        id: clipId,
-        name: videoFile?.name || 'Video clip',
-        src: uploadedVideo,
-        duration: clipDuration,
-        start: startTime,
-        end: startTime + clipDuration,
-        poster: poster || undefined,
-      })
-
       setActiveClip(clipId)
       setTimelineOpen(true)
+    } catch (error) {
+      fail('video', 'Could not add the video', error)
     }
-  }, [uploadedVideo, extractFrame, duration, addClip, videoFile, setActiveClip, setTimelineOpen, editor, frameSize?.width, frameSize?.height, getNextVideoStartTime])
+  }, [addClip, videoFile, setActiveClip, setTimelineOpen, editor, frameSize?.width, frameSize?.height, getNextVideoStartTime])
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRemoveVideo = () => {
@@ -1164,100 +890,22 @@ function Video() {
 
   const handleAddRecordingToCanvas = useCallback(() => {
     if (!editor || !recordedVideo) return
-
-    // Extract first frame from recorded video
-    const video = document.createElement('video')
-    video.src = recordedVideo
-    video.crossOrigin = 'anonymous'
-
-    video.onloadeddata = () => {
-      video.currentTime = 0
-    }
-
-    video.onseeked = () => {
-      const videoWidth = video.videoWidth || 1920
-      const videoHeight = video.videoHeight || 1080
-      const clipDuration = video.duration || 1
-
-      const canvas = document.createElement('canvas')
-      canvas.width = videoWidth
-      canvas.height = videoHeight
-      const ctx = canvas.getContext('2d')
-
-      if (ctx) {
-        ctx.drawImage(video, 0, 0)
-        const frameDataUrl = canvas.toDataURL('image/png')
-
-        // Get canvas frame dimensions from editor context
-        const frameWidth = frameSize?.width || 900
-        const frameHeight = frameSize?.height || 1200
-
-        let targetWidth = videoWidth
-        let targetHeight = videoHeight
-        let scaleX = 1
-        let scaleY = 1
-
-        // Scale down if video is too large for canvas
-        const maxWidth = frameWidth * 0.8
-        const maxHeight = frameHeight * 0.6
-
-        if (targetWidth > maxWidth || targetHeight > maxHeight) {
-          const widthRatio = maxWidth / targetWidth
-          const heightRatio = maxHeight / targetHeight
-          const scaleRatio = Math.min(widthRatio, heightRatio)
-
-          scaleX = scaleRatio
-          scaleY = scaleRatio
-          targetWidth = videoWidth * scaleX
-          targetHeight = videoHeight * scaleY
-        }
-
-        // Center the video on canvas frame (same approach as Images.tsx)
-        const left = (frameWidth - targetWidth) / 2
-        const top = (frameHeight - targetHeight) / 2
-
-        const clipId = `recording-${Date.now()}`
-
-        // Add to Canvas
-        editor.add({
-          type: 'StaticImage',
-          metadata: {
-            src: frameDataUrl,
-            name: 'Screen Recording',
-            videoSrc: recordedVideo,
-            id: clipId,
-            isVideo: true,
-          },
-          width: videoWidth,
-          height: videoHeight,
-          left,
-          top,
-          scaleX,
-          scaleY,
-          opacity: 1,
-          visible: true,
-        })
-
-        // Calculate start time to place recording sequentially
-        const startTime = getNextVideoStartTime()
-
-        // Add to Timeline
-        addClip({
-          id: clipId,
-          name: 'Screen Recording',
-          src: recordedVideo,
-          duration: clipDuration,
-          start: startTime,
-          end: startTime + clipDuration,
-          poster: frameDataUrl,
-        })
-
+    setActiveModal(null)
+    // The recording's blob: URL dies with the page; store the bytes instead.
+    fetch(recordedVideo)
+      .then(res => res.blob())
+      .then(blob => new File([blob], 'Screen Recording.webm', { type: blob.type || 'video/webm' }))
+      .then(file =>
+        addVideoFile(editor, file, addClip, {
+          frame: { width: frameSize?.width || 900, height: frameSize?.height || 1200 },
+          start: getNextVideoStartTime(),
+        }),
+      )
+      .then(clipId => {
         setActiveClip(clipId)
         setTimelineOpen(true)
-      }
-    }
-
-    setActiveModal(null)
+      })
+      .catch(err => fail('video', 'Could not add the recording', err))
   }, [editor, recordedVideo, frameSize, addClip, setActiveClip, setTimelineOpen, getNextVideoStartTime])
 
   const downloadRecording = () => {
@@ -1340,6 +988,9 @@ function Video() {
             onChange={handleFileChange}
           />
 
+          {/* Project media: click to append, drag onto a timeline track */}
+          <ProjectMedia />
+
           {/* Uploaded Video Preview */}
 
 
@@ -1366,7 +1017,7 @@ function Video() {
             <SectionTitle>Video Tools</SectionTitle>
 
             {/* <ToolButton onClick={() => setActiveModal('animate')} $active={activeModal === 'animate'}>
-              <ToolIcon $color="#667eea">
+              <ToolIcon $color="#d8401c">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" />
                   <polygon points="10 8 16 12 10 16 10 8" />
@@ -1622,7 +1273,7 @@ function Video() {
                   </VideoControls>
                 </>
               ) : (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#6b7280' }}>
+                <div style={{ textAlign: 'center', padding: '40px', color: '#736d5c' }}>
                   <p>Upload a video first to use the timeline editor</p>
                   <ControlButton $primary onClick={() => { setActiveModal(null); handleUploadClick(); }} style={{ marginTop: '16px' }}>
                     Upload Video

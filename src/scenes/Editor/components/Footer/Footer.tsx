@@ -1,22 +1,24 @@
 import { Button, KIND, SHAPE, SIZE } from 'baseui/button'
-import { useEffect } from 'react'
 import { styled } from 'baseui'
 import { Plus, CheckIndeterminate } from 'baseui/icon'
 import { StatefulPopover, PLACEMENT } from 'baseui/popover'
 import { Scrollbars } from 'react-custom-scrollbars'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
-import { ignoreError } from '@/lib/logger'
+import { color, font, shadow } from '@/theme/tokens'
+import ShortcutsSheet, { ShortcutsButton, useShortcutsSheet } from '../ShortcutsSheet'
+import useBreakpoint from '@/hooks/useBreakpoint'
 
-const Container = styled('div', props => ({
-  backgroundColor: '#ffffff',
+const Container = styled('div', () => ({
+  backgroundColor: color.white,
   display: 'flex',
   position: 'absolute',
-  bottom: '24px',
-  right: '24px',
-  borderRadius: '12px',
-  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12)',
-  padding: '4px',
-  border: '1px solid rgba(0, 0, 0, 0.06)',
+  bottom: '20px',
+  right: '20px',
+  borderRadius: '6px',
+  boxShadow: shadow.hard,
+  padding: '3px',
+  border: `1px solid ${color.ink}`,
+  zIndex: 5,
 }))
 
 const zoomValues = [0.27, 0.5, 0.75, 0.92, 1, 1.25, 1.5, 1.75, 2, 3, 4, 5]
@@ -25,40 +27,31 @@ const ZoomItemContainer = styled('div', () => ({
   height: '40px',
   display: 'flex',
   alignItems: 'center',
-  fontSize: '0.875rem',
-  fontWeight: '500',
+  fontFamily: font.mono,
+  fontSize: '12px',
   paddingLeft: '1rem',
   paddingRight: '1rem',
-  color: '#374151',
-  transition: 'all 0.15s ease',
+  color: color.ink2,
   ':hover': {
-    backgroundColor: '#f3f4f6',
-    color: '#7c3aed',
+    backgroundColor: color.accentSoft,
+    color: color.accent,
     cursor: 'pointer',
   },
 }))
 function Footer() {
   const editor = useEditor()
-  const { zoomRatio, frameSize } = useEditorContext() as any
-
-  // Fit the design to the viewport on load (and whenever the canvas size
-  // changes). Without this the board renders at a tiny/incorrect zoom (the
-  // widget showed "-2%") instead of filling the view like Canva does.
-  useEffect(() => {
-    if (!editor) return
-    const t = setTimeout(() => {
-      try {
-        editor.zoomToFit()
-      } catch (err) {
-        ignoreError(err, 'zoom guard')
-      }
-    }, 350)
-    return () => clearTimeout(t)
-  }, [editor, frameSize?.width, frameSize?.height])
+  const { zoomRatio } = useEditorContext() as any
+  const shortcuts = useShortcutsSheet()
+  // Phones zoom with a pinch and have no keyboard: no zoom pill, no shortcuts.
+  const phone = useBreakpoint() === 'phone'
+  if (phone) return null
 
   return (
     <Container>
+      <ShortcutsSheet open={shortcuts.open} onClose={() => shortcuts.setOpen(false)} />
       <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+        <ShortcutsButton onClick={() => shortcuts.setOpen(true)} />
+        <div style={{ width: 1, height: 20, background: color.line, margin: '0 2px' }} />
         <Button 
           onClick={() => editor.zoomOut()} 
           size={SIZE.compact} 
@@ -66,10 +59,12 @@ function Footer() {
           overrides={{
             BaseButton: {
               style: {
-                borderRadius: '8px',
-                transition: 'all 0.15s ease',
+                borderTopLeftRadius: '6px',
+                borderTopRightRadius: '6px',
+                borderBottomLeftRadius: '6px',
+                borderBottomRightRadius: '6px',
                 ':hover': {
-                  backgroundColor: '#f3f4f6',
+                  backgroundColor: color.hover,
                 },
               },
             },
@@ -83,8 +78,9 @@ function Footer() {
           overrides={{
             Body: {
               style: {
-                borderRadius: '12px',
-                boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)',
+                borderTopLeftRadius: '8px', borderTopRightRadius: '8px', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px',
+                border: `1px solid ${color.ink}`,
+                boxShadow: shadow.hard,
                 overflow: 'hidden',
               },
             },
@@ -92,9 +88,9 @@ function Footer() {
           content={({ close }) => (
             <div
               style={{
-                backgroundColor: '#ffffff',
+                backgroundColor: color.white,
                 width: '140px',
-                fontFamily: 'system-ui',
+                fontFamily: font.mono,
                 height: '260px',
                 padding: '0.5rem 0',
               }}
@@ -127,15 +123,18 @@ function Footer() {
             overrides={{
               BaseButton: {
                 style: {
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: '#374151',
+                  fontFamily: font.mono,
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  color: color.ink,
                   minWidth: '52px',
-                  borderRadius: '8px',
-                  transition: 'all 0.15s ease',
+                  borderTopLeftRadius: '6px',
+                  borderTopRightRadius: '6px',
+                  borderBottomLeftRadius: '6px',
+                  borderBottomRightRadius: '6px',
                   ':hover': {
-                    backgroundColor: '#f3f4f6',
-                    color: '#7c3aed',
+                    backgroundColor: color.hover,
+                    color: '#d8401c',
                   },
                 },
               },
@@ -154,10 +153,12 @@ function Footer() {
           overrides={{
             BaseButton: {
               style: {
-                borderRadius: '8px',
-                transition: 'all 0.15s ease',
+                borderTopLeftRadius: '6px',
+                borderTopRightRadius: '6px',
+                borderBottomLeftRadius: '6px',
+                borderBottomRightRadius: '6px',
                 ':hover': {
-                  backgroundColor: '#f3f4f6',
+                  backgroundColor: color.hover,
                 },
               },
             },

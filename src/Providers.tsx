@@ -2,7 +2,8 @@ import { FC, ReactNode } from 'react'
 import { Client as Styletron } from 'styletron-engine-atomic'
 import { Provider as StyletronProvider } from 'styletron-react'
 import { PersistGate } from 'redux-persist/integration/react'
-import { LightTheme, BaseProvider } from 'baseui'
+import { BaseProvider } from 'baseui'
+import { editorTheme } from './theme/baseTheme'
 import { EditorProvider } from '@nkyo/scenify-sdk'
 import { AppProvider } from './contexts/AppContext'
 import { VideoProvider } from './contexts/VideoContext'
@@ -40,7 +41,7 @@ const StyleProvider: FC = ({ children }) => <StyletronProvider value={engine}>{c
 // dropdowns and modals render *behind* it. Lift the layer manager above the
 // editor and app chrome (but below the full-screen drag overlay at 9999).
 const ThemeProvider: FC = ({ children }) => (
-  <BaseProvider theme={LightTheme} zIndex={4000}>
+  <BaseProvider theme={editorTheme} zIndex={4000}>
     {children}
   </BaseProvider>
 )

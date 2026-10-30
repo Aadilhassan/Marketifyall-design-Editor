@@ -212,7 +212,7 @@ function Color() {
                   height: '80px',
                   borderRadius: '8px',
                   background: `linear-gradient(${gradientAngle}deg, ${gradientColor1}, ${gradientColor2})`,
-                  border: '1px solid #e5e5e5',
+                  border: '1px solid #e6e0d2',
                 }}
               />
 
@@ -261,7 +261,7 @@ function Color() {
                     width: '100%',
                     height: '6px',
                     borderRadius: '5px',
-                    background: '#e5e5e5',
+                    background: '#e6e0d2',
                     outline: 'none',
                     opacity: 0.7,
                     transition: 'opacity .2s',
@@ -275,7 +275,7 @@ function Color() {
                 onClick={applyCustomGradient}
                 style={{
                   padding: '12px',
-                  background: '#7c3aed',
+                  background: '#d8401c',
                   color: '#ffffff',
                   border: 'none',
                   borderRadius: '8px',
@@ -284,8 +284,8 @@ function Color() {
                   cursor: 'pointer',
                   transition: 'all 0.2s',
                 }}
-                onMouseOver={(e) => (e.currentTarget.style.background = '#6d28d9')}
-                onMouseOut={(e) => (e.currentTarget.style.background = '#7c3aed')}
+                onMouseOver={(e) => (e.currentTarget.style.background = '#b8340f')}
+                onMouseOut={(e) => (e.currentTarget.style.background = '#d8401c')}
               >
                 Apply Gradient
               </button>

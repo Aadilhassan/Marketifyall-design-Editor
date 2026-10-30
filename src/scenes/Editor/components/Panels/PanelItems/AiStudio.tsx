@@ -142,7 +142,7 @@ const Container = styled('div', {
 
 const Header = styled('div', {
   padding: '12px 16px',
-  borderBottom: '1px solid #e8e8e8',
+  borderBottom: '1px solid #e6e0d2',
 })
 
 const HeaderTitle = styled('div', {
@@ -156,7 +156,7 @@ const HeaderIcon = styled('div', {
   width: '28px',
   height: '28px',
   borderRadius: '8px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#d8401c',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -167,13 +167,13 @@ const HeaderIcon = styled('div', {
 const Title = styled('span', {
   fontSize: '15px',
   fontWeight: 600,
-  color: '#1a1a1a',
+  color: '#181410',
 })
 
 const TabBar = styled('div', {
   display: 'flex',
   gap: '4px',
-  backgroundColor: '#f3f4f6',
+  backgroundColor: '#f3efe4',
   borderRadius: '8px',
   padding: '3px',
 })
@@ -188,10 +188,10 @@ const Tab = styled('button', ({ $active }: { $active: boolean }) => ({
   cursor: 'pointer',
   transition: 'all 0.2s',
   backgroundColor: $active ? '#ffffff' : 'transparent',
-  color: $active ? '#1a1a1a' : '#6b7280',
+  color: $active ? '#181410' : '#736d5c',
   boxShadow: $active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
   ':hover': {
-    color: $active ? '#1a1a1a' : '#374151',
+    color: $active ? '#181410' : '#3a352b',
   },
 }))
 
@@ -213,7 +213,7 @@ const SectionContainer = styled('div', {
 const Label = styled('label', {
   fontSize: '12px',
   fontWeight: 600,
-  color: '#374151',
+  color: '#3a352b',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
 })
@@ -222,9 +222,9 @@ const GenTextArea = styled('textarea', {
   width: '100%',
   padding: '12px 12px 32px 12px',
   backgroundColor: '#f8f8f8',
-  border: '1px solid #e5e7eb',
+  border: '1px solid #e6e0d2',
   borderRadius: '8px',
-  color: '#1a1a1a',
+  color: '#181410',
   fontSize: '13px',
   fontFamily: 'inherit',
   lineHeight: '1.5',
@@ -234,9 +234,9 @@ const GenTextArea = styled('textarea', {
   transition: 'all 0.2s',
   ':focus': {
     outline: 'none',
-    borderColor: '#667eea',
+    borderColor: '#d8401c',
     backgroundColor: '#fff',
-    boxShadow: '0 0 0 3px rgba(102,126,234,0.1)',
+    boxShadow: '0 0 0 3px rgba(216, 64, 28,0.1)',
   },
 })
 
@@ -245,7 +245,7 @@ const GenImproveBtn = styled('button', {
   bottom: '6px',
   right: '6px',
   background: '#fff',
-  border: '1px solid #e0e0e0',
+  border: '1px solid #e6e0d2',
   color: '#666',
   cursor: 'pointer',
   fontSize: '11px',
@@ -255,7 +255,7 @@ const GenImproveBtn = styled('button', {
   display: 'flex',
   alignItems: 'center',
   gap: '3px',
-  ':hover': { borderColor: '#667eea', color: '#667eea' },
+  ':hover': { borderColor: '#d8401c', color: '#d8401c' },
 })
 
 const GenRow = styled('div', {
@@ -268,7 +268,7 @@ const GenBtn = styled('button', {
   minWidth: '100px',
   minHeight: '40px',
   padding: '8px 16px',
-  backgroundColor: '#1a1a1a',
+  backgroundColor: '#181410',
   color: '#fff',
   border: 'none',
   borderRadius: '8px',
@@ -289,7 +289,7 @@ const Preview = styled('div', {
   minHeight: '200px',
   color: '#b0b0b0',
   fontSize: '13px',
-  border: '1.5px dashed #e0e0e0',
+  border: '1.5px dashed #e6e0d2',
   overflow: 'hidden',
 })
 
@@ -298,7 +298,7 @@ const ActionRow = styled('div', {
   gap: '8px',
   justifyContent: 'flex-end',
   padding: '12px 16px',
-  borderTop: '1px solid #e5e7eb',
+  borderTop: '1px solid #e6e0d2',
 })
 
 const ActionBtn = styled('button', ({ $variant }: { $variant?: string }) => ({
@@ -308,7 +308,7 @@ const ActionBtn = styled('button', ({ $variant }: { $variant?: string }) => ({
   fontSize: '13px',
   fontWeight: 500,
   cursor: 'pointer',
-  backgroundColor: $variant === 'danger' ? '#ef4444' : '#374151',
+  backgroundColor: $variant === 'danger' ? '#ef4444' : '#3a352b',
   color: '#fff',
   ':hover': { opacity: 0.9 },
 }))
@@ -331,8 +331,8 @@ const Bubble = styled('div', ({ $isUser }: { $isUser: boolean }) => ({
   maxWidth: '90%',
   padding: '10px 14px',
   borderRadius: $isUser ? '14px 14px 4px 14px' : '14px 14px 14px 4px',
-  backgroundColor: $isUser ? '#667eea' : '#f3f4f6',
-  color: $isUser ? '#fff' : '#1a1a1a',
+  backgroundColor: $isUser ? '#d8401c' : '#f3efe4',
+  color: $isUser ? '#fff' : '#181410',
   alignSelf: $isUser ? 'flex-end' : 'flex-start',
   fontSize: '13px',
   lineHeight: '1.5',
@@ -343,7 +343,7 @@ const PlanCard = styled('div', {
   margin: '8px 0',
   padding: '12px',
   borderRadius: '10px',
-  border: '1px solid #e5e7eb',
+  border: '1px solid #e6e0d2',
   backgroundColor: '#faf9ff',
   alignSelf: 'flex-start',
   maxWidth: '90%',
@@ -356,7 +356,7 @@ const PlanLabel = styled('div', {
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
-  color: '#667eea',
+  color: '#d8401c',
   marginBottom: '8px',
 })
 
@@ -369,13 +369,13 @@ const PlanRow = styled('div', {
 
 const PlanKey = styled('span', {
   fontWeight: 600,
-  color: '#374151',
+  color: '#3a352b',
   minWidth: '60px',
   flexShrink: 0,
 })
 
 const PlanVal = styled('span', {
-  color: '#6b7280',
+  color: '#736d5c',
 })
 
 const SwatchRow = styled('div', {
@@ -402,11 +402,11 @@ const ActionItemRow = styled('div', ({ $status }: { $status: string }) => ({
   backgroundColor:
     $status === 'done' ? '#ecfdf5' :
     $status === 'error' ? '#fef2f2' :
-    $status === 'running' ? '#fffbeb' : '#f9fafb',
+    $status === 'running' ? '#fffbeb' : '#fbf9f4',
   color:
     $status === 'done' ? '#065f46' :
     $status === 'error' ? '#991b1b' :
-    $status === 'running' ? '#92400e' : '#6b7280',
+    $status === 'running' ? '#92400e' : '#736d5c',
 }))
 
 const StatusDot = styled('div', ({ $status }: { $status: string }) => ({
@@ -421,7 +421,7 @@ const StatusDot = styled('div', ({ $status }: { $status: string }) => ({
   backgroundColor:
     $status === 'done' ? '#10b981' :
     $status === 'error' ? '#ef4444' :
-    $status === 'running' ? '#f59e0b' : '#d1d5db',
+    $status === 'running' ? '#f59e0b' : '#d6cfbf',
   color: '#fff',
 }))
 
@@ -436,13 +436,13 @@ const SuggestionChips = styled('div', {
 const Chip = styled('button', {
   padding: '5px 10px',
   borderRadius: '14px',
-  border: '1px solid #667eea',
+  border: '1px solid #d8401c',
   backgroundColor: 'transparent',
-  color: '#667eea',
+  color: '#d8401c',
   fontSize: '11px',
   cursor: 'pointer',
   transition: 'all 0.2s',
-  ':hover': { backgroundColor: '#667eea', color: '#fff' },
+  ':hover': { backgroundColor: '#d8401c', color: '#fff' },
 })
 
 const WelcomeWrap = styled('div', {
@@ -459,7 +459,7 @@ const WelcomeIcon = styled('div', {
   width: '52px',
   height: '52px',
   borderRadius: '14px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#d8401c',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -479,19 +479,19 @@ const PromptsGrid = styled('div', {
 const PromptBtn = styled('button', {
   padding: '6px 12px',
   borderRadius: '6px',
-  border: '1px solid #e5e7eb',
+  border: '1px solid #e6e0d2',
   backgroundColor: '#fff',
-  color: '#374151',
+  color: '#3a352b',
   fontSize: '11px',
   cursor: 'pointer',
   transition: 'all 0.2s',
-  ':hover': { borderColor: '#667eea', color: '#667eea', backgroundColor: '#f8f7ff' },
+  ':hover': { borderColor: '#d8401c', color: '#d8401c', backgroundColor: '#fbe8e0' },
 })
 
 const InputArea = styled('div', {
   padding: '12px 16px',
-  borderTop: '1px solid #e8e8e8',
-  backgroundColor: '#fafafa',
+  borderTop: '1px solid #e6e0d2',
+  backgroundColor: '#fbf9f4',
 })
 
 const InputRow = styled('div', {
@@ -504,7 +504,7 @@ const ChatInput = styled('textarea', {
   flex: 1,
   padding: '10px 12px',
   borderRadius: '10px',
-  border: '1px solid #e0e0e0',
+  border: '1px solid #e6e0d2',
   fontSize: '13px',
   lineHeight: '1.4',
   resize: 'none',
@@ -512,7 +512,7 @@ const ChatInput = styled('textarea', {
   maxHeight: '100px',
   outline: 'none',
   fontFamily: 'inherit',
-  ':focus': { borderColor: '#667eea', boxShadow: '0 0 0 3px rgba(102,126,234,0.1)' },
+  ':focus': { borderColor: '#d8401c', boxShadow: '0 0 0 3px rgba(216, 64, 28,0.1)' },
 })
 
 const SendBtn = styled('button', ({ $disabled }: { $disabled: boolean }) => ({
@@ -520,7 +520,7 @@ const SendBtn = styled('button', ({ $disabled }: { $disabled: boolean }) => ({
   height: '40px',
   borderRadius: '10px',
   border: 'none',
-  backgroundColor: $disabled ? '#d1d5db' : '#667eea',
+  backgroundColor: $disabled ? '#d6cfbf' : '#d8401c',
   color: '#fff',
   cursor: $disabled ? 'not-allowed' : 'pointer',
   display: 'flex',
@@ -528,12 +528,12 @@ const SendBtn = styled('button', ({ $disabled }: { $disabled: boolean }) => ({
   justifyContent: 'center',
   flexShrink: 0,
   transition: 'all 0.2s',
-  ':hover': { backgroundColor: $disabled ? '#d1d5db' : '#5a6fd6' },
+  ':hover': { backgroundColor: $disabled ? '#d6cfbf' : '#5a6fd6' },
 }))
 
 const CostHint = styled('div', {
   fontSize: '10px',
-  color: '#9ca3af',
+  color: '#a39d8c',
   marginTop: '4px',
   textAlign: 'right',
 })
@@ -724,11 +724,11 @@ function AiStudio() {
           let obj: any
           if (p.shape === 'circle') {
             const r = Math.min(sw, sh) / 2
-            obj = new fabric.Circle({ left: sl, top: st, radius: r, fill: p.fill || '#5A3FFF' })
+            obj = new fabric.Circle({ left: sl, top: st, radius: r, fill: p.fill || '#d8401c' })
           } else if (p.shape === 'triangle') {
-            obj = new fabric.Triangle({ left: sl, top: st, width: sw, height: sh, fill: p.fill || '#5A3FFF' })
+            obj = new fabric.Triangle({ left: sl, top: st, width: sw, height: sh, fill: p.fill || '#d8401c' })
           } else {
-            obj = new fabric.Rect({ left: sl, top: st, width: sw, height: sh, fill: p.fill || '#5A3FFF', rx: cw(p.rx || 0), ry: ch(p.ry || 0) })
+            obj = new fabric.Rect({ left: sl, top: st, width: sw, height: sh, fill: p.fill || '#d8401c', rx: cw(p.rx || 0), ry: ch(p.ry || 0) })
           }
           obj.set({ selectable: true, hasControls: true })
           c.add(obj)
@@ -1041,7 +1041,7 @@ function AiStudio() {
                       clearable={false}
                       searchable={false}
                       overrides={{
-                        ControlContainer: { style: { borderRadius: '8px', borderColor: '#e5e7eb', backgroundColor: '#f8f8f8' } },
+                        ControlContainer: { style: { borderRadius: '8px', borderColor: '#e6e0d2', backgroundColor: '#f8f8f8' } },
                       }}
                     />
                   </div>
@@ -1075,8 +1075,8 @@ function AiStudio() {
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" />
                       </svg>
                     </WelcomeIcon>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#1a1a1a', marginBottom: '6px' }}>Auto Design</div>
-                    <div style={{ fontSize: '13px', color: '#6b7280', maxWidth: '260px', lineHeight: '1.5', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: '#181410', marginBottom: '6px' }}>Auto Design</div>
+                    <div style={{ fontSize: '13px', color: '#736d5c', maxWidth: '260px', lineHeight: '1.5', marginBottom: '16px' }}>
                       Describe what you want and I'll plan and build an editable design on your canvas using real fonts, stock photos, illustrations, and shapes.
                     </div>
                     <PromptsGrid>
@@ -1145,7 +1145,7 @@ function AiStudio() {
                     <LoadingDots>
                       {[0, 0.16, 0.32].map((d, i) => (
                         <div key={i} style={{
-                          width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#667eea',
+                          width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#d8401c',
                           animation: `ai-bounce 1.4s infinite ease-in-out ${d}s`,
                         }} />
                       ))}

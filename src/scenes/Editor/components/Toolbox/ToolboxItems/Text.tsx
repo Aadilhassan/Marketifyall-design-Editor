@@ -7,8 +7,11 @@ import { SubMenuType } from '@/constants/editor'
 import { useEffect, useState } from 'react'
 import { useActiveObject, useEditor } from '@nkyo/scenify-sdk'
 import Spacing from './components/Spacing'
-import Common from './components/Common'
+import { commonItems } from './components/Common'
+import OverflowBar, { OverflowDivider, OverflowSpacer } from '../OverflowBar'
 import Animate from './components/Animate'
+import { Sparkles, CaseUpper, List, ListOrdered } from 'lucide-react'
+import { applyList, detectList, nextListMode, toggleUpper } from '@/utils/textFormat'
 
 interface TextOptions {
   fontFamily: string
@@ -54,7 +57,7 @@ function Text() {
   }, [editor])
 
   const updateOptions = (object: fabric.TextOptions) => {
-    const textOptions = ({
+    const textOptions = {
       fontFamily: object.fontFamily,
       fontSize: object.fontSize,
       fontWeight: object.fontWeight,
@@ -63,7 +66,7 @@ function Text() {
       textAligh: object.textAlign,
       underline: object.underline,
       fill: object.fill,
-    } as unknown) as TextOptions
+    } as unknown as TextOptions
     setOptions(textOptions)
   }
 
@@ -121,7 +124,29 @@ function Text() {
   }
 
   const TextAlignIcon = getTextAlignIcon()
-  
+
+  // Case & lists rewrite the text itself (fabric has no text-transform/lists).
+  const setText = (next: string, metadata?: Record<string, unknown>) => {
+    const obj: any = activeObject
+    const canvas: any = (editor as any)?.handlers?.canvas
+    if (!obj || !canvas) return
+    obj.set('text', next)
+    if (metadata) obj.set('metadata', { ...(obj.metadata || {}), ...metadata })
+    obj.initDimensions?.()
+    obj.setCoords()
+    canvas.requestRenderAll()
+    canvas.fire('object:modified', { target: obj })
+  }
+  const isUpper = (activeObject as any)?.metadata?.caseOriginal != null
+  const listMode = detectList(((activeObject as any)?.text as string) || '')
+  const toggleCase = () => {
+    const obj: any = activeObject
+    const r = toggleUpper(obj?.text || '', obj?.metadata?.caseOriginal)
+    setText(r.text, { caseOriginal: r.original })
+  }
+  const cycleList = () => setText(applyList((activeObject as any)?.text || '', nextListMode(listMode)))
+  const ListIcon = listMode === 'number' ? ListOrdered : List
+
   const buttonStyles = css({
     background: 'transparent',
     border: 'none',
@@ -149,140 +174,171 @@ function Text() {
   })
 
   return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 1rem',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <Button
-          onClick={() => setActiveSubMenu(SubMenuType.FONT_FAMILY)}
-          overrides={{
-            BaseButton: {
-              style: {
-                borderBottomColor: 'rgba(0,0,0,0.2)',
-                borderBottomStyle: 'solid',
-                borderBottomWidth: '1px',
-                borderTopColor: 'rgba(0,0,0,0.2)',
-                borderTopStyle: 'solid',
-                borderTopWidth: '1px',
-                borderRightColor: 'rgba(0,0,0,0.2)',
-                borderRightStyle: 'solid',
-                borderRightWidth: '1px',
-                borderLeftColor: 'rgba(0,0,0,0.2)',
-                borderLeftStyle: 'solid',
-                borderLeftWidth: '1px',
-                fontSize: '14px',
-              },
+    <OverflowBar>
+      <Button
+        onClick={() => setActiveSubMenu(SubMenuType.FONT_FAMILY)}
+        overrides={{
+          BaseButton: {
+            style: {
+              borderBottomColor: 'rgba(0,0,0,0.2)',
+              borderBottomStyle: 'solid',
+              borderBottomWidth: '1px',
+              borderTopColor: 'rgba(0,0,0,0.2)',
+              borderTopStyle: 'solid',
+              borderTopWidth: '1px',
+              borderRightColor: 'rgba(0,0,0,0.2)',
+              borderRightStyle: 'solid',
+              borderRightWidth: '1px',
+              borderLeftColor: 'rgba(0,0,0,0.2)',
+              borderLeftStyle: 'solid',
+              borderLeftWidth: '1px',
+              fontSize: '14px',
             },
-          }}
-          kind={KIND.tertiary}
-          size={SIZE.mini}
-          endEnhancer={() => <ChevronDown size={24} />}
-        >
-          {options.fontFamily}
-        </Button>
+          },
+        }}
+        kind={KIND.tertiary}
+        size={SIZE.mini}
+        endEnhancer={() => <ChevronDown size={24} />}
+      >
+        {options.fontFamily}
+      </Button>
 
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            border: '1px solid rgba(0,0,0,0.2)',
-            borderRadius: '4px',
-            height: '32px',
-            width: '100px',
-            overflow: 'hidden',
-            marginRight: '8px',
-          }}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          border: '1px solid rgba(0,0,0,0.2)',
+          borderRadius: '4px',
+          height: '32px',
+          width: '100px',
+          overflow: 'hidden',
+          marginLeft: '12px',
+          marginRight: '12px',
+        }}
+      >
+        <button
+          onClick={() => updateFontSize(Math.max(1, Math.floor(activeObject.fontSize) - 1))}
+          className={buttonStyles}
         >
-          <button
-            onClick={() => updateFontSize(Math.max(1, Math.floor(activeObject.fontSize) - 1))}
-            className={buttonStyles}
-          >
-            -
-          </button>
-          <input
-            type="number"
-            value={Math.round(activeObject.fontSize * 10) / 10}
-            onChange={(e) => {
-              const value = parseFloat(e.target.value);
-              if (!isNaN(value) && value > 0) {
-                updateFontSize(value);
-              }
-            }}
-            className={inputStyles}
-            min="1"
-            step="0.1"
-          />
-          <button
-            onClick={() => updateFontSize(Math.floor(activeObject.fontSize) + 1)}
-            className={buttonStyles}
-          >
-            +
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <Button
-            onClick={() => setActiveSubMenu(SubMenuType.COLOR)}
-            size={SIZE.compact}
-            kind={KIND.tertiary}
-            shape={SHAPE.square}
-          >
-            <Icons.TextColor color={options.fill} size={24} />
-          </Button>
-          <Button
-            onClick={toggleBold}
-            overrides={{
-              BaseButton: { style: { color: checkBold(options.fontWeight) ? '#000000' : '#afafaf' } },
-            }}
-            size={SIZE.compact}
-            kind={KIND.tertiary}
-            shape={SHAPE.square}
-          >
-            <Icons.Bold size={24} />
-          </Button>
-          <Button
-            overrides={{
-              BaseButton: { style: { color: checkIsItalic(activeObject.fontStyle) ? '#000000' : '#afafaf' } },
-            }}
-            onClick={toggleItalic}
-            size={SIZE.compact}
-            kind={KIND.tertiary}
-            shape={SHAPE.square}
-          >
-            <Icons.Italic size={24} />
-          </Button>
-          <Button
-            overrides={{
-              BaseButton: { style: { color: activeObject.underline ? '#000000' : '#afafaf' } },
-            }}
-            onClick={toggleUnderline}
-            size={SIZE.compact}
-            kind={KIND.tertiary}
-            shape={SHAPE.square}
-          >
-            <Icons.Underline size={24} />
-          </Button>
-          <div
-            style={{ height: '30px', width: '1px', backgroundColor: 'rgba(0,0,0,0.1)', margin: '0 0.35rem' }}
-          />
-          <Button onClick={toggleTextAlign} size={SIZE.compact} kind={KIND.tertiary} shape={SHAPE.square}>
-            <TextAlignIcon size={24} />
-          </Button>
-          <div
-            style={{ height: '30px', width: '1px', backgroundColor: 'rgba(0,0,0,0.1)', margin: '0 0.35rem' }}
-          />
-          <Spacing />
-          <Animate />
-        </div>
+          -
+        </button>
+        <input
+          type="number"
+          value={Math.round(activeObject.fontSize * 10) / 10}
+          onChange={e => {
+            const value = parseFloat(e.target.value)
+            if (!isNaN(value) && value > 0) {
+              updateFontSize(value)
+            }
+          }}
+          className={inputStyles}
+          min="1"
+          step="0.1"
+        />
+        <button
+          onClick={() => updateFontSize(Math.floor(activeObject.fontSize) + 1)}
+          className={buttonStyles}
+        >
+          +
+        </button>
       </div>
-      <Common />
-    </div>
+
+      <Button
+        onClick={() => setActiveSubMenu(SubMenuType.COLOR)}
+        size={SIZE.compact}
+        kind={KIND.tertiary}
+        shape={SHAPE.square}
+      >
+        <Icons.TextColor color={options.fill} size={24} />
+      </Button>
+      <Button
+        onClick={toggleBold}
+        overrides={{
+          BaseButton: { style: { color: checkBold(options.fontWeight) ? '#000000' : '#afafaf' } },
+        }}
+        size={SIZE.compact}
+        kind={KIND.tertiary}
+        shape={SHAPE.square}
+      >
+        <Icons.Bold size={24} />
+      </Button>
+      <Button
+        overrides={{
+          BaseButton: { style: { color: checkIsItalic(activeObject.fontStyle) ? '#000000' : '#afafaf' } },
+        }}
+        onClick={toggleItalic}
+        size={SIZE.compact}
+        kind={KIND.tertiary}
+        shape={SHAPE.square}
+      >
+        <Icons.Italic size={24} />
+      </Button>
+      <Button
+        overrides={{
+          BaseButton: { style: { color: activeObject.underline ? '#000000' : '#afafaf' } },
+        }}
+        onClick={toggleUnderline}
+        size={SIZE.compact}
+        kind={KIND.tertiary}
+        shape={SHAPE.square}
+      >
+        <Icons.Underline size={24} />
+      </Button>
+      <OverflowDivider />
+      <Button onClick={toggleTextAlign} size={SIZE.compact} kind={KIND.tertiary} shape={SHAPE.square}>
+        <TextAlignIcon size={24} />
+      </Button>
+      <Button
+        onClick={cycleList}
+        size={SIZE.compact}
+        kind={KIND.tertiary}
+        shape={SHAPE.square}
+        aria-label="List style"
+        overrides={{
+          BaseButton: {
+            props: {
+              title:
+                listMode === 'none'
+                  ? 'Bulleted list'
+                  : listMode === 'bullet'
+                  ? 'Numbered list'
+                  : 'Remove list',
+            },
+            style: listMode !== 'none' ? { backgroundColor: '#fbe8e0', color: '#d8401c' } : {},
+          },
+        }}
+      >
+        <ListIcon size={20} />
+      </Button>
+      <Button
+        onClick={toggleCase}
+        size={SIZE.compact}
+        kind={KIND.tertiary}
+        shape={SHAPE.square}
+        aria-label="Uppercase"
+        overrides={{
+          BaseButton: {
+            props: { title: isUpper ? 'Back to original case' : 'UPPERCASE', 'aria-pressed': isUpper },
+            style: isUpper ? { backgroundColor: '#fbe8e0', color: '#d8401c' } : {},
+          },
+        }}
+      >
+        <CaseUpper size={20} />
+      </Button>
+      <OverflowDivider />
+      <Spacing />
+      <Button
+        onClick={() => setActiveSubMenu(SubMenuType.TEXT_EFFECTS)}
+        size={SIZE.compact}
+        kind={KIND.tertiary}
+        startEnhancer={() => <Sparkles size={18} />}
+      >
+        Effects
+      </Button>
+      <Animate />
+      <OverflowSpacer />
+      {commonItems()}
+    </OverflowBar>
   )
 }
 

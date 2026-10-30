@@ -24,6 +24,9 @@ export interface Project {
   // to a static image. Loosely typed to avoid a circular import with VideoContext.
   clips?: any[]
   audioClips?: any[]
+  // Video project (src/video/model.ts, v1 schema): tracks, clips, assets.
+  // Supersedes clips/audioClips, which are only read to migrate older saves.
+  video?: any
   createdAt: number
   updatedAt: number
 }

@@ -49,7 +49,7 @@ function Upscale() {
             borderRadius: 8,
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 0.4, padding: '4px 8px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: '#a39d8c', textTransform: 'uppercase', letterSpacing: 0.4, padding: '4px 8px' }}>
             Upscale amount
           </div>
           {FACTORS.map(f => (
@@ -60,9 +60,9 @@ function Upscale() {
                 textAlign: 'left',
                 padding: '8px 10px',
                 borderRadius: 6,
-                border: '1px solid #e5e7eb',
+                border: '1px solid #e6e0d2',
                 background: '#fff',
-                color: '#374151',
+                color: '#3a352b',
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: 'pointer',

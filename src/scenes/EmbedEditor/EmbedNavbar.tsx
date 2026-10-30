@@ -6,7 +6,7 @@ import { useEmbedMode } from '@/contexts/EmbedContext'
 import { useCredits } from '@/contexts/CreditsContext'
 import { fail, ignoreError } from '@/lib/logger'
 import { APP_URL } from '@/lib/supabase'
-import { resolveEditorSession, demoBlocked } from '@/lib/workspaceContext'
+import { resolveEditorSession, demoBlocked, isDemoRequest } from '@/lib/workspaceContext'
 import { saveDesignProject, uploadPreview } from '@/services/designProjects'
 
 const Container = styled('div', {
@@ -16,7 +16,7 @@ const Container = styled('div', {
   padding: '0 20px',
   justifyContent: 'space-between',
   alignItems: 'center',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: '1px solid #e6e0d2',
   boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
 })
 
@@ -43,17 +43,17 @@ const NameInput = styled('input', {
   background: 'transparent',
   fontSize: '15px',
   fontWeight: 500,
-  color: '#374151',
+  color: '#3a352b',
   padding: '8px 12px',
   borderRadius: '6px',
   outline: 'none',
   minWidth: '200px',
   transition: 'background 0.2s',
   ':hover': {
-    background: '#f3f4f6',
+    background: '#f3efe4',
   },
   ':focus': {
-    background: '#f3f4f6',
+    background: '#f3efe4',
   },
 })
 
@@ -63,9 +63,9 @@ const CreditBadge = styled('div', {
   gap: '6px',
   padding: '6px 12px',
   borderRadius: '20px',
-  border: '1px solid #e5e7eb',
-  background: '#f9fafb',
-  color: '#374151',
+  border: '1px solid #e6e0d2',
+  background: '#fbf9f4',
+  color: '#3a352b',
   fontSize: '13px',
   fontWeight: 500,
 })
@@ -94,9 +94,9 @@ const DoneButton = styled('button', {
 const CancelButton = styled('button', {
   padding: '10px 20px',
   borderRadius: '8px',
-  border: '1px solid #e5e7eb',
+  border: '1px solid #e6e0d2',
   background: '#ffffff',
-  color: '#6b7280',
+  color: '#736d5c',
   fontSize: '14px',
   fontWeight: 500,
   cursor: 'pointer',
@@ -105,9 +105,9 @@ const CancelButton = styled('button', {
   gap: '6px',
   transition: 'all 0.2s',
   ':hover': {
-    background: '#f9fafb',
-    borderColor: '#d1d5db',
-    color: '#374151',
+    background: '#fbf9f4',
+    borderColor: '#d6cfbf',
+    color: '#3a352b',
   },
 })
 
@@ -135,6 +135,12 @@ function EmbedNavbar() {
   const handleDone = async () => {
     if (!editor) return
 
+    // Demo visitors have no session: prompt sign-up rather than letting the
+    // session lookup redirect them to login (and away from their work).
+    if (isDemoRequest()) {
+      demoBlocked(true)
+      return
+    }
     setIsExporting(true)
     try {
       const session = await resolveEditorSession()

@@ -26,7 +26,7 @@ const Container = styled('div', {
 
 const Header = styled('div', {
   padding: '16px 20px',
-  borderBottom: '1px solid #e8e8e8',
+  borderBottom: '1px solid #e6e0d2',
   display: 'flex',
   alignItems: 'center',
   gap: '12px',
@@ -36,7 +36,7 @@ const HeaderIcon = styled('div', {
   width: '36px',
   height: '36px',
   borderRadius: '10px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#d8401c',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -50,7 +50,7 @@ const HeaderTitle = styled('div', {
 const Title = styled('div', {
   fontSize: '15px',
   fontWeight: 600,
-  color: '#1a1a1a',
+  color: '#181410',
 })
 
 const Subtitle = styled('div', {
@@ -62,14 +62,14 @@ const Subtitle = styled('div', {
 const ModelSelector = styled('select', {
   padding: '6px 10px',
   borderRadius: '6px',
-  border: '1px solid #e0e0e0',
+  border: '1px solid #e6e0d2',
   fontSize: '12px',
   color: '#555',
   cursor: 'pointer',
   background: '#f8f8f8',
   outline: 'none',
   ':focus': {
-    borderColor: '#667eea',
+    borderColor: '#d8401c',
   },
 })
 
@@ -92,8 +92,8 @@ const MessageBubble = styled('div', ({ $isUser }: { $isUser: boolean }) => ({
   maxWidth: '85%',
   padding: '12px 16px',
   borderRadius: $isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-  backgroundColor: $isUser ? '#667eea' : '#f5f5f5',
-  color: $isUser ? '#ffffff' : '#1a1a1a',
+  backgroundColor: $isUser ? '#d8401c' : '#f3efe4',
+  color: $isUser ? '#ffffff' : '#181410',
   alignSelf: $isUser ? 'flex-end' : 'flex-start',
   fontSize: '14px',
   lineHeight: '1.5',
@@ -140,22 +140,22 @@ const SuggestionsRow = styled('div', {
 const SuggestionChip = styled('button', {
   padding: '6px 12px',
   borderRadius: '16px',
-  border: '1px solid #667eea',
+  border: '1px solid #d8401c',
   backgroundColor: 'transparent',
-  color: '#667eea',
+  color: '#d8401c',
   fontSize: '12px',
   cursor: 'pointer',
   transition: 'all 0.2s',
   ':hover': {
-    backgroundColor: '#667eea',
+    backgroundColor: '#d8401c',
     color: '#ffffff',
   },
 })
 
 const InputArea = styled('div', {
   padding: '16px 20px',
-  borderTop: '1px solid #e8e8e8',
-  backgroundColor: '#fafafa',
+  borderTop: '1px solid #e6e0d2',
+  backgroundColor: '#fbf9f4',
 })
 
 const InputWrapper = styled('div', {
@@ -168,7 +168,7 @@ const TextArea = styled('textarea', {
   flex: 1,
   padding: '12px 14px',
   borderRadius: '12px',
-  border: '1px solid #e0e0e0',
+  border: '1px solid #e6e0d2',
   fontSize: '14px',
   lineHeight: '1.5',
   resize: 'none',
@@ -177,8 +177,8 @@ const TextArea = styled('textarea', {
   outline: 'none',
   fontFamily: 'inherit',
   ':focus': {
-    borderColor: '#667eea',
-    boxShadow: '0 0 0 3px rgba(102, 126, 234, 0.1)',
+    borderColor: '#d8401c',
+    boxShadow: '0 0 0 3px rgba(216, 64, 28, 0.1)',
   },
   '::placeholder': {
     color: '#aaa',
@@ -190,7 +190,7 @@ const SendButton = styled('button', ({ $disabled }: { $disabled: boolean }) => (
   height: '44px',
   borderRadius: '12px',
   border: 'none',
-  backgroundColor: $disabled ? '#ccc' : '#667eea',
+  backgroundColor: $disabled ? '#ccc' : '#d8401c',
   color: '#ffffff',
   cursor: $disabled ? 'not-allowed' : 'pointer',
   display: 'flex',
@@ -206,7 +206,7 @@ const SendButton = styled('button', ({ $disabled }: { $disabled: boolean }) => (
 const ImproveButton = styled('button', {
   padding: '6px 10px',
   borderRadius: '6px',
-  border: '1px solid #e0e0e0',
+  border: '1px solid #e6e0d2',
   backgroundColor: '#fff',
   color: '#666',
   fontSize: '12px',
@@ -216,8 +216,8 @@ const ImproveButton = styled('button', {
   gap: '4px',
   transition: 'all 0.2s',
   ':hover': {
-    borderColor: '#667eea',
-    color: '#667eea',
+    borderColor: '#d8401c',
+    color: '#d8401c',
   },
 })
 
@@ -231,15 +231,15 @@ const QuickActions = styled('div', {
 const QuickActionButton = styled('button', {
   padding: '8px 14px',
   borderRadius: '8px',
-  border: '1px solid #e0e0e0',
+  border: '1px solid #e6e0d2',
   backgroundColor: '#fff',
   color: '#555',
   fontSize: '13px',
   cursor: 'pointer',
   transition: 'all 0.2s',
   ':hover': {
-    borderColor: '#667eea',
-    backgroundColor: '#f8f7ff',
+    borderColor: '#d8401c',
+    backgroundColor: '#fbe8e0',
   },
 })
 
@@ -260,7 +260,7 @@ const Dot = styled('div', ({ $delay }: { $delay: number }) => ({
   width: '8px',
   height: '8px',
   borderRadius: '50%',
-  backgroundColor: '#667eea',
+  backgroundColor: '#d8401c',
   animation: 'bounce 1.4s infinite ease-in-out',
   animationDelay: `${$delay}s`,
 }))
@@ -279,7 +279,7 @@ const WelcomeIcon = styled('div', {
   width: '64px',
   height: '64px',
   borderRadius: '16px',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#d8401c',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -290,7 +290,7 @@ const WelcomeIcon = styled('div', {
 const WelcomeTitle = styled('div', {
   fontSize: '20px',
   fontWeight: 600,
-  color: '#1a1a1a',
+  color: '#181410',
   marginBottom: '8px',
 })
 
@@ -467,7 +467,7 @@ function AIDesigner() {
           const { shape, fill, stroke, width, height } = action.params
           const shapeWidth = Math.min(width || 150, canvasW * 0.5)
           const shapeHeight = Math.min(height || 150, canvasH * 0.5)
-          const shapeFill = fill || '#5A3FFF'
+          const shapeFill = fill || '#d8401c'
 
           // Generate SVG and convert to data URL (same approach as Elements panel)
           const svg = generateShapeSvg(shape || 'rectangle', shapeWidth, shapeHeight, shapeFill, stroke)

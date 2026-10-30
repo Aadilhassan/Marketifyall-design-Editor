@@ -6,17 +6,17 @@ import { getElements } from '@store/slices/elements/actions'
 import { getFonts } from '@store/slices/fonts/actions'
 import { getTemplates } from '@store/slices/templates/actions'
 import { useAppDispatch } from '@store/store'
-import useVideoContext from '@/hooks/useVideoContext'
+import { useVideoProject } from '@/video/VideoProjectContext'
+import { isEmptyProject, VideoProject } from '@/video/model'
+import { relinkVideoObjects, videoProjectFromSave } from '@/video/legacy'
 import Navbar from './components/Navbar'
-import Panels from './components/Panels'
-import Toolbox from './components/Toolbox'
 import Footer from './components/Footer'
 import PagesBar from './components/PagesBar'
 import WhiteboardToolbar from './components/WhiteboardToolbar'
 import ContextMenu from './components/ContextMenu'
 import VideoTimeline from './components/VideoTimeline'
-import VideoCanvasPlayer from './components/VideoCanvasPlayer'
-import AnimationDriver from './components/AnimationDriver'
+import VideoEngine from '@/video/VideoEngine'
+import Rulers from './components/Rulers'
 import ErrorBoundary from '@/components/ErrorBoundary/ErrorBoundary'
 import InsufficientCreditsModal from '@/components/InsufficientCreditsModal'
 import { useCredits } from '@/contexts/CreditsContext'
@@ -33,6 +33,17 @@ import { resolveEditorSession, isDemoRequest } from '@/lib/workspaceContext'
 import { createSaveManager, readRecovery, clearRecovery } from '@/utils/saveManager'
 import type { SaveManager } from '@/utils/saveManager'
 import { log, ignoreError, fail } from '@/lib/logger'
+import { color } from '@/theme/tokens'
+import { resizeDesign } from '@/utils/magicResize'
+import useCanvasEnhancements from '@/hooks/useCanvasEnhancements'
+import { PageActionsContext } from '@/contexts/PageActionsContext'
+import { startAutoVersions, versionProjectKey } from '@/utils/versions'
+import type { DesignSnapshot } from '@/utils/versions'
+import { commentsForPage, installCommentExport, withComments } from '@/utils/comments'
+import type { DesignComment } from '@/utils/comments'
+import useBreakpoint from '@/hooks/useBreakpoint'
+import ResponsiveEditorLayout from './mobile/ResponsiveEditorLayout'
+import '@/styles/editor-theme.css'
 
 interface CanvasObject {
   name?: string
@@ -125,18 +136,24 @@ function App() {
   const [hasInitialized, setHasInitialized] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [isWhiteboard, setIsWhiteboard] = useState(false)
-  const { clips, audioClips, isTimelineOpen, restoreState } = useVideoContext()
+  const videoProject = useVideoProject()
   const { showUpgradeModal, upgradeModalData, dismissUpgradeModal } = useCredits()
+  const phoneLayout = useBreakpoint() === 'phone'
 
-  const hasTimelineContent = clips.length > 0 || audioClips.length > 0
-  const shouldShowTimeline = hasTimelineContent && isTimelineOpen
+  // One fit once a loaded design is in place; later size changes are handled
+  // by useStageViewport (fit mode only).
+  const fitDesignToView = useCallback(() => {
+    try {
+      ;(editor as any)?.zoomToFit?.()
+    } catch (err) {
+      log.warn('editor', 'zoom-to-fit failed', err)
+    }
+  }, [editor])
 
-  // Always-fresh refs so the (effect-scoped) auto-save persists the latest clips
-  // without re-subscribing canvas listeners on every clip edit.
-  const clipsRef = useRef(clips)
-  clipsRef.current = clips
-  const audioClipsRef = useRef(audioClips)
-  audioClipsRef.current = audioClips
+  // Always-fresh ref so the (effect-scoped) load/auto-save code reaches the
+  // live video project without re-subscribing canvas listeners on every edit.
+  const videoProjectRef = useRef(videoProject)
+  videoProjectRef.current = videoProject
 
   // ---- Multi-page state ----------------------------------------------------
   // pagesRef is the authoritative store (mutated by autosave without re-render);
@@ -186,7 +203,7 @@ function App() {
   // Load a page's content into the canvas (a blank page gets a frame-only json).
   // opts let a brand-new typed page get its own frame size + starter content.
   const loadPageContent = useCallback(
-    (index: number, opts?: { frame?: { width: number; height: number }; starter?: string }) => {
+    (index: number, opts?: { frame?: { width: number; height: number }; starter?: string; afterLoad?: () => void }) => {
       const ed = editor as any
       if (!ed || index < 0 || index >= pagesRef.current.length) return
       activePageRef.current = index
@@ -209,6 +226,13 @@ function App() {
             const cv = getFabricCanvas(editor)
             if (cv) addStarterContent(editor, cv, opts.starter as any)
           }, 300)
+        }
+        if (opts?.afterLoad) {
+          try {
+            opts.afterLoad()
+          } catch (err) {
+            log.warn('editor', 'post-load page hook failed', err)
+          }
         }
       }
       try {
@@ -283,6 +307,109 @@ function App() {
     [captureCurrentPage, loadPageContent]
   )
 
+  // Magic Resize "copy & resize": duplicate the active page, then re-flow it.
+  const copyAndResize = useCallback(
+    (size: { width: number; height: number }) => {
+      captureCurrentPage()
+      const index = activePageRef.current
+      const src = pagesRef.current[index]
+      const copy: PageEntry = {
+        id: genProjectId(),
+        json: src?.json ? JSON.parse(JSON.stringify(src.json)) : null,
+      }
+      const next = [...pagesRef.current]
+      next.splice(index + 1, 0, copy)
+      pagesRef.current = next
+      loadPageContent(index + 1, { afterLoad: () => resizeDesign(editor, size, true) })
+    },
+    [editor, captureCurrentPage, loadPageContent]
+  )
+
+  // Export: load each requested page in turn, call `render` once it has settled,
+  // and always return to the page the user was on (even on failure/timeout).
+  const renderPages = useCallback(
+    async <T,>(indices: number[], render: (index: number, position: number) => Promise<T> | T): Promise<T[]> => {
+      if (indices.some(i => i < 0 || i >= pagesRef.current.length)) throw new Error('Page selection is out of range')
+      const showPage = (index: number) =>
+        new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error(`Page ${index + 1} took too long to load`)), 8000)
+          loadPageContent(index, {
+            afterLoad: () => {
+              clearTimeout(timer)
+              setTimeout(resolve, 150) // let images/fonts paint
+            },
+          })
+        })
+      const original = activePageRef.current
+      captureCurrentPage()
+      const results: T[] = []
+      try {
+        for (let pos = 0; pos < indices.length; pos++) {
+          if (indices[pos] !== activePageRef.current) await showPage(indices[pos])
+          results.push(await render(indices[pos], pos))
+        }
+        return results
+      } finally {
+        if (activePageRef.current !== original) {
+          await showPage(original).catch(err => log.warn('export', 'could not return to the original page after export', err))
+        }
+      }
+    },
+    [captureCurrentPage, loadPageContent]
+  )
+
+  // Version history: deep-copied snapshot of every page (live canvas captured
+  // first). Null while a page is still loading so a half-imported canvas is
+  // never versioned.
+  const snapshot = useCallback((): DesignSnapshot | null => {
+    if (!frameReadyRef.current || !pagesRef.current.length) return null
+    captureCurrentPage()
+    return { pages: JSON.parse(JSON.stringify(pagesRef.current)), activePage: activePageRef.current }
+  }, [captureCurrentPage])
+
+  const restoreSnapshot = useCallback(
+    (s: DesignSnapshot) => {
+      if (!s?.pages?.length) return
+      pagesRef.current = JSON.parse(JSON.stringify(s.pages))
+      loadPageContent(Math.min(Math.max(0, s.activePage || 0), pagesRef.current.length - 1)) // also persists
+      saveManagerRef.current?.markDirty()
+    },
+    [loadPageContent]
+  )
+
+  // Comments live in each page's json.metadata.comments (see utils/comments.ts).
+  const getComments = useCallback((pageIndex: number): DesignComment[] => {
+    const entry = pagesRef.current[pageIndex]
+    if (!entry) return []
+    return commentsForPage(entry.json?.metadata?.comments, entry.id, pagesRef.current.map(p => p.id))
+  }, [])
+
+  const setComments = useCallback(
+    (pageIndex: number, comments: DesignComment[]) => {
+      if (pageIndex === activePageRef.current && frameReadyRef.current) captureCurrentPage()
+      const entry = pagesRef.current[pageIndex]
+      if (!entry?.json) {
+        log.warn('comments', `page ${pageIndex + 1} has no content yet — comment not stored`)
+        return
+      }
+      const stamped = comments.map(c => (c.pageId === entry.id ? c : { ...c, pageId: entry.id }))
+      pagesRef.current[pageIndex] = { ...entry, json: withComments(entry.json, stamped) }
+      persistPages()
+    },
+    [captureCurrentPage, persistPages]
+  )
+
+  // scenify's exportToJSON rebuilds `metadata`, dropping comments; re-inject the
+  // active page's so autosave, page switches and the server save keep them.
+  useEffect(() => installCommentExport(editor, () => getComments(activePageRef.current)), [editor, getComments])
+  // Auto versions every 10 min while the design changed.
+  useEffect(() => startAutoVersions(versionProjectKey(routeId), snapshot), [routeId, snapshot])
+
+  const pageActions = useMemo(
+    () => ({ pageCount: pages.length, activePage, goToPage, copyAndResize, renderPages, snapshot, restoreSnapshot, getComments, setComments }),
+    [pages.length, activePage, goToPage, copyAndResize, renderPages, snapshot, restoreSnapshot, getComments, setComments]
+  )
+
   const deletePage = useCallback(
     (index: number) => {
       if (pagesRef.current.length <= 1) return
@@ -297,20 +424,6 @@ function App() {
     [captureCurrentPage, loadPageContent]
   )
 
-  // Auto-fit the design when the timeline opens/closes so it isn't left hidden
-  // behind the timeline after the canvas area resizes. Uses the SDK's own
-  // zoomToFit (keeps all content visible); the delays let the layout + the SDK's
-  // resize observer settle before re-fitting.
-  const fitDesignToView = useCallback(() => {
-    try { (editor as any)?.zoomToFit?.() } catch (err) { log.warn('editor', 'zoom-to-fit failed', err) }
-  }, [editor])
-
-  useEffect(() => {
-    if (!editor) return
-    const t1 = setTimeout(fitDesignToView, 300)
-    const t2 = setTimeout(fitDesignToView, 600)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
-  }, [editor, shouldShowTimeline, fitDesignToView])
 
   const searchParams = new URLSearchParams(location.search)
   const imgUrl = searchParams.get('img_url')
@@ -441,6 +554,10 @@ function App() {
 
   const editorConfig = useMemo(() => ({ clipToFrame: true, scrollLimit: 0 }), [])
 
+  // The SDK hardcodes a cool-grey backdrop; swap in the warm brand one. Only the
+  // SDK default is replaced so whiteboard's dot pattern is left alone.
+  useCanvasEnhancements(editor)
+
   const handleCanvasDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     const imageUrl = e.dataTransfer.getData('image-url')
@@ -565,6 +682,8 @@ function App() {
         activePageRef.current = 0
         setActivePage(0)
         setPages([...initialPages])
+        // The server copy carries the video project inside its design JSON.
+        videoProjectRef.current.restore(videoProjectFromSave(null, json))
         if (json && json.frame && typeof ed.importFromJSON === 'function') {
           // Same scenify import the local restore below uses — rebuilds frame,
           // clipping, zoom & animations.
@@ -572,7 +691,7 @@ function App() {
             const r = ed.importFromJSON(json)
             const done = () => {
               frameReadyRef.current = true
-              setTimeout(fitDesignToView, 450)
+              requestAnimationFrame(fitDesignToView)
               // Baseline for the navbar's unsaved-changes check, captured in
               // exportToJSON space (the import normalizes objects, so hashing
               // the raw record json would always read as "dirty").
@@ -644,45 +763,13 @@ function App() {
             tryApply()
           }
 
-          // Reattach the video metadata scenify's exportToJSON discards, then push
-          // the persisted clips back into VideoContext — so a reloaded design keeps
-          // its timeline and live video instead of degrading to a static poster.
+          // Video project: the v1 `video` record (else migrated from the old
+          // clips/audioClips) is restored BEFORE the canvas import so media binds
+          // as objects arrive; afterwards clips whose object lost its id in an
+          // old save are re-attached by poster.
           const restoreVideoClips = () => {
-            const savedClips: any[] = (source as any)?.clips || []
-            const savedAudio: any[] = (source as any)?.audioClips || []
-            if (!savedClips.length && !savedAudio.length) return
-            let tries = 0
-            const attempt = () => {
-              const cv = getFabricCanvas(editor)
-              const objs: any[] = cv?.getObjects?.() || []
-              const staticImgs = objs.filter(o => o && o.type === 'StaticImage')
-              // Wait for the imported objects to materialize before matching them.
-              if (savedClips.length && staticImgs.length === 0 && tries++ < 40) {
-                setTimeout(attempt, 150)
-                return
-              }
-              savedClips.forEach(clip => {
-                // Match the backing canvas object: by its stable id, else by the
-                // identical poster data-URL, else the first unclaimed StaticImage.
-                let obj = objs.find(o => !o.__videoRelinked && clip.canvasObjectId && o.id === clip.canvasObjectId)
-                if (!obj) obj = objs.find(o => !o.__videoRelinked && clip.poster && o.metadata?.src && o.metadata.src === clip.poster)
-                if (!obj) obj = objs.find(o => !o.__videoRelinked && o.type === 'StaticImage' && !o.metadata?.isVideo)
-                if (!obj) return
-                obj.__videoRelinked = true
-                if (!obj.metadata) obj.metadata = {}
-                obj.metadata.isVideo = true
-                obj.metadata.videoSrc = clip.src
-                obj.metadata.id = clip.id
-                obj.metadata.name = clip.name
-                obj.metadata.duration = clip.duration
-                if (!clip.poster && obj.metadata.src) clip.poster = obj.metadata.src
-                obj.id = clip.id
-                try { obj.set('selectable', false); obj.set('hasControls', false); obj.set('hasBorders', false) } catch (err) { log.warn('editor', 'failed to lock relinked video object controls', err) }
-              })
-              cv?.requestRenderAll?.()
-              restoreState(savedClips as any, savedAudio as any)
-            }
-            attempt()
+            const api = videoProjectRef.current
+            relinkVideoObjects(() => getFabricCanvas(editor), api.getProject, api.dispatchSilently)
           }
 
           // Initialise multi-page state. Legacy single-page projects (no `pages`)
@@ -705,6 +792,7 @@ function App() {
           if (json && Array.isArray(json.objects)) {
             json.objects = json.objects.filter((o: any) => o && o.type)
           }
+          videoProjectRef.current.restore(videoProjectFromSave(source, json))
           if (json && json.frame && typeof ed.importFromJSON === 'function') {
             // scenify template format (new saves) — rebuilds frame, clip, zoom & animations.
             try {
@@ -714,7 +802,7 @@ function App() {
                 restoreVideoClips()
                 // Re-fit after the design is in place (the SDK's own fit-on-load
                 // runs before the layout settles, leaving it off-centre/clipped).
-                setTimeout(fitDesignToView, 450)
+                requestAnimationFrame(fitDesignToView)
               }
               if (r && typeof r.then === 'function') r.then(done).catch(done)
               else setTimeout(done, 500)
@@ -778,21 +866,13 @@ function App() {
       if (!json) return null
       const objs = json.objects || []
       const cv = getFabricCanvas(editor)
-      const liveObjs: any[] = cv?.getObjects?.() || []
-      // Persist the timeline clips with the design. exportToJSON strips our video
-      // metadata and clips live only in React state, so without this a reload
-      // loses the timeline and the video reverts to a static image. Tag each clip
-      // with its canvas object id so it can be relinked to its object on load.
-      const clipsToSave = clipsRef.current.map(c => {
-        const obj = liveObjs.find(o => o.metadata?.id === c.id || o.id === c.id)
-        return { ...c, canvasObjectId: obj?.id || (c as any).canvasObjectId }
-      })
-      const audioToSave = audioClipsRef.current
-      const clipSig = clipsToSave.map(c => `${c.id}:${c.start}:${c.duration}:${c.canvasObjectId || ''}`).join(',')
-      const audioSig = audioToSave.map((a: any) => `${a.id}:${a.start}:${a.duration}:${a.volume}`).join(',')
-      // changeKey hashes CONTENT (objects JSON), not byte-length — catches
-      // same-length edits the old signature skipped.
-      const changeKey = JSON.stringify(objs) + '|' + clipSig + '|' + audioSig
+      // Persist the video project (tracks/clips/assets, v1 schema) with the design;
+      // it lives in React state, not on the canvas. Uploaded media are IndexedDB
+      // asset references, so a reload gets them back.
+      const project: VideoProject = videoProjectRef.current.getProject()
+      const video = isEmptyProject(project) ? undefined : project
+      // changeKey hashes CONTENT (objects JSON + project), not byte-length.
+      const changeKey = JSON.stringify(objs) + '|' + (video ? JSON.stringify(video) : '')
       // Write the live canvas into the active page, then persist the whole
       // pages array so multi-page designs survive reloads.
       const thumb = cv ? makeThumbnail(cv) : undefined
@@ -800,7 +880,8 @@ function App() {
       const idx = Math.min(activePageRef.current, pagesRef.current.length - 1)
       pagesRef.current[idx] = { ...pagesRef.current[idx], json, thumbnail: thumb }
       return {
-        payload: { pages: pagesRef.current, activePage: idx, json, clips: clipsToSave, audioClips: audioToSave, thumbnail: thumb },
+        // clips/audioClips are cleared: older builds' format, superseded by `video`.
+        payload: { pages: pagesRef.current, activePage: idx, json, video, clips: undefined, audioClips: undefined, thumbnail: thumb },
         changeKey,
       }
     }
@@ -834,70 +915,17 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, routeId])
 
+  // Timeline edits don't fire canvas events — tell the auto-save directly.
+  useEffect(() => {
+    saveManagerRef.current?.markDirty()
+  }, [videoProject.project])
+
   // Constrain objects to stay within canvas bounds
   useEffect(() => {
     if (!editor) return
 
     const canvas = getCanvas(editor)
     if (!canvas) return
-
-    const getFrameBounds = () => {
-      const clipPath = canvas.clipPath
-      if (clipPath) {
-        const frameLeft = clipPath.left || 175.5
-        const frameTop = clipPath.top || -286.5
-        const frameWidth = clipPath.width || 900
-        const frameHeight = clipPath.height || 1200
-        return { frameLeft, frameTop, frameRight: frameLeft + frameWidth, frameBottom: frameTop + frameHeight }
-      }
-
-      const objects = canvas.getObjects?.() || []
-      const clipObj = objects.find((o: CanvasObject) => o.name === 'clip' || o.id === 'clip')
-      if (!clipObj) return null
-
-      const frameLeft = clipObj.left || 175.5
-      const frameTop = clipObj.top || -286.5
-      const frameWidth = (clipObj.width || 900) * (clipObj.scaleX || 1)
-      const frameHeight = (clipObj.height || 1200) * (clipObj.scaleY || 1)
-      return { frameLeft, frameTop, frameRight: frameLeft + frameWidth, frameBottom: frameTop + frameHeight }
-    }
-
-    const constrainObject = (obj: CanvasObject) => {
-      if (!obj || obj.name === 'clip' || obj.id === 'clip') return
-
-      try {
-        const bounds = getFrameBounds()
-        if (!bounds) return
-
-        const { frameLeft, frameTop, frameRight, frameBottom } = bounds
-        const boundingRect = obj.getBoundingRect()
-
-        let deltaX = 0
-        let deltaY = 0
-
-        if (boundingRect.left < frameLeft) {
-          deltaX = frameLeft - boundingRect.left
-        } else if (boundingRect.left + boundingRect.width > frameRight) {
-          deltaX = frameRight - (boundingRect.left + boundingRect.width)
-        }
-
-        if (boundingRect.top < frameTop) {
-          deltaY = frameTop - boundingRect.top
-        } else if (boundingRect.top + boundingRect.height > frameBottom) {
-          deltaY = frameBottom - (boundingRect.top + boundingRect.height)
-        }
-
-        if (Math.abs(deltaX) > 0.1 || Math.abs(deltaY) > 0.1) {
-          const currentLeft = (obj.left || 0) as number
-          const currentTop = (obj.top || 0) as number
-          obj.set({ left: currentLeft + deltaX, top: currentTop + deltaY })
-          obj.setCoords()
-          canvas.requestRenderAll?.()
-        }
-      } catch (err) {
-        ignoreError(err, 'canvas not ready for constrain pass')
-      }
-    }
 
     const setupClipping = () => {
       try {
@@ -956,11 +984,9 @@ function App() {
       }
     }
 
-    const onMoving = () => {
-      const activeObj = canvas.getActiveObject?.()
-      if (activeObj) constrainObject(activeObj as CanvasObject)
-      setupClipping()
-    }
+    // Objects may hang off the page (full-bleed photos etc.) — the frame clip
+    // hides the overflow. Smart guides handle alignment instead of clamping.
+    const onMoving = () => setupClipping()
 
     canvas.on?.('object:moving', onMoving)
     canvas.on?.('object:modified', setupClipping)
@@ -979,82 +1005,77 @@ function App() {
     }
   }, [editor])
 
-  return (
+  // Layout (desktop / tablet / phone) lives in ResponsiveEditorLayout; the
+  // stage element itself is identical at every size.
+  const stage = (
     <div
       style={{
-        width: '100vw',
-        height: '100vh',
+        flex: 1,
         display: 'flex',
-        flexDirection: 'column',
-        background: '#f8fafc',
-        fontFamily: "'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif",
+        backgroundColor: color.canvasBg,
+        backgroundImage: isWhiteboard ? 'radial-gradient(#b3bcc9 2.2px, transparent 2.2px)' : undefined,
+        backgroundSize: isWhiteboard ? '26px 26px' : undefined,
+        position: 'relative',
+        overflow: 'hidden',
       }}
+      className="canvas-container"
+      onDrop={handleCanvasDrop}
+      onDragOver={(e) => e.preventDefault()}
     >
-      <ToasterContainer placement={PLACEMENT.bottomRight} autoHideDuration={4500} />
-      <div style={{ position: 'relative', zIndex: 100 }}>
-        <SaveManagerContext.Provider value={saveManager}>
-          <Navbar />
-        </SaveManagerContext.Provider>
-      </div>
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <ErrorBoundary fallback={<div style={{ padding: 20, color: '#ef4444' }}>Panel failed to load</div>}>
-          <Panels />
-        </ErrorBoundary>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          <ErrorBoundary fallback={<div style={{ padding: 10, color: '#ef4444' }}>Toolbar error</div>}>
-            <Toolbox />
-          </ErrorBoundary>
-          <div
+      {isWhiteboard && <WhiteboardToolbar editor={editor} />}
+      {loadError ? (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flex: 1,
+            color: '#ef4444',
+            flexDirection: 'column',
+            gap: 12,
+          }}
+        >
+          <p>{loadError}</p>
+          <button
+            onClick={() => setLoadError(null)}
             style={{
-              flex: 1,
-              display: 'flex',
-              backgroundColor: '#f1f2f6',
-              backgroundImage: isWhiteboard ? 'radial-gradient(#b3bcc9 2.2px, transparent 2.2px)' : undefined,
-              backgroundSize: isWhiteboard ? '26px 26px' : undefined,
-              position: 'relative',
-              overflow: 'hidden',
-              paddingBottom: shouldShowTimeline ? '300px' : '0',
+              padding: '8px 16px',
+              background: '#f3efe4',
+              border: '1px solid #e6e0d2',
+              borderRadius: 6,
+              cursor: 'pointer',
             }}
-            className="canvas-container"
-            onDrop={handleCanvasDrop}
-            onDragOver={(e) => e.preventDefault()}
           >
-            {isWhiteboard && <WhiteboardToolbar editor={editor} />}
-            {loadError ? (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flex: 1,
-                  color: '#ef4444',
-                  flexDirection: 'column',
-                  gap: 12,
-                }}
-              >
-                <p>{loadError}</p>
-                <button
-                  onClick={() => setLoadError(null)}
-                  style={{
-                    padding: '8px 16px',
-                    background: '#f1f5f9',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: 6,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Dismiss
-                </button>
-              </div>
-            ) : (
-              <Editor config={editorConfig} />
-            )}
-            <AnimationDriver />
-            <VideoCanvasPlayer />
-            <ErrorBoundary fallback={null}>
-              <VideoTimeline />
-            </ErrorBoundary>
-          </div>
+            Dismiss
+          </button>
+        </div>
+      ) : (
+        <Editor config={editorConfig} />
+      )}
+      <ErrorBoundary fallback={null}>
+        <Rulers />
+      </ErrorBoundary>
+      <VideoEngine />
+      <Footer />
+    </div>
+  )
+
+  return (
+    <PageActionsContext.Provider value={pageActions}>
+      <ResponsiveEditorLayout
+        before={<ToasterContainer placement={phoneLayout ? PLACEMENT.top : PLACEMENT.bottomRight} autoHideDuration={4500} />}
+        topbar={
+          <SaveManagerContext.Provider value={saveManager}>
+            <Navbar />
+          </SaveManagerContext.Provider>
+        }
+        stage={stage}
+        timeline={
+          <ErrorBoundary fallback={null}>
+            <VideoTimeline />
+          </ErrorBoundary>
+        }
+        pagesBar={
           <ErrorBoundary fallback={null}>
             <PagesBar
               pages={pages}
@@ -1066,17 +1087,20 @@ function App() {
               onDelete={deletePage}
             />
           </ErrorBoundary>
-          <Footer />
-        </div>
-      </div>
-      <ContextMenu />
-      <InsufficientCreditsModal
-        isOpen={showUpgradeModal}
-        onClose={dismissUpgradeModal}
-        balance={upgradeModalData?.balance || 0}
-        cost={upgradeModalData?.cost || 0}
+        }
+        after={
+          <>
+            <ContextMenu />
+            <InsufficientCreditsModal
+              isOpen={showUpgradeModal}
+              onClose={dismissUpgradeModal}
+              balance={upgradeModalData?.balance || 0}
+              cost={upgradeModalData?.cost || 0}
+            />
+          </>
+        }
       />
-    </div>
+    </PageActionsContext.Provider>
   )
 }
 

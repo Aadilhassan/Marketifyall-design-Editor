@@ -89,8 +89,8 @@ function Panel() {
   return (
     <div style={{ display: 'flex', height: '100%', flexDirection: 'column', background: '#fff' }}>
       <div style={{ padding: '16px 16px 8px' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Adjust</div>
-        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>Filters &amp; color for the selected media.</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#181410' }}>Adjust</div>
+        <div style={{ fontSize: 12, color: '#736d5c', marginTop: 2 }}>Filters &amp; color for the selected media.</div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -110,9 +110,9 @@ function Panel() {
                       fontSize: 11,
                       fontWeight: 600,
                       cursor: 'pointer',
-                      border: '1px solid ' + (selected ? '#6366f1' : '#e5e7eb'),
-                      background: selected ? '#eef2ff' : '#fafafa',
-                      color: selected ? '#4338ca' : '#374151',
+                      border: '1px solid ' + (selected ? '#d8401c' : '#e6e0d2'),
+                      background: selected ? '#fbe8e0' : '#fbf9f4',
+                      color: selected ? '#b8340f' : '#3a352b',
                     }}
                   >
                     {p.label}
@@ -123,7 +123,7 @@ function Panel() {
 
             {GROUPS.map(group => (
               <div key={group.title}>
-                <div style={{ height: 1, background: '#f1f5f9', margin: '18px 0 16px' }} />
+                <div style={{ height: 1, background: '#f3efe4', margin: '18px 0 16px' }} />
                 <SectionTitle>{group.title}</SectionTitle>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                   {group.sliders.map(s => (
@@ -139,7 +139,7 @@ function Panel() {
               </div>
             ))}
 
-            <div style={{ height: 1, background: '#f1f5f9', margin: '18px 0 16px' }} />
+            <div style={{ height: 1, background: '#f3efe4', margin: '18px 0 16px' }} />
             <SectionTitle>Duotone</SectionTitle>
             <div style={{ display: 'grid', gap: 8, gridTemplateColumns: '1fr 1fr 1fr 1fr' }}>
               {DUOTONE_PRESETS.map(d => {
@@ -156,8 +156,8 @@ function Panel() {
                       padding: 0,
                       overflow: 'hidden',
                       position: 'relative',
-                      border: '2px solid ' + (selected ? '#6366f1' : 'transparent'),
-                      boxShadow: selected ? '0 0 0 1px #6366f1' : 'inset 0 0 0 1px #e5e7eb',
+                      border: '2px solid ' + (selected ? '#d8401c' : 'transparent'),
+                      boxShadow: selected ? '0 0 0 1px #d8401c' : 'inset 0 0 0 1px #e5e7eb',
                       background:
                         d.id === 'none'
                           ? '#ffffff'
@@ -165,7 +165,7 @@ function Panel() {
                     }}
                   >
                     {d.id === 'none' && (
-                      <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>Off</span>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: '#736d5c' }}>Off</span>
                     )}
                   </button>
                 )
@@ -179,9 +179,9 @@ function Panel() {
                 width: '100%',
                 padding: '10px',
                 borderRadius: 8,
-                border: '1px solid #e5e7eb',
+                border: '1px solid #e6e0d2',
                 background: '#fff',
-                color: '#6b7280',
+                color: '#736d5c',
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: 'pointer',
@@ -198,7 +198,7 @@ function Panel() {
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 10 }}>
+    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: '#a39d8c', marginBottom: 10 }}>
       {children}
     </div>
   )
@@ -224,7 +224,7 @@ function Slider({
           justifyContent: 'space-between',
           fontSize: 12,
           fontWeight: 600,
-          color: '#374151',
+          color: '#3a352b',
           marginBottom: 6,
         }}
       >
@@ -232,7 +232,7 @@ function Slider({
         <span
           title="Double-click to reset"
           onDoubleClick={onReset}
-          style={{ color: isDefault ? '#9ca3af' : '#4338ca', cursor: 'pointer', minWidth: 28, textAlign: 'right' }}
+          style={{ color: isDefault ? '#a39d8c' : '#b8340f', cursor: 'pointer', minWidth: 28, textAlign: 'right' }}
         >
           {Math.round(value)}
         </span>
@@ -245,7 +245,7 @@ function Slider({
         value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
         onDoubleClick={onReset}
-        style={{ width: '100%', accentColor: '#6366f1' }}
+        style={{ width: '100%', accentColor: '#d8401c' }}
       />
     </div>
   )
@@ -262,12 +262,12 @@ function EmptyState() {
         height: '100%',
         padding: 24,
         textAlign: 'center',
-        color: '#6b7280',
+        color: '#736d5c',
         gap: 10,
       }}
     >
       <div style={{ fontSize: 34 }}>🎚️</div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>Select an image or video</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#3a352b' }}>Select an image or video</div>
       <div style={{ fontSize: 12 }}>Filters and color adjustments apply to images and video clips.</div>
     </div>
   )

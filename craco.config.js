@@ -2,7 +2,20 @@ const path = require('path')
 
 const resloveSrc = (...paths) => path.join(__dirname, 'src', ...paths)
 
+// Same import aliases for Jest as for webpack, so tests can load modules that
+// use `@/…` imports.
+const jestAliases = {
+  '^@/(.*)$': '<rootDir>/src/$1',
+  '^@(assets|components|common|contexts|hooks|scenes|store|services|utils|handlers)/(.*)$': '<rootDir>/src/$1/$2',
+}
+
 module.exports = {
+  jest: {
+    configure: (jestConfig) => {
+      jestConfig.moduleNameMapper = { ...(jestConfig.moduleNameMapper || {}), ...jestAliases }
+      return jestConfig
+    },
+  },
   webpack: {
     alias: {
       '@': resloveSrc(),
@@ -27,6 +40,8 @@ module.exports = {
           include: [
             path.join(__dirname, 'node_modules', '@supabase', 'ssr'),
             path.join(__dirname, 'node_modules', 'cookie'),
+            // MP4 muxer for client-side video export (ships ES2020 syntax)
+            path.join(__dirname, 'node_modules', 'mp4-muxer'),
           ],
           loader: require.resolve('babel-loader', {
             paths: [path.join(__dirname, 'node_modules', 'react-scripts')],

@@ -27,3 +27,5 @@ npm-debug.log*
 /supabase/.temp
 /video-processor/test_output.mp4
 test.http
+.vercel
+.env*

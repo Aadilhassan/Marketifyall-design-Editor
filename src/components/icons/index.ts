@@ -12,6 +12,7 @@ import AiStudio from './AiStudio'
 import AIDesigner from './AIDesigner'
 import Video from './Video'
 import StockVideos from './StockVideos'
+import { BrandKit, Apps, LayersIcon, DrawIcon, CommentsIcon, HistoryIcon } from './RailIcons'
 
 class Icons {
   static Background = Background
@@ -32,6 +33,12 @@ class Icons {
   static Video = Video
   static StockVideos = StockVideos
   static ['Stock Videos'] = StockVideos
+  static ['Brand'] = BrandKit
+  static Apps = Apps
+  static Layers = LayersIcon
+  static Draw = DrawIcon
+  static Comments = CommentsIcon
+  static ['Version history'] = HistoryIcon
 }
 
 export default Icons

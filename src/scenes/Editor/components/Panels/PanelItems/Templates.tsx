@@ -96,7 +96,7 @@ function Templates() {
   return (
     <div style={{ display: 'flex', height: '100%', flexDirection: 'column' }}>
       <div style={{ padding: '1.5rem 1.5rem 0.75rem' }}>
-        <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#2d2d2d', marginBottom: '0.75rem' }}>
+        <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#3a352b', marginBottom: '0.75rem' }}>
           Templates
         </div>
         <Input
@@ -106,7 +106,7 @@ function Templates() {
           placeholder="Search templates"
           clearOnEscape
           overrides={{
-            Root: { style: { borderRadius: '8px', border: '1px solid #e5e5e5' } },
+            Root: { style: { borderRadius: '8px', border: '1px solid #e6e0d2' } },
             Input: { style: { fontSize: '0.9rem' } },
           }}
         />
@@ -119,8 +119,8 @@ function Templates() {
             key={cat}
             onClick={() => setSelectedCategory(cat)}
             style={{
-              background: selectedCategory === cat ? '#5A3FFF' : '#f5f5f5',
-              color: selectedCategory === cat ? '#ffffff' : '#2d2d2d',
+              background: selectedCategory === cat ? '#d8401c' : '#f3efe4',
+              color: selectedCategory === cat ? '#ffffff' : '#3a352b',
               border: 'none',
               borderRadius: '6px',
               padding: '0.35rem 0.65rem',
@@ -136,7 +136,7 @@ function Templates() {
       </div>
 
       {/* Count */}
-      <div style={{ padding: '0 1.5rem 0.5rem', fontSize: '0.8rem', color: '#6b6b6b' }}>
+      <div style={{ padding: '0 1.5rem 0.5rem', fontSize: '0.8rem', color: '#736d5c' }}>
         {filteredTemplates.length} template{filteredTemplates.length !== 1 ? 's' : ''}
       </div>
 
@@ -162,7 +162,7 @@ function Templates() {
                     overflow: 'hidden',
                     border: '1px solid rgba(0,0,0,0.08)',
                     transition: 'all 0.2s',
-                    background: '#fafafa',
+                    background: '#fbf9f4',
                   }}
                   onClick={() => handleLoadTemplate(template)}
                 >

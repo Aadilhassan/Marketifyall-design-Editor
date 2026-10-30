@@ -16,6 +16,15 @@ import AiStudio from './AiStudio'
 import AIDesigner from './AIDesigner'
 import Video from './Video'
 import StockVideos from './StockVideos'
+import TextEffects from './TextEffects'
+import BrandKit from './BrandKit'
+import Apps from './Apps'
+import Draw from './Draw'
+import MagicEraser from './MagicEraser'
+import Comments from './Comments'
+import VersionHistory from './VersionHistory'
+import PositionPanel from './PositionPanel'
+import ElementEffects from './ElementEffects'
 
 class PanelItems {
   static Background = Background
@@ -41,6 +50,15 @@ class PanelItems {
   static Video = Video
   static StockVideos = StockVideos
   static ['Stock Videos'] = StockVideos
+  static TextEffects = TextEffects
+  static Brand = BrandKit
+  static Apps = Apps
+  static Draw = Draw
+  static MagicEraser = MagicEraser
+  static Comments = Comments
+  static ['Version history'] = VersionHistory
+  static Position = PositionPanel
+  static ElementEffects = ElementEffects
 }
 
 export default PanelItems

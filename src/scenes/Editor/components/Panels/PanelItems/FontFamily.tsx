@@ -297,13 +297,13 @@ function FontFamily() {
           style={{
             fontSize: '1.1rem',
             fontWeight: 600,
-            color: '#2d2d2d',
+            color: '#3a352b',
             marginBottom: '0.75rem',
           }}
         >
           Font
         </div>
-        <div style={{ display: 'flex', gap: '1.5rem', borderBottom: '1px solid #e5e5e5' }}>
+        <div style={{ display: 'flex', gap: '1.5rem', borderBottom: '1px solid #e6e0d2' }}>
           <TabButton
             active={activeTab === 'font'}
             onClick={() => setActiveTab('font')}
@@ -333,7 +333,7 @@ function FontFamily() {
                   Root: {
                     style: {
                       borderRadius: '8px',
-                      border: '1px solid #e5e5e5',
+                      border: '1px solid #e6e0d2',
                     },
                   },
                   Input: {
@@ -409,7 +409,7 @@ function FontFamily() {
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                               <path
                                 d="M13 4L6 11L3 8"
-                                stroke="#5A3FFF"
+                                stroke="#d8401c"
                                 strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -452,7 +452,7 @@ function FontFamily() {
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path
                               d="M13 4L6 11L3 8"
-                              stroke="#5A3FFF"
+                              stroke="#d8401c"
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -466,7 +466,7 @@ function FontFamily() {
 
                 {/* All Fonts */}
                 {loadingFonts ? (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#6b6b6b' }}>
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#736d5c' }}>
                     Loading fonts...
                   </div>
                 ) : filteredFonts.length > 0 ? (
@@ -493,7 +493,7 @@ function FontFamily() {
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path
                               d="M13 4L6 11L3 8"
-                              stroke="#5A3FFF"
+                              stroke="#d8401c"
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -504,7 +504,7 @@ function FontFamily() {
                     ))}
                   </Section>
                 ) : (
-                  <div style={{ padding: '2rem', textAlign: 'center', color: '#6b6b6b' }}>
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#736d5c' }}>
                     No fonts found
                   </div>
                 )}
@@ -524,7 +524,7 @@ function FontFamily() {
                           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                             <path
                               d="M13 4L6 11L3 8"
-                              stroke="#5A3FFF"
+                              stroke="#d8401c"
                               strokeWidth="2"
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -537,7 +537,7 @@ function FontFamily() {
                 )}
 
                 {/* Upload Font Button */}
-                {/* <div style={{ padding: '1rem 0', borderTop: '1px solid #e5e5e5', marginTop: '1rem' }}>
+                {/* <div style={{ padding: '1rem 0', borderTop: '1px solid #e6e0d2', marginTop: '1rem' }}>
                   <UploadButton>
                     Upload a font
                   </UploadButton>
@@ -545,7 +545,7 @@ function FontFamily() {
                     href="#"
                     style={{
                       fontSize: '0.85rem',
-                      color: '#6b6b6b',
+                      color: '#736d5c',
                       textDecoration: 'none',
                       marginLeft: '0.5rem',
                     }}
@@ -560,7 +560,7 @@ function FontFamily() {
       )}
 
       {activeTab === 'textStyles' && (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6b6b6b' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#736d5c' }}>
           Text styles coming soon...
         </div>
       )}
@@ -574,16 +574,16 @@ const TabButton = styled('button', ({ $active }: { $active: boolean }) => ({
   padding: '0.75rem 0',
   fontSize: '0.9rem',
   fontWeight: $active ? 600 : 400,
-  color: $active ? '#2d2d2d' : '#6b6b6b',
+  color: $active ? '#3a352b' : '#736d5c',
   cursor: 'pointer',
-  borderBottom: $active ? '2px solid #2d2d2d' : '2px solid transparent',
+  borderBottom: $active ? '2px solid #3a352b' : '2px solid transparent',
   marginBottom: '-1px',
   transition: 'all 0.2s',
 }))
 
 const CategoryButton = styled('button', ({ $active }: { $active: boolean }) => ({
-  background: $active ? '#5A3FFF' : '#f5f5f5',
-  color: $active ? '#ffffff' : '#2d2d2d',
+  background: $active ? '#d8401c' : '#f3efe4',
+  color: $active ? '#ffffff' : '#3a352b',
   border: 'none',
   borderRadius: '6px',
   padding: '0.4rem 0.75rem',
@@ -592,7 +592,7 @@ const CategoryButton = styled('button', ({ $active }: { $active: boolean }) => (
   cursor: 'pointer',
   transition: 'all 0.2s',
   ':hover': {
-    background: $active ? '#4a2fef' : '#e5e5e5',
+    background: $active ? '#b8340f' : '#e6e0d2',
   },
 }))
 
@@ -603,7 +603,7 @@ const Section = styled('div', {
 const SectionHeader = styled('div', {
   fontSize: '0.85rem',
   fontWeight: 600,
-  color: '#2d2d2d',
+  color: '#3a352b',
   marginBottom: '0.5rem',
   display: 'flex',
   alignItems: 'center',
@@ -617,12 +617,12 @@ const FontListItem = styled('div', ({ $active }: { $active: boolean }) => ({
   borderRadius: '6px',
   cursor: 'pointer',
   fontSize: '0.9rem',
-  color: '#2d2d2d',
-  background: $active ? '#f0edff' : 'transparent',
+  color: '#3a352b',
+  background: $active ? '#fbe8e0' : 'transparent',
   marginBottom: '0.25rem',
   transition: 'all 0.15s',
   ':hover': {
-    background: $active ? '#f0edff' : '#f5f5f5',
+    background: $active ? '#fbe8e0' : '#f3efe4',
   },
 }))
 

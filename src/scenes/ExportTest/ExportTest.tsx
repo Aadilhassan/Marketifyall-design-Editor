@@ -5,7 +5,7 @@ import ExportModal from '../Editor/components/Navbar/components/ExportModal'
 import { getPopularVideos, isApiKeyConfigured, PexelsVideo, getBestVideoFile } from '@/services/pexels'
 import useVideoContext from '@/hooks/useVideoContext'
 import VideoTimeline from '../Editor/components/VideoTimeline'
-import VideoCanvasPlayer from '../Editor/components/VideoCanvasPlayer'
+import VideoEngine from '@/video/VideoEngine'
 import { log } from '@/lib/logger'
 
 function ExportTest() {
@@ -499,7 +499,7 @@ function ExportTest() {
         }}
       >
         <Editor config={editorConfig} />
-        <VideoCanvasPlayer />
+        <VideoEngine />
         <VideoTimeline />
       </div>
 

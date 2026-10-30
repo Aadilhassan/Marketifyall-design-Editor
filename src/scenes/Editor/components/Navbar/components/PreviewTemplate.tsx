@@ -1,7 +1,8 @@
+import { editorTheme } from '@/theme/baseTheme'
+import { ThemeProvider } from 'baseui'
 import { Button, KIND } from 'baseui/button'
 import { Modal, ModalBody, SIZE } from 'baseui/modal'
 import { useEffect, useState } from 'react'
-import { ThemeProvider, LightTheme } from 'baseui'
 import { flatten, uniq } from 'lodash'
 import { useEditor } from '@nkyo/scenify-sdk'
 import { FormControl } from 'baseui/form-control'
@@ -199,10 +200,10 @@ function PreviewTemplate() {
                 paddingTop: '0',
                 paddingBottom: '0',
                 backgroundColor: '#ffffff',
-                color: '#334155',
+                color: '#3a352b',
                 fontWeight: 500,
                 fontSize: '14px',
-                border: '1px solid #e2e8f0',
+                border: '1px solid #e6e0d2',
                 lineHeight: '1',
                 ':hover': { backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#0f172a' },
               },
@@ -212,7 +213,7 @@ function PreviewTemplate() {
         </Button> */}
       </div>
 
-      <ThemeProvider theme={LightTheme}>
+      <ThemeProvider theme={editorTheme}>
         <Modal
           unstable_ModalBackdropScroll={true}
           overrides={{
@@ -252,7 +253,7 @@ function PreviewTemplate() {
                 <div
                   style={{
                     padding: '1.25rem 1.5rem',
-                    borderBottom: '1px solid #f1f5f9',
+                    borderBottom: '1px solid #f3efe4',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -264,13 +265,13 @@ function PreviewTemplate() {
                         margin: 0,
                         fontSize: '18px',
                         fontWeight: 600,
-                        color: '#1e293b',
+                        color: '#181410',
                         letterSpacing: '-0.025em',
                       }}
                     >
                       Preview Design
                     </h2>
-                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#736d5c' }}>
                       Review your design before downloading
                     </p>
                   </div>
@@ -282,7 +283,7 @@ function PreviewTemplate() {
                     overrides={{
                       BaseButton: {
                         style: {
-                          color: '#94a3b8',
+                          color: '#a39d8c',
                           ':hover': { color: '#ef4444', backgroundColor: '#fee2e2' },
                         },
                       },
@@ -311,7 +312,7 @@ function PreviewTemplate() {
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
-                    background: '#f8fafc',
+                    background: '#fbf9f4',
                     // Checkered background pattern for transparency
                     backgroundImage:
                       'linear-gradient(45deg, #f1f5f9 25%, transparent 25%), linear-gradient(-45deg, #f1f5f9 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f1f5f9 75%), linear-gradient(-45deg, transparent 75%, #f1f5f9 75%)',
@@ -348,7 +349,7 @@ function PreviewTemplate() {
                 <div
                   style={{
                     padding: '1.25rem 1.5rem',
-                    borderTop: '1px solid #f1f5f9',
+                    borderTop: '1px solid #f3efe4',
                     display: 'flex',
                     gap: '12px',
                     justifyContent: 'flex-end',
@@ -367,9 +368,9 @@ function PreviewTemplate() {
                           paddingLeft: '20px',
                           paddingRight: '20px',
                           backgroundColor: '#ffffff',
-                          color: '#334155',
+                          color: '#3a352b',
                           fontWeight: 500,
-                          border: '1px solid #e2e8f0',
+                          border: '1px solid #e6e0d2',
                           ':hover': { backgroundColor: '#f8fafc', borderColor: '#cbd5e1', color: '#0f172a' },
                         },
                       },
@@ -384,15 +385,15 @@ function PreviewTemplate() {
                       BaseButton: {
                         style: {
                           borderRadius: '12px',
-                          backgroundColor: '#0f172a',
+                          backgroundColor: '#181410',
                           color: '#ffffff',
-                          border: '1px solid #0f172a',
+                          border: '1px solid #181410',
                           paddingLeft: '20px',
                           paddingRight: '20px',
                           transition: 'all 0.2s',
                           ':hover': {
-                            backgroundColor: '#1e293b',
-                            borderColor: '#1e293b',
+                            backgroundColor: '#181410',
+                            borderColor: '#181410',
                             transform: 'translateY(-1px)',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                           },
@@ -428,12 +429,12 @@ function PreviewTemplate() {
                       width: '48px',
                       height: '48px',
                       borderRadius: '12px',
-                      background: '#f1f5f9',
+                      background: '#f3efe4',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       margin: '0 auto 1rem',
-                      color: '#64748b',
+                      color: '#736d5c',
                     }}
                   >
                     <svg
@@ -451,10 +452,10 @@ function PreviewTemplate() {
                       <polyline points="21 15 16 10 5 21"></polyline>
                     </svg>
                   </div>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem', color: '#0f172a' }}>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '0 0 0.5rem', color: '#181410' }}>
                     Generate Preview
                   </h2>
-                  <p style={{ color: '#64748b', margin: 0, fontSize: '14px', lineHeight: 1.5 }}>
+                  <p style={{ color: '#736d5c', margin: 0, fontSize: '14px', lineHeight: 1.5 }}>
                     Enter values for your dynamic fields below to generate a high-fidelity preview of your design.
                   </p>
                 </div>
@@ -467,7 +468,7 @@ function PreviewTemplate() {
                         <span
                           style={{
                             fontWeight: 500,
-                            color: '#334155',
+                            color: '#3a352b',
                             fontSize: '14px',
                             marginBottom: '4px',
                             display: 'block',
@@ -487,7 +488,7 @@ function PreviewTemplate() {
                           Root: {
                             style: {
                               borderRadius: '8px',
-                              backgroundColor: '#f8fafc',
+                              backgroundColor: '#fbf9f4',
                             },
                           },
                           InputContainer: {
@@ -508,9 +509,9 @@ function PreviewTemplate() {
                             borderRadius: '8px',
                             width: '100%',
                             height: '48px',
-                            background: '#0f172a',
+                            background: '#181410',
                             fontWeight: 600,
-                            ':hover': { background: '#1e293b' },
+                            ':hover': { background: '#181410' },
                           },
                         },
                       }}

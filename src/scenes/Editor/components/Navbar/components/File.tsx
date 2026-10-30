@@ -1,5 +1,6 @@
+import { editorTheme } from '@/theme/baseTheme'
 import { Button, KIND } from 'baseui/button'
-import { styled, ThemeProvider, LightTheme } from 'baseui'
+import { styled, ThemeProvider } from 'baseui'
 import { ListItem, ListItemLabel } from 'baseui/list'
 
 import { StatefulPopover, PLACEMENT } from 'baseui/popover'
@@ -17,7 +18,7 @@ export default function Resize() {
       focusLock
       placement={PLACEMENT.bottomLeft}
       content={({ close }) => (
-        <ThemeProvider theme={LightTheme}>
+        <ThemeProvider theme={editorTheme}>
           <Container>
             <ListItem>
               <ListItemLabel description="description">Facebook cover</ListItemLabel>

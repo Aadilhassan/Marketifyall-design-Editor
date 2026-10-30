@@ -11,7 +11,11 @@ import {
   FileText,
   PenTool,
   Table2,
+  ChevronDown,
 } from 'lucide-react'
+import useBreakpoint from '@/hooks/useBreakpoint'
+import BottomSheet from '@/scenes/Editor/mobile/BottomSheet'
+import { color, font, radius, shadow } from '@/theme/tokens'
 
 interface PageEntry {
   id: string
@@ -40,9 +44,14 @@ const PAGE_TYPES: { id: string; label: string; Icon: any; color: string; w: numb
   { id: 'sheet', label: 'Sheet', Icon: Table2, color: '#3b82f6', w: 1600, h: 900 },
 ]
 
-function PagesBar({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate, onDelete }: Props) {
+function PagesBar(props: Props) {
+  const phone = useBreakpoint() === 'phone'
+  if (!props.pages || props.pages.length === 0) return null
+  return phone ? <PhonePages {...props} /> : <DesktopPagesBar {...props} />
+}
+
+function DesktopPagesBar({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate, onDelete }: Props) {
   const [showTypes, setShowTypes] = useState(false)
-  if (!pages || pages.length === 0) return null
 
   return (
     <div
@@ -53,7 +62,8 @@ function PagesBar({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate,
         justifyContent: 'center',
         gap: 10,
         padding: '10px 14px',
-        background: '#f1f2f6',
+        background: '#e9e4d8',
+        borderTop: '1px solid rgba(24, 20, 16, 0.12)',
         flex: 'none',
       }}
     >
@@ -66,18 +76,23 @@ function PagesBar({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate,
               key={p.id}
               className="mfa-page-card"
               onClick={() => onSelect(i)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelect(i) } }}
+              role="button"
+              tabIndex={0}
+              aria-label={`Page ${i + 1}`}
+              aria-current={active ? 'page' : undefined}
               title={`Page ${i + 1}`}
               style={{
                 position: 'relative',
                 flex: '0 0 auto',
                 width: 92,
                 height: 62,
-                borderRadius: 8,
+                borderRadius: 4,
                 overflow: 'hidden',
                 background: '#ffffff',
                 cursor: 'pointer',
-                border: '2px solid ' + (active ? '#7c3aed' : '#e5e7eb'),
-                boxShadow: active ? '0 0 0 2px rgba(124,58,237,0.25)' : '0 1px 2px rgba(0,0,0,0.06)',
+                border: '2px solid ' + (active ? '#d8401c' : 'transparent'),
+                boxShadow: active ? '3px 3px 0 #181410' : '0 1px 2px rgba(24,20,16,0.12)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -93,9 +108,10 @@ function PagesBar({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate,
                   position: 'absolute',
                   left: 4,
                   bottom: 3,
-                  fontSize: 11,
+                  fontFamily: "'Space Mono', ui-monospace, monospace",
+                  fontSize: 10,
                   fontWeight: 700,
-                  color: active ? '#7c3aed' : '#9ca3af',
+                  color: active ? '#d8401c' : '#736d5c',
                   background: 'rgba(255,255,255,0.85)',
                   borderRadius: 4,
                   padding: '0 4px',
@@ -122,7 +138,7 @@ function PagesBar({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate,
 
       {/* add controls: + (blank) and ˅ (typed) — popup anchors to this group */}
       <div style={{ position: 'relative', flex: '0 0 auto' }}>
-        <div style={{ display: 'flex', alignItems: 'stretch', height: 62, borderRadius: 8, overflow: 'hidden', background: '#e5e7eb' }}>
+        <div style={{ display: 'flex', alignItems: 'stretch', height: 62, borderRadius: 4, overflow: 'hidden', background: '#fbf9f4', border: '1px dashed rgba(24, 20, 16, 0.34)' }}>
           <button onClick={() => { setShowTypes(false); onAdd() }} title="Add page" style={addBtn}>
             <Plus size={20} />
           </button>
@@ -144,9 +160,9 @@ function PagesBar({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate,
                 transform: 'translateX(-50%)',
                 zIndex: 41,
                 background: '#ffffff',
-                borderRadius: 14,
-                boxShadow: '0 12px 40px rgba(0,0,0,0.18)',
-                border: '1px solid #eef2f7',
+                borderRadius: 8,
+                boxShadow: '3px 3px 0 #181410',
+                border: '1px solid #181410',
                 padding: 10,
                 display: 'grid',
                 gridTemplateColumns: 'repeat(3, 72px)',
@@ -185,7 +201,7 @@ function PagesBar({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate,
                     >
                       <Icon size={17} color={t.color} />
                     </span>
-                    <span style={{ fontSize: 10.5, fontWeight: 600, color: '#374151', textAlign: 'center', lineHeight: 1.1 }}>{t.label}</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 600, color: '#3a352b', textAlign: 'center', lineHeight: 1.1 }}>{t.label}</span>
                   </button>
                 )
               })}
@@ -196,10 +212,184 @@ function PagesBar({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate,
 
       <style>{`
         .mfa-page-card:hover .mfa-page-actions{display:flex!important}
-        .mfa-type-tile:hover{border-color:#c7d2fe!important;background:#f8fafc!important}
+        .mfa-type-tile:hover{border-color:#181410!important;background:#fbf9f4!important}
+        .mfa-page-card:focus-visible .mfa-page-actions{display:flex!important}
+        @media (hover: none){
+          .mfa-page-card .mfa-page-actions{display:flex!important}
+          .mfa-page-card .mfa-page-actions button{width:28px!important;height:28px!important}
+        }
       `}</style>
     </div>
   )
+}
+
+/**
+ * Phone: a small "Page 2/3" pill floating over the stage; it opens a sheet
+ * with the page thumbnails (always-visible duplicate/delete), add page and
+ * the typed page picker.
+ */
+function PhonePages({ pages, activePage, onSelect, onAdd, onAddTyped, onDuplicate, onDelete }: Props) {
+  const [open, setOpen] = useState(false)
+  const pick = (fn: () => void) => () => {
+    fn()
+    setOpen(false)
+  }
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Page ${activePage + 1} of ${pages.length}. Show pages`}
+        style={{
+          position: 'absolute',
+          top: 8,
+          left: 8,
+          zIndex: 6,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          height: 36,
+          padding: '0 10px 0 12px',
+          borderRadius: 999,
+          border: `1px solid ${color.ink}`,
+          background: color.white,
+          boxShadow: shadow.hard,
+          fontFamily: font.mono,
+          fontSize: 12,
+          fontWeight: 700,
+          color: color.ink,
+          cursor: 'pointer',
+        }}
+      >
+        Page {activePage + 1}/{pages.length}
+        <ChevronDown size={14} aria-hidden="true" />
+      </button>
+      <BottomSheet open={open} onClose={() => setOpen(false)} title="Pages" variant="menu">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, padding: 14 }}>
+          {pages.map((p, i) => {
+            const active = i === activePage
+            return (
+              <div key={p.id} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <button
+                  type="button"
+                  onClick={pick(() => onSelect(i))}
+                  aria-label={`Page ${i + 1}`}
+                  aria-current={active ? 'page' : undefined}
+                  style={{
+                    height: 96,
+                    padding: 0,
+                    borderRadius: radius.sm,
+                    overflow: 'hidden',
+                    background: color.white,
+                    border: `2px solid ${active ? color.accent : color.line}`,
+                    boxShadow: active ? shadow.hard : 'none',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {p.thumbnail ? (
+                    <img src={p.thumbnail} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ fontFamily: font.mono, fontSize: 12, color: color.muted }}>{i + 1}</span>
+                  )}
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span style={{ flex: 1, fontFamily: font.mono, fontSize: 11, fontWeight: 700, color: active ? color.accent : color.muted }}>
+                    {i + 1}
+                  </span>
+                  <button type="button" onClick={() => onDuplicate(i)} aria-label={`Duplicate page ${i + 1}`} style={sheetIconBtn}>
+                    <Copy size={16} />
+                  </button>
+                  {pages.length > 1 && (
+                    <button type="button" onClick={() => onDelete(i)} aria-label={`Delete page ${i + 1}`} style={sheetIconBtn}>
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+          <button
+            type="button"
+            onClick={pick(onAdd)}
+            style={{
+              height: 96,
+              borderRadius: radius.sm,
+              border: `1px dashed ${color.line2}`,
+              background: color.surface,
+              color: color.ink2,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 4,
+              fontFamily: font.sans,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <Plus size={20} />
+            Add page
+          </button>
+        </div>
+        <div style={{ padding: '4px 14px 16px' }}>
+          <div style={{ fontFamily: font.mono, fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: color.muted, marginBottom: 8 }}>
+            Add a page of a type
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))', gap: 6 }}>
+            {PAGE_TYPES.map(t => {
+              const Icon = t.Icon
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={pick(() => onAddTyped(t.w, t.h, t.starter))}
+                  style={{
+                    minHeight: 64,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                    borderRadius: radius.md,
+                    border: `1px solid ${color.line}`,
+                    background: color.white,
+                    fontFamily: font.sans,
+                    fontSize: 11.5,
+                    fontWeight: 600,
+                    color: color.ink2,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Icon size={18} color={t.color} />
+                  {t.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </BottomSheet>
+    </>
+  )
+}
+
+const sheetIconBtn: React.CSSProperties = {
+  width: 44,
+  height: 44,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  border: 'none',
+  borderRadius: 6,
+  background: 'transparent',
+  color: color.ink2,
+  cursor: 'pointer',
+  padding: 0,
 }
 
 const actionBtn: React.CSSProperties = {
@@ -223,7 +413,7 @@ const addBtn: React.CSSProperties = {
   width: 54,
   border: 'none',
   background: 'transparent',
-  color: '#4b5563',
+  color: '#3a352b',
   cursor: 'pointer',
 }
 

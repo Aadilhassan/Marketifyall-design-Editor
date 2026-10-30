@@ -9,6 +9,8 @@ import { styled } from 'baseui'
 import useVideoContext from '@/hooks/useVideoContext'
 import { promiseWithTimeout } from '@/utils/promiseWithTimeout'
 import { notify } from '@/lib/notify'
+import { fail, log } from '@/lib/logger'
+import { beginMediaDrag, endMediaDrag } from '@/scenes/Editor/components/timeline/mediaDrag'
 
 const Container = styled('div', {
     display: 'flex',
@@ -18,7 +20,7 @@ const Container = styled('div', {
 
 const SearchSection = styled('div', {
     padding: '16px 20px',
-    borderBottom: '1px solid #e8e8e8',
+    borderBottom: '1px solid #e6e0d2',
 })
 
 const CategoryScroller = styled('div', {
@@ -26,7 +28,7 @@ const CategoryScroller = styled('div', {
     display: 'flex',
     gap: '8px',
     overflowX: 'auto',
-    borderBottom: '1px solid #e8e8e8',
+    borderBottom: '1px solid #e6e0d2',
     '::-webkit-scrollbar': {
         height: '4px',
     },
@@ -45,10 +47,10 @@ const CategoryChip = styled('button', ({ $active }: { $active: boolean }) => ({
     cursor: 'pointer',
     whiteSpace: 'nowrap',
     transition: 'all 0.2s',
-    background: $active ? '#667eea' : '#f0f0f0',
+    background: $active ? '#d8401c' : '#f3efe4',
     color: $active ? '#fff' : '#555',
     ':hover': {
-        background: $active ? '#5a6fd6' : '#e5e5e5',
+        background: $active ? '#5a6fd6' : '#e6e0d2',
     },
 }))
 
@@ -65,7 +67,7 @@ const VideoItem = styled('div', ({ $loading }: { $loading?: boolean }) => ({
     overflow: 'hidden',
     cursor: $loading ? 'wait' : 'pointer',
     aspectRatio: '16/9',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#181410',
     transition: 'transform 0.15s, box-shadow 0.15s',
     opacity: $loading ? 0.6 : 1,
     ':hover': {
@@ -105,7 +107,7 @@ const PlayIcon = styled('div', {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#1a1a1a',
+    color: '#181410',
 })
 
 const DurationBadge = styled('div', {
@@ -173,7 +175,7 @@ const PexelsBadge = styled('div', {
     padding: '8px 16px',
     fontSize: '11px',
     color: '#888',
-    borderTop: '1px solid #e8e8e8',
+    borderTop: '1px solid #e6e0d2',
 })
 
 const CATEGORIES = [
@@ -236,6 +238,7 @@ function StockVideos() {
             videoCache.set(cacheKey, data)
             setVideos(data)
         } catch (error) {
+            log.warn('stock-videos', 'could not load stock videos', error)
             setVideos([])
         } finally {
             setLoading(false)
@@ -275,7 +278,8 @@ function StockVideos() {
         scrollRef.current?.scrollToTop()
     }, [])
 
-    const addVideoToCanvas = useCallback(async (video: PexelsVideo) => {
+    /** Add a stock clip: at `start` on the main track (timeline drop), else appended at its end. */
+    const addVideoToCanvas = useCallback(async (video: PexelsVideo, start?: number): Promise<string | void> => {
         if (addingVideo || !editor) return
         setAddingVideo(video.id)
 
@@ -412,10 +416,12 @@ function StockVideos() {
             })
 
             // Calculate start time to place video sequentially after existing videos
-            const startTime = getNextVideoStartTime()
+            const startTime = start ?? getNextVideoStartTime()
 
-            // Ensure duration is valid (fallback to 10 seconds if invalid)
-            const videoDuration = video.duration && video.duration > 0 ? video.duration : 10
+            // The media's own duration — Pexels reports whole seconds, which made
+            // the clip outlast the file. API value only as a fallback (then probed).
+            const probed = Number.isFinite(videoElement.duration) && videoElement.duration > 0 ? videoElement.duration : 0
+            const videoDuration = probed || (video.duration && video.duration > 0 ? video.duration : 10)
 
             // Prepare clip data for timeline
             const clipData = {
@@ -426,6 +432,17 @@ function StockVideos() {
                 start: startTime,
                 end: startTime + videoDuration,
                 poster: posterUrl || video.image, // Use extracted poster frame
+                asset: {
+                    id: `asset-${clipId}`,
+                    kind: 'video' as const,
+                    name: `Stock Video by ${video.user.name}`,
+                    duration: videoDuration,
+                    width: videoWidth,
+                    height: videoHeight,
+                    src: { kind: 'url' as const, url: videoUrl },
+                    poster: posterUrl || video.image,
+                    needsProbe: !probed,
+                },
             }
 
             // Verify all required fields are present
@@ -433,12 +450,16 @@ function StockVideos() {
                 throw new Error('Invalid clip data')
             }
 
+            // The probe element's job is done (the engine creates its own player).
+            videoElement.removeAttribute('src')
+            videoElement.load()
+
             // Add to Timeline
             addClip(clipData)
             setActiveClip(clipId)
+            return clipId
         } catch (error) {
-            console.error('Failed to add stock video:', error)
-            notify('Could not add that video. Please try another clip.', 'negative')
+            fail('stock-videos', 'Could not add that video. Please try another clip.', error)
         } finally {
             setAddingVideo(null)
         }
@@ -489,7 +510,7 @@ function StockVideos() {
                     ) : loading ? (
                         <LoadingState>
                             <svg width="16" height="16" viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite' }}>
-                                <circle cx="12" cy="12" r="10" stroke="#667eea" strokeWidth="2" fill="none" strokeDasharray="31.4 31.4" />
+                                <circle cx="12" cy="12" r="10" stroke="#d8401c" strokeWidth="2" fill="none" strokeDasharray="31.4 31.4" />
                             </svg>
                             Loading stock videos...
                             <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
@@ -505,7 +526,27 @@ function StockVideos() {
                             {videos.map(video => (
                                 <VideoItem
                                     key={video.id}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label={`Add stock video by ${video.user.name} (${formatDuration(video.duration)}) — or drag it onto the timeline`}
+                                    title="Click to add · drag onto the timeline to place it"
+                                    draggable
+                                    onDragStart={e =>
+                                        beginMediaDrag(e, {
+                                            kind: 'video',
+                                            label: `Stock video by ${video.user.name}`,
+                                            duration: video.duration,
+                                            insert: at => addVideoToCanvas(video, at.start),
+                                        })
+                                    }
+                                    onDragEnd={endMediaDrag}
                                     onClick={() => addVideoToCanvas(video)}
+                                    onKeyDown={e => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            addVideoToCanvas(video)
+                                        }
+                                    }}
                                     $loading={addingVideo === video.id}
                                 >
                                     <VideoThumb
@@ -530,7 +571,7 @@ function StockVideos() {
 
             <PexelsBadge>
                 Videos provided by
-                <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" style={{ color: '#667eea', fontWeight: 600 }}>
+                <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer" style={{ color: '#d8401c', fontWeight: 600 }}>
                     Pexels
                 </a>
             </PexelsBadge>

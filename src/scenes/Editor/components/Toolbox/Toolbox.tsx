@@ -2,13 +2,18 @@ import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { styled } from 'baseui'
 import { useEffect, useState } from 'react'
 import ToolboxItems from './ToolboxItems'
+import { color, font } from '@/theme/tokens'
 import Locked from './ToolboxItems/Locked'
 import { getContextMenuType, resolveToolboxKey } from './toolboxMap'
 
 const Container = styled('div', props => ({
-  height: '60px',
-  backgroundColor: '#ffffff',
-  borderBottom: '1px solid #e2e8f0',
+  height: '52px',
+  flex: 'none',
+  backgroundColor: color.white,
+  borderBottom: `1px solid ${color.line}`,
+  fontFamily: font.sans,
+  overflowX: 'auto',
+  overflowY: 'hidden',
   display: 'flex',
   alignItems: 'center',
   paddingLeft: '16px',
