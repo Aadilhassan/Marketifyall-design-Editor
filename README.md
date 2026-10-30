@@ -1,369 +1,208 @@
-# 🎨 Design Editor by Marketifyall
-
 <div align="center">
 
-![Design Editor](https://img.shields.io/badge/Design-Editor-FF6B5B?style=for-the-badge)
-![Open Source](https://img.shields.io/badge/Open-Source-2ECC71?style=for-the-badge)
-![Free Forever](https://img.shields.io/badge/Free-Forever-667eea?style=for-the-badge)
-[![Join our Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/mzqYc69hxP)
+# Marketifyall Design Editor
 
-**A free, open-source Canva alternative with AI-powered design features**
+**A free, open-source design and video editor that runs in the browser.**
+An embeddable Canva alternative with templates, Magic Resize, a Brand Kit, a multi-track video timeline and MP4 export. No watermark, no account.
 
-[🚀 Try Live Demo](https://design.marketifyall.com/) • [💬 Join Discord](https://discord.gg/mzqYc69hxP) • [📖 Documentation](#features) • [🐛 Report Bug](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues) • [✨ Request Feature](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues)
+[![License: MIT](https://img.shields.io/badge/License-MIT-181410.svg)](LICENSE)
+[![CI](https://github.com/Aadilhassan/Marketifyall-design-Editor/actions/workflows/ci.yml/badge.svg)](https://github.com/Aadilhassan/Marketifyall-design-Editor/actions/workflows/ci.yml)
+[![GitHub stars](https://img.shields.io/github/stars/Aadilhassan/Marketifyall-design-Editor?style=flat&color=d8401c)](https://github.com/Aadilhassan/Marketifyall-design-Editor/stargazers)
+[![Discord](https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/mzqYc69hxP)
+
+[**Try the editor**](https://design.marketifyall.com/design?demo=true) ·
+[Website](https://design.marketifyall.com/) ·
+[Embed docs](https://design.marketifyall.com/developers) ·
+[Compare](https://design.marketifyall.com/compare) ·
+[Discord](https://discord.gg/mzqYc69hxP)
+
+<img src="public/landing/hero-editor.webp" alt="Marketifyall Design Editor: template on the canvas, panels on the left, toolbar on top" width="960">
 
 </div>
 
----
+## Contents
 
-## 🌟 Overview
+- [What it is](#what-it-is)
+- [Features](#features)
+- [Screenshots](#screenshots)
+- [How it compares](#how-it-compares)
+- [Embed it in your product](#embed-it-in-your-product)
+- [Run it locally](#run-it-locally)
+- [Configuration](#configuration)
+- [Tech stack](#tech-stack)
+- [Project structure](#project-structure)
+- [Contributing](#contributing)
+- [Roadmap](#roadmap)
+- [License](#license)
 
-**Design Editor by Marketifyall** is a powerful, free, and open-source graphic design tool that brings professional design capabilities to everyone. Built as a true Canva alternative, it combines intuitive design tools with AI-powered features to help you create stunning visuals without any restrictions.
+## What it is
 
-### Why Design Editor?
+Marketifyall Design Editor is a graphic design and video editing app built with React, TypeScript and Fabric.js. Open it in a browser tab and make social posts, posters, presentations, thumbnails and short videos. Start from a template, resize the design for every platform, and export PNG, JPG, SVG, PDF, MP4, WebM or GIF.
 
-- ✅ **100% Free** - No subscriptions, no hidden costs, no feature paywalls
-- ✅ **Open Source** - Transparent, community-driven development
-- ✅ **AI-Powered** - Built-in GPT-4 and Claude integration for smart design
-- ✅ **No Watermarks** - Export clean, professional designs every time
-- ✅ **No Limits** - Unlimited designs, unlimited exports, unlimited creativity
-- ✅ **Batteries Included** - Stock photos, 1000+ fonts, templates, and more
+- **Free and open source.** MIT licence, every feature unlocked, no watermark on exports.
+- **No sign-up to try.** Demo mode keeps your designs in the browser.
+- **Private by default.** Video and audio uploads stay in your browser (IndexedDB). Background removal, Magic Eraser and video export run on your device.
+- **Embeddable.** Put the whole editor inside your own site or SaaS with one iframe.
+- **Works on phones.** The layout switches to a bottom toolbar and touch gestures on small screens.
 
----
+## Features
 
-## ✨ Features
+| Design | Photos | Video | Finish |
+| --- | --- | --- | --- |
+| 128 templates | Stock photos and video (Pexels) | Multi-track timeline, magnetic main track | Multi-page designs and Present mode |
+| Magic Resize to any size | Background remover (on-device) | Split, trim, snapping (`S`, `J` `K` `L`) | PDF, multi-page |
+| Brand Kit: colours, fonts, logos | Magic Eraser (on-device) | 5 transition types | PNG, JPG, SVG up to 4× |
+| Text effects and curved text | Photo frames and shadows | Speed 0.25–4× and fades | Transparent PNG |
+| Position panel, align, flip | Filters, adjustments, crop | Music and voice tracks, mixed on export | MP4, WebM, GIF up to 4K |
+| Rulers and guides (`Shift` `R`) | QR codes (vector) | Animation presets | Version history (auto) |
+| Smart guides and layers | Charts (5 types) | Undo/redo across canvas and timeline | Pinned comments |
+| Draw: pen and marker | Google Fonts library | Flicker-free, frame-by-frame export | Iframe embed |
 
-### 🤖 AI-Powered Design
-- **Text-to-Design Generation** - Describe your vision, let AI create it
-- **Smart Element Placement** - Intelligent layout suggestions
-- **Color Palette Generation** - AI-suggested color schemes
-- **Multiple AI Models** - GPT-4 and Claude integration
+Video export renders each frame completely and encodes it in the browser with WebCodecs (H.264) and `mp4-muxer`, so exported videos don't flicker or drop frames. GIFs use a global palette. Browsers without WebCodecs fall back to `MediaRecorder`.
 
-### 📸 Stock Photos & Assets
-- **Millions of Free Photos** - Direct Pexels integration
-- **1000+ Google Fonts** - Complete typography library
-- **Design Elements** - Icons, shapes, illustrations
-- **Professional Templates** - Ready-to-use designs for every need
+## Screenshots
 
-### 🎬 Video Editor
-- **Timeline-Based Editing** - Multi-track video composition
-- **Drag & Resize** - Intuitive video manipulation
-- **Multiple Export Formats** - MP4, WebM, GIF support
-- **Frame-by-Frame Control** - Precise video editing
+| Text effects | Video timeline | Phone layout |
+| --- | --- | --- |
+| <img src="public/landing/effects.webp" alt="Text effects panel with curved and outlined text" width="320"> | <img src="public/landing/video-timeline.webp" alt="Multi-track video timeline with clips, audio and transitions" width="320"> | <img src="public/landing/phone.webp" alt="Editor on a phone with the bottom toolbar" width="140"> |
 
-### 🎨 Professional Tools
-- **Advanced Layer Management** - Group, lock, blend modes
-- **Smart Alignment** - Guides and snap-to-grid
-- **Background Removal** - AI-powered image editing
-- **Custom Dimensions** - Any size, any format
-- **Export Options** - PNG, JPG, PDF, SVG, MP4, WebM, GIF
-- **Copy/Paste & Duplicate** - Efficient workflow
-- **Undo/Redo Support** - Never lose your progress
-- **Context Menus** - Quick access to actions
-- **Animation Effects** - Fade, Bounce, Shake, Scale, Rotate, Flash
+## How it compares
 
-### ☁️ Cloud & Collaboration
-- **Auto-Save** - Never lose your work
-- **Cloud Storage** - Access designs anywhere
-- **Real-Time Collaboration** - Work together seamlessly
-- **Version History** - Track design changes
+Short version: we give away the tools other editors charge for, and we're open source. They have bigger libraries, AI features and real-time collaboration. Each full write-up includes where the other tool is the better choice.
 
----
+| | Marketifyall | Canva | Adobe Express | Clipchamp |
+| --- | --- | --- | --- | --- |
+| Price | Free, every feature | Free + Pro | Free + Premium | Free + Premium |
+| Magic Resize / Brand Kit | Free | Pro | Premium | Brand Kit on Premium |
+| Graphics and video in one editor | Yes | Yes | Yes | Video only |
+| Open source / self-host | Yes (MIT) | No | No | No |
+| Embed in your product | One iframe | Partner APIs | Embed SDK | No |
 
-## 🚀 Getting Started
+Full comparisons: [Canva](https://design.marketifyall.com/compare/canva-alternative) · [Adobe Express](https://design.marketifyall.com/compare/adobe-express-alternative) · [Clipchamp](https://design.marketifyall.com/compare/clipchamp-alternative) · [Kapwing](https://design.marketifyall.com/compare/kapwing-alternative) · [VistaCreate](https://design.marketifyall.com/compare/vistacreate-alternative) · [Polotno](https://design.marketifyall.com/compare/polotno-alternative) · [Pixlr](https://design.marketifyall.com/compare/pixlr-alternative) · [Photopea](https://design.marketifyall.com/compare/photopea-alternative)
 
-### Prerequisites
+## Embed it in your product
 
-- Node.js 14.x or higher
-- npm 6.x or higher
+Add the editor with an iframe and talk to it with `postMessage`. There's no SDK to install and no build step.
 
-### Installation
+```html
+<iframe
+  src="https://design.marketifyall.com/embed?embed=true&callback=true"
+  width="100%" height="640"
+  allow="clipboard-write; fullscreen"
+  style="border:0">
+</iframe>
+```
 
-1. **Clone the repository**
+```js
+const editor = document.querySelector('iframe').contentWindow
+
+// Commands
+editor.postMessage({ type: 'marketifyall:load-image', data: { imageUrl: 'https://example.com/photo.jpg' } }, '*')
+editor.postMessage({ type: 'marketifyall:set-size', data: { width: 1080, height: 1080 } }, '*')
+editor.postMessage({ type: 'marketifyall:export' }, '*')
+
+// Events
+window.addEventListener('message', ({ data: msg }) => {
+  if (msg?.type === 'marketifyall:design-complete') saveDesign(msg.data.image) // base64 PNG
+})
+```
+
+Check `event.origin` in production. Full message reference: [design.marketifyall.com/developers](https://design.marketifyall.com/developers).
+
+## Run it locally
+
+You need Node.js 18 or newer (CI uses the version in `.nvmrc`) and Yarn 1.
+
 ```bash
 git clone https://github.com/Aadilhassan/Marketifyall-design-Editor.git
 cd Marketifyall-design-Editor
+yarn install          # also applies patches/ via patch-package
+yarn start            # http://localhost:3000
 ```
 
-2. **Install dependencies**
-```bash
-npm install
-```
+Open **http://localhost:3000/design?demo=true** to use the editor without a backend or login. Designs are saved to your browser.
 
-3. **Start the development server**
-```bash
-npm start
-```
+| Command | What it does |
+| --- | --- |
+| `yarn start` | Dev server on port 3000 |
+| `yarn build` | Production build in `build/`, pre-rendered with `react-snap` |
+| `yarn test` | Jest unit tests (canvas JSON, viewport, video engine, export) |
+| `npx tsc --noEmit` | Type-check |
+| `yarn format` | Prettier on `src/` |
 
-4. **Open in browser**
-```
-http://localhost:3000
-```
+## Configuration
 
-The app will automatically open in your default browser at `http://localhost:3000`.
+Everything is optional for local demo use. Copy `.env.example` to `.env` to connect accounts, saved designs and stock media.
 
-### Building for Production
+| Variable | Used for |
+| --- | --- |
+| `REACT_APP_SUPABASE_URL`, `REACT_APP_SUPABASE_ANON_KEY` | Sign-in and saved designs (Supabase) |
+| `REACT_APP_APP_URL` | Where signed-out users are sent to log in (outside demo mode) |
+| `REACT_APP_API_URL` | Backend API (Supabase Edge Functions in `supabase/functions`) |
+| `REACT_APP_AUTH_COOKIE_DOMAIN` | Shared auth cookie domain for single sign-on in production |
+| `REACT_APP_PEXELS_KEY`, `REACT_APP_PIXABAY_KEY` | Stock photo and video search |
 
-```bash
-npm run build
-```
+Never commit `.env` files. They are already in `.gitignore`.
 
-The optimized production build will be in the `build/` directory, ready for deployment.
+## Tech stack
 
----
+- **App:** React 17, TypeScript, React Router, Redux Toolkit
+- **Canvas:** Fabric.js via `@nkyo/scenify-sdk` (patched, see `patches/`)
+- **UI:** Base Web + Styletron, with a custom theme in `src/theme`
+- **Video:** custom timeline engine in `src/video`, with WebCodecs + `mp4-muxer` for export and `OfflineAudioContext` for the audio mix
+- **Storage:** IndexedDB for local media, Supabase for accounts and saved designs
+- **Build:** Create React App 4 with CRACO, `react-snap` pre-rendering
 
-## 🛠️ Tech Stack
-
-- **Frontend Framework**: React 17 + TypeScript
-- **UI Library**: BaseUI 10 (from MUI)
-- **Canvas Engine**: @nkyo/scenify-sdk + FabricJS
-- **State Management**: Redux Toolkit
-- **Routing**: React Router
-- **Styling**: BaseUI Styled Components + Styletron
-- **AI Integration**: OpenAI GPT-4, Anthropic Claude
-- **Stock Photos**: Pexels API
-- **Video Processing**: MediaRecorder API, Canvas API
-
----
-
-## 📂 Project Structure
+## Project structure
 
 ```
-Marketifyall-design-Editor/
-├── public/              # Static assets
-│   ├── data/            # JSON data files
-│   └── index.html       # HTML template
-├── src/
-│   ├── components/      # Reusable UI components
-│   │   ├── Navigation/  # Header navigation
-│   │   ├── Loading/     # Loading states
-│   │   ├── Login/       # Authentication
-│   │   └── ...
-│   ├── scenes/          # Page components
-│   │   ├── Landing/     # Home page
-│   │   ├── About/       # About page
-│   │   ├── Features/    # Features page
-│   │   ├── Contact/     # Contact page
-│   │   ├── Editor/      # Main design editor
-│   │   │   ├── components/
-│   │   │   │   ├── Navbar/
-│   │   │   │   ├── Footer/
-│   │   │   │   ├── Panels/
-│   │   │   │   └── Toolbox/
-│   │   └── Dashboard/   # User dashboard
-│   ├── store/           # Redux store & slices
-│   │   └── slices/      # Redux slices
-│   ├── services/        # API services
-│   ├── utils/           # Utility functions
-│   ├── contexts/        # React contexts
-│   ├── constants/       # App constants
-│   └── hooks/           # Custom React hooks
-├── database/            # Database schemas
-│   └── migrations/      # SQL migrations
-└── packages/            # Monorepo packages
-    └── design-editor-kit/
+src/
+├── scenes/
+│   ├── Editor/          # the design editor (panels, toolbox, timeline, mobile shell)
+│   ├── EmbedEditor/     # iframe build of the editor
+│   ├── Landing/         # marketing home page
+│   ├── Compare/         # comparison articles (/compare)
+│   └── Embed/ About/ Features/ Contact/ Projects/
+├── video/               # timeline model, playback, rendering
+│   └── export/          # MP4 / WebM / GIF encoders and audio mixing
+├── hooks/               # canvas enhancements, viewport (zoom/pan), breakpoints
+├── utils/               # design JSON migration, resize, image edits, text helpers
+├── services/            # API clients
+└── theme/               # brand tokens and Base Web theme
+packages/                # embed script, CMS SDKs, design-editor-kit
+supabase/                # Edge Functions and migrations
 ```
 
----
+## Contributing
 
-## 🎯 Usage Examples
+Bug reports, feature ideas and pull requests are welcome.
 
-### Creating a Social Media Post
+1. Fork the repo and create a branch: `git checkout -b feat/your-change`.
+2. Make your change and keep `npx tsc --noEmit` and `yarn test` passing.
+3. Open a pull request that explains what changed and why. CI runs the type-check, lint, tests and build.
 
-1. Click "Start Designing" from the homepage
-2. Choose a template or start from scratch
-3. Select custom dimensions (1080x1080 for Instagram)
-4. Add text, images, and design elements
-5. Apply animations and effects
-6. Export as PNG or JPG
+Start with an [issue](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues), or ask in [Discord](https://discord.gg/mzqYc69hxP) if you're unsure where something lives.
 
-### Using AI Design Generation
+## Roadmap
 
-1. Open the AI panel in the editor
-2. Describe your design idea in natural language
-3. Select AI model (GPT-4 or Claude)
-4. Review and customize the AI-generated design
-5. Export or continue editing
+Already shipped: Magic Resize, Brand Kit, background removal, the multi-track video timeline, version history and the mobile layout.
 
-### Creating Video Content
+Next up:
 
-1. Add video to canvas from the Video panel
-2. Use timeline editor to arrange clips
-3. Drag and resize video overlay on canvas
-4. Add graphics, text, and effects
-5. Adjust duration and FPS settings
-6. Export as MP4, WebM, or GIF
-
-### Working with Layers
-
-1. Add multiple elements to your canvas
-2. Use the layers panel to organize
-3. Group related elements together
-4. Lock layers to prevent accidental edits
-5. Adjust z-index by dragging layers
-6. Show/hide layers as needed
-
----
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Here's how you can help:
-
-### Ways to Contribute
-
-- 🐛 **Report Bugs** - Found an issue? [Create a bug report](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues)
-- ✨ **Suggest Features** - Have an idea? [Request a feature](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues)
-- 📖 **Improve Documentation** - Help others understand the project better
-- 💻 **Submit Pull Requests** - Fix bugs or add new features
-
-### Development Workflow
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
-### Code Style
-
-- Follow existing code patterns
-- Use TypeScript for type safety
-- Write meaningful commit messages
-- Add comments for complex logic
-- Test your changes thoroughly
-- Ensure all lint checks pass
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🏢 About
-
-**Design Editor** is built and maintained by:
-
-### QuickShift Labs
-Technology company focused on building tools that accelerate creative workflows and empower businesses.
-
-🌐 [quickshiftlabs.com](http://quickshiftlabs.com/)
-
-### Marketifyall
-Complete marketing and creative toolkit for businesses, creators, and marketers.
-
-🌐 [marketifyall.com](https://marketifyall.com/)
-
----
-
-## 🔗 Links
-
-- **Live Demo**: [design.marketifyall.com](https://design.marketifyall.com/)
-- **GitHub**: [github.com/Aadilhassan/Marketifyall-design-Editor](https://github.com/Aadilhassan/Marketifyall-design-Editor)
-- **Homepage**: [marketifyall.com](https://marketifyall.com/)
-- **Company**: [quickshiftlabs.com](http://quickshiftlabs.com/)
-
----
-
-## 🙏 Acknowledgments
-
-- **Pexels** - Free stock photos API
-- **Google Fonts** - Typography library
-- **Scenify SDK** - Canvas engine with rich features
-- **FabricJS** - Interactive object model for canvas
-- **BaseUI** - UI component library from MUI
-- **React Community** - Amazing ecosystem and tools
-
----
-
-## 📊 Project Status
-
-![GitHub Stars](https://img.shields.io/github/stars/Aadilhassan/Marketifyall-design-Editor?style=social)
-![GitHub Forks](https://img.shields.io/github/forks/Aadilhassan/Marketifyall-design-Editor?style=social)
-![GitHub Issues](https://img.shields.io/github/issues/Aadilhassan/Marketifyall-design-Editor)
-![GitHub Pull Requests](https://img.shields.io/github/issues-pr/Aadilhassan/Marketifyall-design-Editor)
-
----
-
-## 💬 Community & Support
-
-- 🐛 **Issues**: [GitHub Issues](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues)
-- 💡 **Discussions**: [GitHub Discussions](https://github.com/Aadilhassan/Marketifyall-design-Editor/discussions)
-- 📧 **Email**: support@marketifyall.com
-- 🐦 **Twitter**: [@marketifyall](https://twitter.com/marketifyall)
-
----
-
-## 🗺️ Roadmap
-
-### Current Features
-- ✅ AI-powered design generation
-- ✅ Stock photo integration (Pexels)
-- ✅ 1000+ Google Fonts
-- ✅ Video editor with timeline
-- ✅ Layer management
-- ✅ Animation effects
-- ✅ Multiple export formats
-- ✅ Undo/redo support
-- ✅ Guidelines and snapping
-
-### Upcoming Features
 - [ ] Real-time collaboration
-- [ ] Mobile app (iOS & Android)
-- [ ] Plugin/Extension system
-- [ ] Advanced animation timeline
-- [ ] Brand kit management
-- [ ] Team workspaces
-- [ ] API for integrations
-- [ ] Desktop app (Electron)
-- [ ] Background removal AI
-- [ ] Magic resize for multiple formats
-- [ ] Template marketplace
+- [ ] Public share links
+- [ ] Multi-page video export (currently exports the current page)
+- [ ] AAC audio in MP4 exports
+- [ ] Larger template library
 
----
+## License
 
-## 📸 Screenshots
+[MIT](LICENSE). Use it, fork it, ship it in commercial products.
 
-<img width="960" alt="Design Editor Interface" src="https://raw.githubusercontent.com/Aadilhassan/Marketifyall-design-Editor/refs/heads/main/public/screenshot/brave_screenshot_localhost.png">
-
-<img width="960" alt="Video Editor Interface" src="https://raw.githubusercontent.com/Aadilhassan/Marketifyall-design-Editor/refs/heads/main/public/screenshot/screenshot2.png">
-
-*Main design editor interface with panels and canvas*
-
----
-
-## 🚦 Quick Start Guide
-
-### For Designers
-1. Visit [design.marketifyall.com](https://design.marketifyall.com/)
-2. Click "Start Designing"
-3. Choose a template or custom size
-4. Start creating!
-
-### For Developers
-1. Clone and install dependencies
-2. Run `npm start` to start dev server
-3. Make your changes
-4. Submit a pull request
-
----
-
-## 💬 Community
-
-Join our Discord to ask questions, share what you build, request features, and chat with other creators and contributors:
-
-**👉 [Join the Discord community](https://discord.gg/mzqYc69hxP)**
-
-[![Join our Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/mzqYc69hxP)
-
----
+Built by [QuickShift Labs](https://quickshiftlabs.com/) for [Marketifyall](https://marketifyall.com/). Thanks to [Fabric.js](http://fabricjs.com/), Scenify, [Base Web](https://baseweb.design/), [Pexels](https://www.pexels.com/) and [Google Fonts](https://fonts.google.com/).
 
 <div align="center">
 
-**⭐ Star this repo if you find it useful!**
-
-Made with ❤️ by [QuickShift Labs](http://quickshiftlabs.com/) & [Marketifyall](https://marketifyall.com/)
-
-[Report Bug](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues) • [Request Feature](https://github.com/Aadilhassan/Marketifyall-design-Editor/issues) • [Contribute](https://github.com/Aadilhassan/Marketifyall-design-Editor/pulls)
+If this project is useful to you, a ⭐ helps other people find it.
 
 </div>

@@ -9,6 +9,7 @@ import EmbedDocs from '@scenes/Embed'
 import ExportTest from '@scenes/ExportTest'
 import UrlToVideo from './scenes/Dashboard/UrlToVideo'
 import Projects from '@scenes/Projects'
+import Compare, { CompareIndex } from '@scenes/Compare'
 
 const Routes = () => {
   return (
@@ -24,6 +25,8 @@ const Routes = () => {
         <Route path="/features" exact component={Features} />
         <Route path="/about" exact component={About} />
         <Route path="/contact" exact component={Contact} />
+        <Route path="/compare" exact component={CompareIndex} />
+        <Route path="/compare/:slug" exact component={Compare} />
         <Route path="/url-to-video" exact component={UrlToVideo} />
         <Route path="/" exact component={Landing} />
       </Switch>

@@ -64,6 +64,15 @@ function EditorialShell({ folio, children }: Props) {
             <a style={{ cursor: 'pointer' }} onClick={() => history.push('/features')}>Features</a>
             <a style={{ cursor: 'pointer' }} onClick={() => history.push('/about')}>About</a>
             <a style={{ cursor: 'pointer' }} onClick={() => history.push('/contact')}>Contact</a>
+            <a
+              href="/compare"
+              onClick={e => {
+                e.preventDefault()
+                history.push('/compare')
+              }}
+            >
+              Compare
+            </a>
             <a href="https://github.com/Aadilhassan/Marketifyall-design-Editor" target="_blank" rel="noreferrer">GitHub ↗</a>
             <span style={{ cursor: 'pointer' }} onClick={go}>
               Open editor <span className="ar">↗</span>
