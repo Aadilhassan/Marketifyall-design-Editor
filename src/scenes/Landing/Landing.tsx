@@ -2,29 +2,92 @@ import { useEffect } from 'react'
 import { useHistory } from 'react-router-dom'
 import '../../styles/editorial.css'
 import '../../styles/landing.css'
+import '../../styles/home.css'
 import Seo from '@/components/Seo'
 
 const GITHUB = 'https://github.com/Aadilhassan/Marketifyall-design-Editor'
 const DISCORD = 'https://discord.gg/mzqYc69hxP'
+/** The editor without signing in (demo session). */
+const TRY = '/design?demo=true'
 
-const FORMATS = [
-  { name: 'Instagram Post', dims: '1080×1080', ratio: '1 / 1', bg: 'linear-gradient(150deg,#e85d75,#d8401c)' },
-  { name: 'Story / Reel', dims: '1080×1920', ratio: '9 / 16', bg: 'linear-gradient(160deg,#6d5ae0,#2b2a6b)' },
-  { name: 'YouTube Thumb', dims: '1280×720', ratio: '16 / 9', bg: 'linear-gradient(150deg,#1f9e87,#0c352c)' },
-  { name: 'Poster', dims: '2480×3508', ratio: '5 / 7', bg: 'linear-gradient(160deg,#2b2622,#d8401c)' },
-  { name: 'Logo', dims: '500×500', ratio: '1 / 1', bg: 'linear-gradient(150deg,#e8a13c,#7c1d0c)' },
+const TICKER = [
+  'Magic Resize',
+  'Brand Kit',
+  'Curved text',
+  'Magic Eraser',
+  'Photo frames',
+  'QR codes',
+  'Charts',
+  'Multi-track video',
+  'MP4 export',
+  'Version history',
+  'Comments',
+  'Rulers & guides',
+  'Draw',
+  'Present mode',
+  '128 templates',
+  'Transparent PNG',
 ]
 
-const FEATURES = [
-  ['Aa', 'Templates & elements', 'Hundreds of ready-made designs, shapes, icons and editable type for any format.'],
-  ['▷', 'Video & animation', 'A real multi-track timeline plus preset animations — then export a looping clip.'],
-  ['↓', 'Export anywhere', 'PNG, JPG, SVG, JSON or WebM/GIF — clean, no watermark, in one click.'],
-  ['{ }', 'Open & embeddable', 'Open-source on GitHub, and droppable into any website with one iframe.'],
+const INDEX: { desk: string; items: [string, string][] }[] = [
+  {
+    desk: 'Design',
+    items: [
+      ['Templates', '128'],
+      ['Magic Resize', 'any size'],
+      ['Brand Kit', 'colours · fonts'],
+      ['Text effects & curves', '8 styles'],
+      ['Position & align', 'exact px'],
+      ['Rulers & guides', 'Shift R'],
+      ['Draw', 'pen · marker'],
+    ],
+  },
+  {
+    desk: 'Photos',
+    items: [
+      ['Stock photos & video', 'Pexels'],
+      ['Frames & shadows', 'heart · arch…'],
+      ['Magic Eraser', 'on-device'],
+      ['Remove background', 'on-device'],
+      ['Adjust & crop', 'filters'],
+      ['QR codes', 'vector'],
+      ['Charts', '5 types'],
+    ],
+  },
+  {
+    desk: 'Video',
+    items: [
+      ['Multi-track timeline', 'magnetic'],
+      ['Split · trim · snap', 'S'],
+      ['Transitions', '5 kinds'],
+      ['Speed & fades', '0.25–4×'],
+      ['Music & voice', 'mixed'],
+      ['Animations', 'presets'],
+      ['Shortcuts', 'J K L'],
+    ],
+  },
+  {
+    desk: 'Finish',
+    items: [
+      ['Pages & Present', 'full screen'],
+      ['PDF', 'multi-page'],
+      ['PNG · JPG · SVG', 'up to 4×'],
+      ['MP4 · WebM · GIF', 'up to 4K'],
+      ['Version history', 'auto'],
+      ['Comments', 'pinned'],
+      ['Embed', 'iframe'],
+    ],
+  },
 ]
 
 function Landing() {
   const history = useHistory()
-  const go = () => history.push('/dashboard')
+  const go = (path: string) => () => history.push(path)
+  // In-app links keep a real href (crawlers, middle-click) but route client-side.
+  const nav = (path: string) => (e: React.MouseEvent) => {
+    e.preventDefault()
+    history.push(path)
+  }
   const year = new Date().getFullYear()
 
   useEffect(() => {
@@ -42,10 +105,10 @@ function Landing() {
   }, [])
 
   return (
-    <div className="ed-page">
+    <div className="ed-page home">
       <Seo
-        title="Marketifyall Design Editor — Free, Open-Source Canva Alternative"
-        description="A free, open-source design editor in your browser: hundreds of templates, stock photos, video & animation and one-click export — no watermark, no account, and embeddable in any website."
+        title="Marketifyall Design Editor — free, open-source design & video studio"
+        description="Design and video, made in the browser. Templates, Magic Resize, Brand Kit, text effects, a multi-track video timeline and flicker-free MP4 export. Free, open source (MIT), no watermark, and embeddable."
         path="/"
       />
       <div className="topbar" aria-hidden="true" />
@@ -53,194 +116,390 @@ function Landing() {
       {/* MASTHEAD */}
       <header className="masthead">
         <div className="wrap row">
-          <span className="logo" style={{ cursor: 'pointer' }} onClick={() => history.push('/')}>
+          <a className="logo" href="/" onClick={nav('/')}>
             Marketify<i>all</i>
-          </span>
-          <nav>
-            <a href="#features">Features</a>
-            <a href="#formats">Templates</a>
-            <a style={{ cursor: 'pointer' }} onClick={() => history.push('/developers')}>Developers</a>
-            <a href={GITHUB} target="_blank" rel="noreferrer">GitHub</a>
-            <a href={DISCORD} target="_blank" rel="noreferrer">Discord</a>
+          </a>
+          <nav aria-label="Main">
+            <a href="#design">Design</a>
+            <a href="#video">Video</a>
+            <a href="#index">Everything</a>
+            <a href="/developers" onClick={nav('/developers')}>
+              Developers
+            </a>
+            <a href={GITHUB} target="_blank" rel="noreferrer">
+              GitHub
+            </a>
           </nav>
-          <span className="folio">FREE · OPEN-SOURCE · {year}</span>
-          <span className="cta" onClick={go}>
-            Open editor <span className="ar">↗</span>
-          </span>
+          <span className="folio">Free · Open source · {year}</span>
+          <a className="cta" href={TRY} onClick={nav(TRY)}>
+            Try it now <span className="ar">↗</span>
+          </a>
         </div>
       </header>
 
-      {/* HERO */}
-      <section className="hero">
-        <div className="wrap hero-grid">
-          <div className="reveal">
-            <span className="eyebrow">
-              <b>Free</b> · Open-source · Embeddable
-            </span>
-            <h1>
-              The design editor that lives in your <em>browser.</em>
-            </h1>
-            <p className="sub">
-              Create social posts, stories, thumbnails, posters and short videos on a fast drag-and-drop canvas —
-              hundreds of templates, your photos, real animation, and one-click export. A free, open-source Canva
-              alternative you can also embed in any site.
-            </p>
-            <div className="acts">
-              <span className="btn btn-lg" onClick={go}>
-                Start designing <span className="ar">↗</span>
-              </span>
-              <a href={GITHUB} target="_blank" rel="noreferrer" className="ghbtn">
-                ★ Star on GitHub
-              </a>
-              <a href={DISCORD} target="_blank" rel="noreferrer" className="discordbtn">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M20.317 4.369a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.249a18.27 18.27 0 0 0-5.487 0 12.6 12.6 0 0 0-.617-1.25.077.077 0 0 0-.079-.036A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.1 13.1 0 0 1-1.872-.892.077.077 0 0 1-.008-.128c.126-.094.252-.192.372-.291a.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.009c.12.099.246.198.373.292a.077.077 0 0 1-.006.127c-.598.349-1.22.645-1.873.892a.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.84 19.84 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.331c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-                </svg>
-                Join Discord community
-              </a>
-            </div>
-            <p className="trust">No account · No watermark · Works offline</p>
-          </div>
+      <div className="dateline">
+        <div className="wrap">
+          <span>
+            <b>The Studio Edition</b> · design &amp; video in one tab
+          </span>
+          <span className="hide-sm">MIT licence · No watermark · No paywalled tools</span>
+        </div>
+      </div>
 
-          {/* EDITOR MOCKUP */}
-          <div className="reveal" aria-hidden="true">
-            <div className="mock">
-              <div className="mock-bar">
-                <span className="lg">M</span>
-                <span className="ti">Untitled design — 1080 × 1350</span>
-                <span className="ex">Export</span>
-              </div>
-              <div className="mock-body">
-                <div className="mock-rail">
-                  <span className="tool on" />
-                  <span className="tool" />
-                  <span className="tool" />
-                  <span className="tool" />
-                  <span className="tool" />
-                  <span className="tool" />
+      <main>
+        {/* FRONT PAGE */}
+        <section className="front">
+          <div className="wrap">
+            <div className="front-head reveal">
+              <h1>
+                Design and video, <em>made in the browser.</em>
+              </h1>
+              <div>
+                <p className="standfirst">
+                  A complete studio in a tab: templates, photos, type, a real video timeline and clean exports.{' '}
+                  <b>Free, open source and yours to embed</b>, with every tool included.
+                </p>
+                <div className="acts">
+                  <a className="btn btn-lg" href={TRY} onClick={nav(TRY)}>
+                    Try the editor <span className="ar">↗</span>
+                  </a>
+                  <button type="button" className="btn-ghost" onClick={go('/dashboard')}>
+                    Your projects
+                  </button>
                 </div>
-                <div className="mock-canvas">
-                  <div className="mock-design">
-                    <span className="blob" />
-                    <span className="ring" />
-                    <span className="ey">Summer ’{String(year).slice(2)} · Lookbook</span>
-                    <span className="hl">Made in the browser.</span>
-                    <span className="h tl" />
-                    <span className="h tr" />
-                    <span className="h bl" />
-                    <span className="h br" />
+                <p className="note">No sign-up to try · No watermark on exports</p>
+              </div>
+            </div>
+
+            <figure className="plate reveal">
+              <div className="frame">
+                <img
+                  src="/landing/hero-editor.webp"
+                  width={2000}
+                  height={1250}
+                  alt="The Marketifyall editor with a travel template open, the template library on the left and the page in the middle."
+                  {...{ fetchpriority: 'high' }}
+                />
+              </div>
+              <div className="ann" style={{ left: '1.2%', top: '24%' }} aria-hidden="true">
+                <span className="dot" />
+                <i />
+                <span>14 panels</span>
+              </div>
+              <div className="ann l" style={{ right: '35%', top: '46%' }} aria-hidden="true">
+                <span className="dot" />
+                <i />
+                <span>Your page</span>
+              </div>
+              <div className="ann l" style={{ right: '4.6%', top: '4.4%' }} aria-hidden="true">
+                <span className="dot" />
+                <i />
+                <span>One-click download</span>
+              </div>
+              <figcaption className="figline">
+                <span>
+                  <b>Fig. 1</b> — The editor, with a template open.
+                </span>
+                <span>Actual screenshot, not a mock-up.</span>
+              </figcaption>
+            </figure>
+          </div>
+        </section>
+
+        {/* TICKER */}
+        <div className="ticker" aria-label="What's inside">
+          <div className="track">
+            {[0, 1].map(copy => (
+              <ul key={copy} aria-hidden={copy === 1}>
+                {TICKER.map(t => (
+                  <li key={t}>{t}</li>
+                ))}
+              </ul>
+            ))}
+          </div>
+        </div>
+
+        {/* DESIGN DESK */}
+        <section className="desk" id="design">
+          <div className="wrap">
+            <div className="desk-head reveal">
+              <div className="no">
+                № 01<b>The design desk</b>
+              </div>
+              <div>
+                <h2>
+                  Layouts that look <em>finished.</em>
+                </h2>
+                <p className="lede">
+                  Start from a template or a blank page and shape it with tools that usually sit behind a paywall. Every
+                  style stays editable, so you can change the words at the last minute.
+                </p>
+              </div>
+            </div>
+            <div className="split reveal">
+              <div className="copy">
+                <ul className="points">
+                  <li>
+                    <span className="n">01</span>
+                    <div>
+                      <b>Magic Resize</b>Turn one design into every format. Content re-flows to the new page instead of
+                      sitting in a corner.
+                    </div>
+                  </li>
+                  <li>
+                    <span className="n">02</span>
+                    <div>
+                      <b>Text that has a voice</b>Shadow, lift, hollow, splice, echo, outline, neon and curved text.
+                    </div>
+                  </li>
+                  <li>
+                    <span className="n">03</span>
+                    <div>
+                      <b>Your brand, one click away</b>Keep your colours, fonts and logos in a Brand Kit and apply them to
+                      any design.
+                    </div>
+                  </li>
+                  <li>
+                    <span className="n">04</span>
+                    <div>
+                      <b>Precise when you need it</b>Smart guides, rulers, align and distribute, exact sizes in pixels.
+                    </div>
+                  </li>
+                </ul>
+                <div className="chips" aria-label="Popular formats">
+                  <span>Instagram 1080×1080</span>
+                  <span>Story 1080×1920</span>
+                  <span>YouTube 1280×720</span>
+                  <span>A4 poster</span>
+                  <span>Custom</span>
+                </div>
+              </div>
+              <figure className="shot">
+                <img
+                  src="/landing/effects.webp"
+                  width={2000}
+                  height={1250}
+                  loading="lazy"
+                  alt="The Effects panel applying a curved, spliced text style to the words Open studio."
+                />
+              </figure>
+            </div>
+          </div>
+        </section>
+
+        {/* CUTTING ROOM */}
+        <section className="desk" id="video">
+          <div className="wrap">
+            <div className="desk-head reveal">
+              <div className="no">
+                № 02<b>The cutting room</b>
+              </div>
+              <div>
+                <h2>
+                  A timeline you can <em>actually</em> edit on.
+                </h2>
+                <p className="lede">
+                  Drop clips on a magnetic track, split with S, trim to the frame, add music and transitions. What plays in
+                  the preview is exactly what you export.
+                </p>
+              </div>
+            </div>
+            <figure className="shot wide reveal">
+              <img
+                src="/landing/video-timeline.webp"
+                width={2000}
+                height={1250}
+                loading="lazy"
+                alt="The video editor: a seal video with the title Made in the browser, and a timeline with two clips, filmstrip thumbnails and clip settings."
+              />
+            </figure>
+            <div className="stats reveal">
+              <div>
+                <div className="k">Every frame</div>
+                <div className="v">Rendered one by one and checked before it's encoded, so exports don't flicker.</div>
+              </div>
+              <div>
+                <div className="k">Real MP4</div>
+                <div className="v">H.264 video up to 4K, plus WebM, GIF and audio-only, where your browser supports it.</div>
+              </div>
+              <div>
+                <div className="k">Sound mixed</div>
+                <div className="v">Music, voice and video audio with volume, fades and speed, mixed into the file.</div>
+              </div>
+              <div>
+                <div className="k">On your device</div>
+                <div className="v">Encoding happens in your browser. Nothing is uploaded to render your video.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* POCKET EDITION */}
+        <section className="desk" id="mobile">
+          <div className="wrap">
+            <div className="desk-head reveal">
+              <div className="no">
+                № 03<b>The pocket edition</b>
+              </div>
+              <div>
+                <h2>
+                  The same studio, <em>on your phone.</em>
+                </h2>
+              </div>
+            </div>
+            <div className="pocket reveal">
+              <div className="side">
+                <h3>Made for thumbs</h3>
+                Panels open as sheets you can drag, the toolbar scrolls sideways, and pinch zooms the page. Long-press any
+                element for its menu.
+              </div>
+              <div className="phone">
+                <img
+                  src="/landing/phone.webp"
+                  width={780}
+                  height={1688}
+                  loading="lazy"
+                  alt="The editor on a phone, with a travel poster and the bottom tab bar."
+                />
+              </div>
+              <div className="side">
+                <h3>Pick up where you left off</h3>
+                Tablets get the full toolbar with a drawer that slides over the page. Video edits have a simplified
+                timeline on small screens.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* INDEX */}
+        <section className="desk" id="index">
+          <div className="wrap">
+            <div className="desk-head reveal">
+              <div className="no">
+                № 04<b>The index</b>
+              </div>
+              <div>
+                <h2>
+                  Everything is <em>included.</em>
+                </h2>
+                <p className="lede">No premium tier, no locked tools, no watermark on what you make.</p>
+              </div>
+            </div>
+            <div className="index reveal">
+              {INDEX.map(group => (
+                <section key={group.desk} aria-label={group.desk}>
+                  <h3>{group.desk}</h3>
+                  <ul>
+                    {group.items.map(([name, meta]) => (
+                      <li key={name}>
+                        {name}
+                        <span>{meta}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* EDITOR'S NOTE + DEVELOPERS */}
+        <section className="desk" id="open">
+          <div className="wrap">
+            <div className="desk-head reveal">
+              <div className="no">
+                № 05<b>Editor's note</b>
+              </div>
+              <div>
+                <h2>
+                  A studio you <em>own.</em>
+                </h2>
+              </div>
+            </div>
+            <div className="note-grid">
+              <div className="letter reveal">
+                <p>
+                  Good design tools shouldn't be rented by the month. Marketifyall is a full design and video studio that
+                  anyone can open in a browser tab, and the whole thing is open source.
+                </p>
+                <p>
+                  The code is MIT-licensed on GitHub. Video and audio you add stay in your browser, your exports carry no
+                  watermark, and if you build a product of your own you can put this editor inside it.
+                </p>
+                <p className="sig">— The Marketifyall team</p>
+              </div>
+              <div className="reveal">
+                <div className="facts">
+                  <div>
+                    <span>Price</span>
+                    <span>Free</span>
+                  </div>
+                  <div>
+                    <span>Licence</span>
+                    <span>MIT</span>
+                  </div>
+                  <div>
+                    <span>Watermark</span>
+                    <span>Never</span>
+                  </div>
+                  <div>
+                    <span>Video &amp; audio uploads</span>
+                    <span>Stay in your browser</span>
+                  </div>
+                  <div>
+                    <span>Embed</span>
+                    <span>One iframe</span>
+                  </div>
+                </div>
+                <div className="embed">
+                  <pre aria-label="Embed code">
+                    <span className="c">{'<!-- Put the editor in your product -->'}</span>
+                    {'\n'}
+                    <span className="k">{'<iframe'}</span>
+                    {'\n  src='}
+                    <span className="s">{'"https://design.marketifyall.com/embed"'}</span>
+                    {'\n  width='}
+                    <span className="s">{'"100%"'}</span>
+                    {' height='}
+                    <span className="s">{'"640"'}</span>
+                    <span className="k">{'>'}</span>
+                    <span className="k">{'</iframe>'}</span>
+                  </pre>
+                  <div className="links">
+                    <a href="/developers" onClick={nav('/developers')}>
+                      Embed docs →
+                    </a>
+                    <a href={GITHUB} target="_blank" rel="noreferrer">
+                      Source on GitHub →
+                    </a>
+                    <a href={DISCORD} target="_blank" rel="noreferrer">
+                      Discord →
+                    </a>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* FORMATS */}
-      <section className="sec" id="formats">
-        <div className="wrap">
-          <div className="reveal">
-            <div className="kq">№ 01 · Templates</div>
+        {/* CLOSING */}
+        <section className="closing">
+          <div className="wrap">
             <h2>
-              One editor. <em>Every</em> format.
+              Go <em>make</em> something.
             </h2>
-            <p className="lead">
-              Start from the right size for wherever you’re posting — or set a custom canvas. Pick a format and you’re
-              designing in seconds.
-            </p>
-          </div>
-          <div className="fmts reveal">
-            {FORMATS.map(f => (
-              <div className="fmt" key={f.name} onClick={go} style={{ cursor: 'pointer' }}>
-                <div className="pv" style={{ height: 168, aspectRatio: f.ratio, background: f.bg }}>
-                  <b>{f.name.split(' ')[0]}</b>
-                </div>
-                <div className="lbl">
-                  <span>{f.name}</span>
-                  <span className="d">{f.dims}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* FEATURES */}
-      <section className="sec" id="features">
-        <div className="wrap">
-          <div className="reveal">
-            <div className="kq">№ 02 · Features</div>
-            <h2>
-              Everything you need to <em>design.</em>
-            </h2>
-            <p className="lead">A full studio — not a toy. Every tool included, nothing behind a paywall.</p>
-          </div>
-          <div className="feats reveal">
-            {FEATURES.map(([ic, title, desc]) => (
-              <div className="feat" key={title}>
-                <div className="ic">{ic}</div>
-                <h3>{title}</h3>
-                <p>{desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* DEVELOPERS / EMBED */}
-      <section className="dev" id="developers">
-        <div className="wrap">
-          <div className="reveal">
-            <div className="kq">№ 03 · Developers</div>
-            <h2>
-              Built for developers, <em>too.</em>
-            </h2>
-          </div>
-          <div className="grid">
-            <div className="reveal">
-              <p>
-                It’s open-source and embeddable. Drop the whole editor into your own product with a single iframe, or
-                fork it and self-host — designs import and export as plain JSON.
-              </p>
-              <div className="links">
-                <a onClick={() => history.push('/developers')}>Read the docs →</a>
-                <a onClick={() => history.push('/embed')}>Try the embed →</a>
-                <a href={GITHUB} target="_blank" rel="noreferrer">GitHub →</a>
-              </div>
+            <p>Open the editor and turn an idea into a finished design or video, in the time it takes to read this page.</p>
+            <div className="acts">
+              <a className="btn btn-lg" href={TRY} onClick={nav(TRY)}>
+                Try the editor <span className="ar">↗</span>
+              </a>
+              <a className="btn-ghost" href={GITHUB} target="_blank" rel="noreferrer">
+                ★ Star on GitHub
+              </a>
             </div>
-            <pre className="code reveal">
-              <span className="c">{'<!-- Embed the Marketifyall editor -->'}</span>
-              {'\n'}
-              <span className="k">{'<iframe'}</span>
-              {'\n  src='}
-              <span className="s">{'"https://design.marketifyall.com/embed"'}</span>
-              {'\n  width='}
-              <span className="s">{'"100%"'}</span>
-              {' height='}
-              <span className="s">{'"640"'}</span>
-              {'\n  allow='}
-              <span className="s">{'"clipboard-write; fullscreen"'}</span>
-              <span className="k">{'>'}</span>
-              {'\n'}
-              <span className="k">{'</iframe>'}</span>
-            </pre>
           </div>
-        </div>
-      </section>
-
-      {/* CTA BAND */}
-      <section className="ctaband">
-        <div className="wrap">
-          <h2>
-            Go <em>make</em> something.
-          </h2>
-          <p>Open the editor and turn an idea into a finished design or video — in minutes, for free.</p>
-          <span className="btn btn-lg" onClick={go}>
-            Start designing <span className="ar">↗</span>
-          </span>
-        </div>
-      </section>
+        </section>
+      </main>
 
       {/* FOOTER */}
       <footer className="foot">
@@ -249,32 +508,48 @@ function Landing() {
             <div>
               <div className="big">Marketifyall</div>
               <p className="blurb">
-                A free, open-source design editor — templates, video and animation — that runs in your browser and embeds
-                in any site. Built by QuickShift Labs.
+                A free, open-source design and video studio that runs in your browser and embeds in any site. Built by
+                QuickShift Labs.
               </p>
             </div>
             <div>
               <h4>Product</h4>
-              <a onClick={go}>Open editor</a>
-              <a href="#formats">Templates</a>
-              <a href="#features">Features</a>
-              <a onClick={() => history.push('/dashboard')}>My projects</a>
+              <a href={TRY} onClick={nav(TRY)}>
+                Try the editor
+              </a>
+              <a href="/dashboard" onClick={nav('/dashboard')}>
+                Your projects
+              </a>
+              <a href="#design">Design</a>
+              <a href="#video">Video</a>
             </div>
             <div>
               <h4>Developers</h4>
-              <a onClick={() => history.push('/developers')}>Embed docs</a>
-              <a onClick={() => history.push('/embed')}>Live embed</a>
-              <a href={GITHUB} target="_blank" rel="noreferrer">GitHub</a>
+              <a href="/developers" onClick={nav('/developers')}>
+                Embed docs
+              </a>
+              <a href="/embed" onClick={nav('/embed')}>
+                Live embed
+              </a>
+              <a href={GITHUB} target="_blank" rel="noreferrer">
+                GitHub
+              </a>
             </div>
             <div>
               <h4>Company</h4>
-              <a onClick={() => history.push('/about')}>About</a>
-              <a onClick={() => history.push('/contact')}>Contact</a>
-              <a href={GITHUB} target="_blank" rel="noreferrer">Open source</a>
+              <a href="/about" onClick={nav('/about')}>
+                About
+              </a>
+              <a href="/contact" onClick={nav('/contact')}>
+                Contact
+              </a>
+              <a href={DISCORD} target="_blank" rel="noreferrer">
+                Discord
+              </a>
             </div>
             <div className="end">
               <span>© {year} Marketifyall · Design Editor</span>
-              <span>Free · Open-source · No account required</span>
+              <span>Free · Open source · MIT</span>
             </div>
           </div>
         </div>

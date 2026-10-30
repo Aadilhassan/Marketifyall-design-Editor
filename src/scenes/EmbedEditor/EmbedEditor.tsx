@@ -16,6 +16,7 @@ import { fabric } from 'fabric'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
 import { log } from '@/lib/logger'
 import useCanvasEnhancements from '@/hooks/useCanvasEnhancements'
+import { getFabricCanvas } from '@/utils/magicResize'
 import Rulers from '@scenes/Editor/components/Rulers'
 import { color } from '@/theme/tokens'
 import ResponsiveEditorLayout from '@scenes/Editor/mobile/ResponsiveEditorLayout'
@@ -176,7 +177,9 @@ function EmbedEditorApp() {
   useEffect(() => {
     if (!editor) return
 
-    const canvas = getCanvas(editor)
+    // The fabric canvas itself — editor.canvas is the SDK's CanvasController
+    // wrapper (no getObjects/on/clipPath), so clipping never attached to it.
+    const canvas = getFabricCanvas(editor) as any
     if (!canvas) return
 
     const setupClipping = () => {

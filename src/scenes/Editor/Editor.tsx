@@ -924,7 +924,9 @@ function App() {
   useEffect(() => {
     if (!editor) return
 
-    const canvas = getCanvas(editor)
+    // The fabric canvas itself — editor.canvas is the SDK's CanvasController
+    // wrapper (no getObjects/on/clipPath), so clipping never attached to it.
+    const canvas = getFabricCanvas(editor)
     if (!canvas) return
 
     const setupClipping = () => {
