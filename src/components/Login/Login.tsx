@@ -13,7 +13,7 @@ const Container = styled('div', {
   justifyContent: 'center',
   alignItems: 'center',
   minHeight: '100vh',
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  background: '#d8401c',
   fontFamily: 'Poppins',
   width: '100%',
 })
@@ -38,7 +38,7 @@ const SwitchText = styled('div', {
   textAlign: 'center',
   marginTop: '1rem',
   cursor: 'pointer',
-  color: '#667eea',
+  color: '#d8401c',
 })
 
 interface LoginProps {
@@ -112,7 +112,7 @@ const Login: React.FC<LoginProps> = ({ onSuccess }) => {
           <H1 
             overrides={{
               Block: {
-                style: { color: '#667eea', margin: 0 }
+                style: { color: '#d8401c', margin: 0 }
               }
             }}
           >

@@ -1,0 +1,108 @@
+/* Editor chrome theme. Values mirror src/theme/tokens.ts. Scoped to .mfa-editor
+   so it never leaks into the landing/editorial pages. */
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap");
+
+.mfa-editor {
+  --ink: #181410;
+  --muted: #736d5c;
+  --paper: #f3efe4;
+  --surface: #fbf9f4;
+  --line: rgba(24, 20, 16, 0.12);
+  --accent: #d8401c;
+  --accent-soft: #fbe8e0;
+  -webkit-font-smoothing: antialiased;
+  color: var(--ink);
+}
+
+.mfa-editor ::selection { background: var(--accent); color: #fff; }
+
+/* Thin warm scrollbars in panels */
+.mfa-editor * { scrollbar-width: thin; scrollbar-color: rgba(24, 20, 16, 0.22) transparent; }
+.mfa-editor *::-webkit-scrollbar { width: 8px; height: 8px; }
+.mfa-editor *::-webkit-scrollbar-thumb { background: rgba(24, 20, 16, 0.18); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+.mfa-editor *::-webkit-scrollbar-thumb:hover { background-color: rgba(24, 20, 16, 0.34); }
+.mfa-editor *::-webkit-scrollbar-track { background: transparent; }
+
+/* Keyboard focus is visible everywhere; mouse focus stays quiet. */
+.mfa-editor button:focus-visible,
+.mfa-editor [role='button']:focus-visible,
+.mfa-editor input:focus-visible,
+.mfa-editor select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Canvas backdrop: faint paper grain so the white artboard pops. */
+.mfa-editor .canvas-container {
+  background-color: #e9e4d8;
+}
+
+/* The stage owns touch: no browser pan / pinch / double-tap zoom on the
+   canvas area only (page zoom stays available elsewhere for a11y). Pinch and
+   two-finger pan are handled in mobile/touchGestures. */
+.mfa-editor .canvas-container { touch-action: none; }
+
+/* ---- Tablet (768–1199 px): compact navbar ------------------------------
+   Wordmark hidden, secondary actions icon-only (labels stay in the DOM for
+   screen readers), narrower title field. */
+.mfa-editor--tablet .mfa-nav-wordmark { display: none; }
+.mfa-editor--tablet .mfa-nav-name { min-width: 0; width: 150px; }
+.mfa-editor--tablet .mfa-nav-actions { gap: 4px; }
+.mfa-editor--tablet .mfa-nav-left button { font-size: 0 !important; gap: 0 !important; }
+.mfa-editor--tablet .mfa-nav-actions button:not(.mfa-nav-primary) { font-size: 0 !important; gap: 0 !important; padding-left: 10px; padding-right: 10px; }
+
+/* ---- Phone shell (< 768 px), see mobile/ResponsiveEditorLayout ---------- */
+.mfa-editor--phone {
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+/* Selection toolbar: a swipeable 56 px strip with finger-sized buttons. */
+.mfa-phone-toolbar {
+  border-top: 1px solid var(--line);
+  background: #ffffff;
+  box-shadow: 0 -4px 12px rgba(24, 20, 16, 0.08);
+}
+.mfa-phone-toolbar > div {
+  height: 56px;
+  padding-left: 0;
+  padding-right: 0;
+  scrollbar-width: none;
+}
+.mfa-phone-toolbar button { min-height: 44px; min-width: 44px; }
+.mfa-phone-toolbar *::-webkit-scrollbar { display: none; }
+
+/* Timeline dock: capped at 40% of the screen; the collapsed state is the
+   timeline's own "Show Timeline" button, made slimmer. */
+.mfa-phone-timeline > * { max-height: 40vh; max-height: 40dvh; }
+.mfa-phone-timeline > button { margin: 4px auto; padding: 6px 14px; min-height: 36px; }
+
+/* Embed top bar (EmbedNavbar) on phones: one compact row. */
+.mfa-editor--phone .mfa-topbar--embed > div { height: 52px; padding: 0 8px; gap: 6px; }
+.mfa-editor--phone .mfa-topbar--embed > div > div:first-child { flex: 1 1 auto; min-width: 0; }
+.mfa-editor--phone .mfa-topbar--embed > div > div:nth-child(2) { display: none; }
+.mfa-editor--phone .mfa-topbar--embed input { min-width: 0; width: 100%; }
+.mfa-editor--phone .mfa-topbar--embed button { padding: 0 12px; min-height: 44px; }
+
+/* Sheets: inputs at 16 px so iOS doesn't zoom the page on focus. */
+.mfa-sheet input, .mfa-sheet select, .mfa-sheet textarea { font-size: max(16px, 1em); }
+.mfa-phone-topbar input { font-size: 16px; }
+
+@keyframes mfa-fade-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mfa-panel-enter { animation: mfa-fade-up 0.18s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mfa-editor *, .mfa-editor *::before, .mfa-editor *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

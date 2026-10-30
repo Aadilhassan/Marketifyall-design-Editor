@@ -20,7 +20,7 @@ const Logo = styled('div', {
   display: 'flex',
   alignItems: 'center',
   gap: '10px',
-  color: '#1a1a1a',
+  color: '#181410',
   fontSize: '20px',
   fontWeight: 700,
   letterSpacing: '-0.5px',
@@ -47,7 +47,7 @@ const NavLinks = styled('div', {
 })
 
 const NavLink = styled('a', {
-  color: '#1a1a1a',
+  color: '#181410',
   fontSize: '14px',
   fontWeight: 600,
   textDecoration: 'none',
@@ -62,16 +62,16 @@ const NavLink = styled('a', {
 const NavButton = styled('button', {
   padding: '12px 24px',
   borderRadius: '4px',
-  border: '2px solid #1a1a1a',
+  border: '2px solid #181410',
   background: 'transparent',
-  color: '#1a1a1a',
+  color: '#181410',
   fontSize: '14px',
   fontWeight: 600,
   cursor: 'pointer',
   transition: 'all 0.2s',
   fontFamily: "'Courier New', monospace",
   ':hover': {
-    background: '#1a1a1a',
+    background: '#181410',
     color: '#ffffff',
   },
 })

@@ -13,13 +13,13 @@ const Chip = styled('button', ({ $tone }: { $tone: string }) => ({
   fontSize: '12px',
   fontWeight: 600,
   cursor: $tone === 'error' ? 'pointer' : 'default',
-  background: $tone === 'error' ? '#fee2e2' : $tone === 'saving' ? '#eef2ff' : '#ecfdf5',
-  color: $tone === 'error' ? '#b91c1c' : $tone === 'saving' ? '#4338ca' : '#047857',
+  background: $tone === 'error' ? '#fee2e2' : $tone === 'saving' ? '#fbe8e0' : '#ecfdf5',
+  color: $tone === 'error' ? '#b91c1c' : $tone === 'saving' ? '#b8340f' : '#047857',
 }))
 
 const Dot = styled('span', ({ $tone }: { $tone: string }) => ({
   width: '7px', height: '7px', borderRadius: '50%',
-  background: $tone === 'error' ? '#dc2626' : $tone === 'saving' ? '#6366f1' : '#10b981',
+  background: $tone === 'error' ? '#dc2626' : $tone === 'saving' ? '#d8401c' : '#10b981',
 }))
 
 function label(s: SaveState): string {

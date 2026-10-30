@@ -22,7 +22,7 @@ function Locked() {
 
   const updateOptions = (object: any) => {
     const { type } = object
-    setOptions({ ...options, isGroup: type === 'group', multiple: !!(activeObject as any)._objects })
+    setOptions({ ...options, isGroup: type === 'group' || type === 'vectorGroup', multiple: !!(activeObject as any)._objects })
   }
 
   return (

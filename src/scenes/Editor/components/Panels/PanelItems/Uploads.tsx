@@ -112,7 +112,9 @@ function Uploads() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      // The editor only renders signed-in (resolveEditorSession redirects otherwise).
+      // Demo visits are unauthenticated by design; looking up a session would
+      // redirect them to login just for opening this panel.
+      if (isDemoRequest()) return
       const s = await resolveEditorSession()
       if (cancelled || !s) return
       setSession(s)
@@ -241,7 +243,7 @@ function Uploads() {
                 margin: '0 2rem 1rem',
                 padding: '0.75rem',
                 textAlign: 'center',
-                background: '#f5f5f5',
+                background: '#f3efe4',
                 borderRadius: '8px',
                 color: '#999',
                 fontSize: '12px',

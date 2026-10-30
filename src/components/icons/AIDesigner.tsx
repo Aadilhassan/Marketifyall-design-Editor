@@ -9,8 +9,8 @@ function AIDesigner({ size = 24 }: { size?: number }) {
     >
       <defs>
         <linearGradient id="aiDesignerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#667eea" />
-          <stop offset="100%" stopColor="#764ba2" />
+          <stop offset="0%" stopColor="#d8401c" />
+          <stop offset="100%" stopColor="#b8340f" />
         </linearGradient>
       </defs>
       <path 

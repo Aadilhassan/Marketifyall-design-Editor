@@ -107,12 +107,12 @@ function Panel() {
           height: '100%',
           padding: 24,
           textAlign: 'center',
-          color: '#6b7280',
+          color: '#736d5c',
           gap: 10,
         }}
       >
         <div style={{ fontSize: 34 }}>✂️</div>
-        <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>Select an image</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#3a352b' }}>Select an image</div>
         <div style={{ fontSize: 12 }}>Crop, rotate and flip apply to images.</div>
       </div>
     )
@@ -121,8 +121,8 @@ function Panel() {
   return (
     <div style={{ display: 'flex', height: '100%', flexDirection: 'column', background: '#fff' }}>
       <div style={{ padding: '16px 16px 8px' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Crop &amp; rotate</div>
-        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>Trim, straighten and flip the selected image.</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#181410' }}>Crop &amp; rotate</div>
+        <div style={{ fontSize: 12, color: '#736d5c', marginTop: 2 }}>Trim, straighten and flip the selected image.</div>
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -142,9 +142,9 @@ function Panel() {
                       fontSize: 11,
                       fontWeight: 600,
                       cursor: 'pointer',
-                      border: '1px solid ' + (selected ? '#6366f1' : '#e5e7eb'),
-                      background: selected ? '#eef2ff' : '#fafafa',
-                      color: selected ? '#4338ca' : '#374151',
+                      border: '1px solid ' + (selected ? '#d8401c' : '#e6e0d2'),
+                      background: selected ? '#fbe8e0' : '#fbf9f4',
+                      color: selected ? '#b8340f' : '#3a352b',
                     }}
                   >
                     {a.label}
@@ -160,7 +160,7 @@ function Panel() {
                 <div key={s.key}>
                   <div style={labelRow}>
                     <span>{s.label}</span>
-                    <span style={{ color: '#6b7280' }}>{Math.round(crop[s.key] * 100)}%</span>
+                    <span style={{ color: '#736d5c' }}>{Math.round(crop[s.key] * 100)}%</span>
                   </div>
                   <input
                     type="range"
@@ -169,7 +169,7 @@ function Panel() {
                     step={1}
                     value={Math.round(crop[s.key] * 100)}
                     onChange={e => updateCrop({ [s.key]: parseFloat(e.target.value) / 100 } as Partial<CropInsets>)}
-                    style={{ width: '100%', accentColor: '#6366f1' }}
+                    style={{ width: '100%', accentColor: '#d8401c' }}
                   />
                 </div>
               ))}
@@ -179,7 +179,7 @@ function Panel() {
             <SectionTitle>Straighten</SectionTitle>
             <div style={labelRow}>
               <span>Angle</span>
-              <span style={{ color: '#6b7280' }}>{Math.round(straighten)}°</span>
+              <span style={{ color: '#736d5c' }}>{Math.round(straighten)}°</span>
             </div>
             <input
               type="range"
@@ -189,7 +189,7 @@ function Panel() {
               value={straighten}
               onChange={e => onStraighten(parseFloat(e.target.value))}
               onDoubleClick={() => onStraighten(0)}
-              style={{ width: '100%', accentColor: '#6366f1' }}
+              style={{ width: '100%', accentColor: '#d8401c' }}
             />
 
             <Divider />
@@ -216,9 +216,9 @@ function Panel() {
                 width: '100%',
                 padding: '10px',
                 borderRadius: 8,
-                border: '1px solid #e5e7eb',
+                border: '1px solid #e6e0d2',
                 background: '#fff',
-                color: '#6b7280',
+                color: '#736d5c',
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: 'pointer',
@@ -238,20 +238,20 @@ const labelRow: React.CSSProperties = {
   justifyContent: 'space-between',
   fontSize: 12,
   fontWeight: 600,
-  color: '#374151',
+  color: '#3a352b',
   marginBottom: 6,
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: '#9ca3af', marginBottom: 10 }}>
+    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: '#a39d8c', marginBottom: 10 }}>
       {children}
     </div>
   )
 }
 
 function Divider() {
-  return <div style={{ height: 1, background: '#f1f5f9', margin: '18px 0 16px' }} />
+  return <div style={{ height: 1, background: '#f3efe4', margin: '18px 0 16px' }} />
 }
 
 function IconBtn({ children, label, onClick }: { children: React.ReactNode; label: string; onClick: () => void }) {
@@ -266,9 +266,9 @@ function IconBtn({ children, label, onClick }: { children: React.ReactNode; labe
         gap: 8,
         padding: '10px',
         borderRadius: 8,
-        border: '1px solid #e5e7eb',
-        background: '#fafafa',
-        color: '#374151',
+        border: '1px solid #e6e0d2',
+        background: '#fbf9f4',
+        color: '#3a352b',
         fontWeight: 600,
         fontSize: 12,
         cursor: 'pointer',

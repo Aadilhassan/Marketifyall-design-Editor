@@ -180,7 +180,7 @@ function WhiteboardToolbar({ editor }: { editor: any }) {
     { id: 'rect', label: 'Rectangle', icon: Square, onClick: addRect },
     { id: 'ellipse', label: 'Ellipse', icon: CircleIcon, onClick: addEllipse },
     { id: 'line', label: 'Line', icon: Minus, onClick: addLine, color: '#3b82f6' },
-    { id: 'text', label: 'Text', icon: TypeIcon, onClick: addText, color: '#7c3aed' },
+    { id: 'text', label: 'Text', icon: TypeIcon, onClick: addText, color: '#d8401c' },
     { id: 'table', label: 'Table', icon: TableIcon, onClick: addTable },
   ]
 
@@ -212,7 +212,7 @@ function WhiteboardToolbar({ editor }: { editor: any }) {
           background: '#ffffff',
           borderRadius: 16,
           boxShadow: '0 6px 24px rgba(0,0,0,0.14)',
-          border: '1px solid #eef2f7',
+          border: '1px solid #e6e0d2',
         }}
       >
         {tools.map(tool => {
@@ -232,11 +232,11 @@ function WhiteboardToolbar({ editor }: { editor: any }) {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                background: isActive ? '#eef2ff' : 'transparent',
-                color: tool.color || (isActive ? '#4338ca' : '#374151'),
+                background: isActive ? '#fbe8e0' : 'transparent',
+                color: tool.color || (isActive ? '#b8340f' : '#3a352b'),
               }}
               onMouseEnter={e => {
-                if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = '#f3f4f6'
+                if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = '#f3efe4'
               }}
               onMouseLeave={e => {
                 if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
@@ -258,7 +258,7 @@ function WhiteboardToolbar({ editor }: { editor: any }) {
             background: '#ffffff',
             borderRadius: 14,
             boxShadow: '0 8px 28px rgba(0,0,0,0.16)',
-            border: '1px solid #eef2f7',
+            border: '1px solid #e6e0d2',
             display: 'flex',
             flexDirection: 'column',
             gap: 12,
@@ -278,9 +278,9 @@ function WhiteboardToolbar({ editor }: { editor: any }) {
                     height: 40,
                     borderRadius: 10,
                     cursor: 'pointer',
-                    border: '1px solid ' + (sel ? '#6366f1' : '#e5e7eb'),
-                    background: sel ? '#eef2ff' : '#fff',
-                    color: sel ? '#4338ca' : '#374151',
+                    border: '1px solid ' + (sel ? '#d8401c' : '#e6e0d2'),
+                    background: sel ? '#fbe8e0' : '#fff',
+                    color: sel ? '#b8340f' : '#3a352b',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -319,7 +319,7 @@ function WhiteboardToolbar({ editor }: { editor: any }) {
               max={24}
               value={brushSize}
               onChange={e => pickSize(parseInt(e.target.value, 10))}
-              style={{ width: '100%', accentColor: '#6366f1' }}
+              style={{ width: '100%', accentColor: '#d8401c' }}
             />
           </div>
         </div>

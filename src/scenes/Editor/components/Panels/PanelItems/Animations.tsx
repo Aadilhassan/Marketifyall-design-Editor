@@ -173,8 +173,8 @@ function Panel() {
   return (
     <div style={{ display: 'flex', height: '100%', flexDirection: 'column', background: '#fff' }}>
       <div style={{ padding: '16px 16px 8px' }}>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>Animate</div>
-        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#181410' }}>Animate</div>
+        <div style={{ fontSize: 12, color: '#736d5c', marginTop: 2 }}>
           Add motion to the selected element. Plays on the timeline and bakes into exports.
         </div>
       </div>
@@ -192,9 +192,9 @@ function Panel() {
               fontWeight: 600,
               borderRadius: 8,
               cursor: 'pointer',
-              border: '1px solid ' + (tab === t.key ? '#6366f1' : '#e5e7eb'),
-              background: tab === t.key ? '#eef2ff' : '#fff',
-              color: tab === t.key ? '#4338ca' : '#374151',
+              border: '1px solid ' + (tab === t.key ? '#d8401c' : '#e6e0d2'),
+              background: tab === t.key ? '#fbe8e0' : '#fff',
+              color: tab === t.key ? '#b8340f' : '#3a352b',
             }}
           >
             {t.label}
@@ -228,13 +228,13 @@ function Panel() {
                       padding: '12px 6px',
                       borderRadius: 10,
                       cursor: 'pointer',
-                      border: '1px solid ' + (selected ? '#6366f1' : '#e5e7eb'),
-                      background: selected ? '#eef2ff' : '#fafafa',
+                      border: '1px solid ' + (selected ? '#d8401c' : '#e6e0d2'),
+                      background: selected ? '#fbe8e0' : '#fbf9f4',
                       transition: 'all .15s ease',
                     }}
                   >
                     <PresetGlyph id={p.id} active={selected} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: selected ? '#4338ca' : '#374151' }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: selected ? '#b8340f' : '#3a352b' }}>
                       {p.label}
                     </span>
                   </button>
@@ -299,9 +299,9 @@ function Panel() {
                             borderRadius: 8,
                             fontSize: 16,
                             cursor: 'pointer',
-                            border: '1px solid ' + (direction === d.id ? '#6366f1' : '#e5e7eb'),
-                            background: direction === d.id ? '#eef2ff' : '#fff',
-                            color: '#374151',
+                            border: '1px solid ' + (direction === d.id ? '#d8401c' : '#e6e0d2'),
+                            background: direction === d.id ? '#fbe8e0' : '#fff',
+                            color: '#3a352b',
                           }}
                         >
                           {d.label}
@@ -332,9 +332,9 @@ function Panel() {
 
             {/* Kinetic text (only for text elements) */}
             {isText && (
-              <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #f1f5f9' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#111827', marginBottom: 2 }}>Kinetic text</div>
-                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 10 }}>
+              <div style={{ marginTop: 22, paddingTop: 18, borderTop: '1px solid #f3efe4' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#181410', marginBottom: 2 }}>Kinetic text</div>
+                <div style={{ fontSize: 11, color: '#736d5c', marginBottom: 10 }}>
                   Reveal the words or letters over time.
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -351,9 +351,9 @@ function Panel() {
                           fontSize: 11,
                           fontWeight: 600,
                           cursor: 'pointer',
-                          border: '1px solid ' + (selected ? '#6366f1' : '#e5e7eb'),
-                          background: selected ? '#eef2ff' : '#fafafa',
-                          color: selected ? '#4338ca' : '#374151',
+                          border: '1px solid ' + (selected ? '#d8401c' : '#e6e0d2'),
+                          background: selected ? '#fbe8e0' : '#fbf9f4',
+                          color: selected ? '#b8340f' : '#3a352b',
                         }}
                       >
                         {tp.label}
@@ -383,10 +383,10 @@ const selectStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px 10px',
   borderRadius: 8,
-  border: '1px solid #e5e7eb',
+  border: '1px solid #e6e0d2',
   fontSize: 13,
   background: '#fff',
-  color: '#111827',
+  color: '#181410',
 }
 
 const primaryBtn: React.CSSProperties = {
@@ -394,7 +394,7 @@ const primaryBtn: React.CSSProperties = {
   padding: '10px',
   borderRadius: 8,
   border: 'none',
-  background: '#6366f1',
+  background: '#d8401c',
   color: '#fff',
   fontWeight: 600,
   fontSize: 13,
@@ -405,9 +405,9 @@ const ghostBtn: React.CSSProperties = {
   flex: 1,
   padding: '10px',
   borderRadius: 8,
-  border: '1px solid #e5e7eb',
+  border: '1px solid #e6e0d2',
   background: '#fff',
-  color: '#6b7280',
+  color: '#736d5c',
   fontWeight: 600,
   fontSize: 13,
   cursor: 'pointer',
@@ -416,7 +416,7 @@ const ghostBtn: React.CSSProperties = {
 function Control({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: '#3a352b', marginBottom: 6 }}>{label}</div>
       {children}
     </div>
   )
@@ -433,12 +433,12 @@ function EmptyState() {
         height: '100%',
         padding: 24,
         textAlign: 'center',
-        color: '#6b7280',
+        color: '#736d5c',
         gap: 10,
       }}
     >
       <div style={{ fontSize: 34 }}>✨</div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: '#374151' }}>Select an element to animate</div>
+      <div style={{ fontSize: 14, fontWeight: 600, color: '#3a352b' }}>Select an element to animate</div>
       <div style={{ fontSize: 12 }}>
         Click any text, image or shape on your design, then choose an entrance, loop or exit animation.
       </div>
@@ -448,7 +448,7 @@ function EmptyState() {
 
 /** Tiny visual glyph hinting at the motion of each preset. */
 function PresetGlyph({ id, active }: { id: string; active: boolean }) {
-  const color = active ? '#6366f1' : '#9ca3af'
+  const color = active ? '#d8401c' : '#a39d8c'
   const dot = (style: React.CSSProperties) => (
     <div style={{ width: 18, height: 18, borderRadius: 5, background: color, ...style }} />
   )

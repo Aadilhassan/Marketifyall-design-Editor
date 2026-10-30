@@ -25,7 +25,7 @@ const Container = styled('div', {
 
 const SearchSection = styled('div', {
   padding: '16px 20px',
-  borderBottom: '1px solid #e8e8e8',
+  borderBottom: '1px solid #e6e0d2',
 })
 
 const SuggestionBar = styled('div', {
@@ -34,7 +34,7 @@ const SuggestionBar = styled('div', {
   padding: '10px 20px',
   overflowX: 'auto',
   flexWrap: 'nowrap',
-  borderBottom: '1px solid #f0f0f0',
+  borderBottom: '1px solid #f3efe4',
   '::-webkit-scrollbar': { height: '0px' },
 })
 
@@ -46,12 +46,12 @@ const SuggestionChip = styled('button', {
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   fontWeight: 400,
-  backgroundColor: '#F3F4F6',
-  color: '#6B7280',
+  backgroundColor: '#f3efe4',
+  color: '#736d5c',
   transition: 'all 0.15s',
   ':hover': {
-    backgroundColor: '#E5E7EB',
-    color: '#374151',
+    backgroundColor: '#e6e0d2',
+    color: '#3a352b',
   },
 })
 
@@ -68,8 +68,8 @@ const GridItem = styled('div', ({ $adding }: { $adding?: boolean }) => ({
   justifyContent: 'center',
   cursor: $adding ? 'wait' : 'pointer',
   borderRadius: '8px',
-  backgroundColor: '#FAFAFA',
-  border: '1px solid #F0F0F0',
+  backgroundColor: '#fbf9f4',
+  border: '1px solid #f3efe4',
   padding: '10px',
   aspectRatio: '1',
   opacity: $adding ? 0.5 : 1,
@@ -77,13 +77,13 @@ const GridItem = styled('div', ({ $adding }: { $adding?: boolean }) => ({
   ':hover': {
     transform: 'scale(1.04)',
     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
-    borderColor: '#D1D5DB',
+    borderColor: '#d6cfbf',
   },
 }))
 
 const ItemLabel = styled('div', {
   fontSize: '10px',
-  color: '#9CA3AF',
+  color: '#a39d8c',
   textAlign: 'center',
   marginTop: '4px',
   lineHeight: '1.2',
@@ -96,7 +96,7 @@ const SectionTitle = styled('div', {
   padding: '12px 20px 4px',
   fontSize: '11px',
   fontWeight: 600,
-  color: '#9CA3AF',
+  color: '#a39d8c',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
 })
@@ -130,7 +130,7 @@ const PoweredBy = styled('div', {
   padding: '6px 16px',
   fontSize: '10px',
   color: '#B0B0B0',
-  borderTop: '1px solid #f0f0f0',
+  borderTop: '1px solid #f3efe4',
 })
 
 // ── Suggestions ───────────────────────────────────────
@@ -244,7 +244,7 @@ function Illustrations() {
             loading ? (
               <StatusBar>
                 <svg width="16" height="16" viewBox="0 0 24 24" style={{ animation: 'spin 1s linear infinite' }}>
-                  <circle cx="12" cy="12" r="10" stroke="#4F46E5" strokeWidth="2" fill="none" strokeDasharray="31.4 31.4" />
+                  <circle cx="12" cy="12" r="10" stroke="#d8401c" strokeWidth="2" fill="none" strokeDasharray="31.4 31.4" />
                 </svg>
                 Searching...
                 <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
@@ -310,7 +310,7 @@ function Illustrations() {
           href="https://iconify.design"
           target="_blank"
           rel="noopener noreferrer"
-          style={{ color: '#4F46E5', fontWeight: 600 }}
+          style={{ color: '#d8401c', fontWeight: 600 }}
         >
           Iconify
         </a>

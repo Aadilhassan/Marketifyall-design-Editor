@@ -51,6 +51,8 @@ interface IAppContext {
   setShapes: (shapes: ShapeItem[]) => void
   activePanel: PanelType
   setActivePanel: (option: PanelType) => void
+  isPanelOpen: boolean
+  setIsPanelOpen: (open: boolean) => void
   activeSubMenu: SubMenuType | null
   setActiveSubMenu: (option: SubMenuType) => void
   currentTemplate: Template | null
@@ -68,6 +70,8 @@ export const AppContext = createContext<IAppContext>({
   setShapes: () => {},
   activePanel: PanelType.TEMPLATES,
   setActivePanel: () => {},
+  isPanelOpen: true,
+  setIsPanelOpen: () => {},
   activeSubMenu: null,
   setActiveSubMenu: () => {},
   currentTemplate: null,
@@ -80,6 +84,7 @@ export const AppProvider: FC = ({ children }) => {
   const [uploads, setUploads] = useState<UploadItem[]>([])
   const [shapes, setShapes] = useState<ShapeItem[]>([])
   const [activePanel, setActivePanel] = useState<PanelType>(PanelType.TEMPLATES)
+  const [isPanelOpen, setIsPanelOpen] = useState(true)
   const [activeSubMenu, setActiveSubMenu] = useState<SubMenuType | null>(null)
   const [currentTemplate, setCurrentTemplate] = useState<Template | null>(null)
   const context = {
@@ -89,6 +94,8 @@ export const AppProvider: FC = ({ children }) => {
     setTemplates,
     activePanel,
     setActivePanel,
+    isPanelOpen,
+    setIsPanelOpen,
     shapes,
     setShapes,
     activeSubMenu,

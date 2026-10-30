@@ -1,19 +1,13 @@
-import Common from './components/Common'
+import { commonItems } from './components/Common'
+import OverflowBar, { OverflowSpacer } from '../OverflowBar'
 
 function MultiElement() {
   return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 1rem',
-      }}
-    >
-      <div>Multi</div>
-      <Common />
-    </div>
+    <OverflowBar>
+      <div key="label">Multi</div>
+      <OverflowSpacer key="spacer" />
+      {commonItems()}
+    </OverflowBar>
   )
 }
 

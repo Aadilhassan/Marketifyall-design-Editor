@@ -17,7 +17,7 @@ const Container = styled('div', {
 
 const SearchSection = styled('div', {
   padding: '16px 20px',
-  borderBottom: '1px solid #e8e8e8',
+  borderBottom: '1px solid #e6e0d2',
 })
 
 const CategoryScroller = styled('div', {
@@ -25,7 +25,7 @@ const CategoryScroller = styled('div', {
   display: 'flex',
   gap: '8px',
   overflowX: 'auto',
-  borderBottom: '1px solid #e8e8e8',
+  borderBottom: '1px solid #e6e0d2',
   '::-webkit-scrollbar': {
     height: '4px',
   },
@@ -44,10 +44,10 @@ const CategoryChip = styled('button', ({ $active }: { $active: boolean }) => ({
   cursor: 'pointer',
   whiteSpace: 'nowrap',
   transition: 'all 0.2s',
-  background: $active ? '#05A081' : '#f0f0f0',
+  background: $active ? '#05A081' : '#f3efe4',
   color: $active ? '#fff' : '#555',
   ':hover': {
-    background: $active ? '#048a6e' : '#e5e5e5',
+    background: $active ? '#048a6e' : '#e6e0d2',
   },
 }))
 
@@ -64,7 +64,7 @@ const ImageItem = styled('div', ({ $loading }: { $loading?: boolean }) => ({
   overflow: 'hidden',
   cursor: $loading ? 'wait' : 'pointer',
   aspectRatio: '1',
-  backgroundColor: '#f5f5f5',
+  backgroundColor: '#f3efe4',
   transition: 'transform 0.15s, box-shadow 0.15s',
   opacity: $loading ? 0.6 : 1,
   ':hover': {
@@ -132,7 +132,7 @@ const PexelsBadge = styled('div', {
   padding: '8px 16px',
   fontSize: '11px',
   color: '#888',
-  borderTop: '1px solid #e8e8e8',
+  borderTop: '1px solid #e6e0d2',
 })
 
 const CATEGORIES = [
@@ -221,25 +221,9 @@ function Pexels() {
 
     try {
       const imageUrl = image.src.large2x || image.src.large
-      const imgWidth = image.width
-      const imgHeight = image.height
 
-      // Get frame dimensions from context or fallback to default
-      const frameWidth = frameSize?.width || 900
-      const frameHeight = frameSize?.height || 1200
 
-      // Calculate scale to fit within canvas (max 60% of frame width/height)
-      const maxWidth = frameWidth * 0.7
-      const maxHeight = frameHeight * 0.7
 
-      let scaleX = 1
-      let scaleY = 1
-
-      if (imgWidth > maxWidth || imgHeight > maxHeight) {
-        const widthRatio = maxWidth / imgWidth
-        const heightRatio = maxHeight / imgHeight
-        scaleX = scaleY = Math.min(widthRatio, heightRatio)
-      }
 
       // Use the helper to add the object
       addObjectToCanvas(editor, {
@@ -249,11 +233,7 @@ function Pexels() {
           photographer: image.photographer,
           photographer_url: image.photographer_url,
         },
-        width: imgWidth,
-        height: imgHeight,
-        scaleX,
-        scaleY,
-      }, imgWidth, canvas)
+      }, undefined, canvas)
 
       // Fallback for canvas update
       setTimeout(() => {

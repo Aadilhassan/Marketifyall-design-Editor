@@ -207,16 +207,45 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   })
 }
 
-/** Swap a fabric image's pixel source while preserving its on-canvas transform. */
+/**
+ * Swap a fabric image's pixel source while preserving its on-canvas transform
+ * AND its crop. fabric's setSrc resets width/height to the new image's full
+ * size but keeps cropX/cropY, which broke any cropped photo run through
+ * Remove BG / Magic Eraser. The crop window is rescaled to the new source (same
+ * size → unchanged; upscaled → proportionally) and scale compensates so the
+ * photo keeps its size on the page.
+ */
 export function replaceImageSource(canvas: any, obj: any, src: string): Promise<void> {
+  const el = (obj.getElement && obj.getElement()) || obj._element
+  const before = {
+    naturalW: (el && (el.naturalWidth || el.width)) || obj.width,
+    cropX: obj.cropX || 0,
+    cropY: obj.cropY || 0,
+    width: obj.width,
+    height: obj.height,
+    scaleX: obj.scaleX || 1,
+    scaleY: obj.scaleY || 1,
+  }
   return new Promise(resolve => {
     obj.setSrc(
       src,
       () => {
         if (!obj.metadata) obj.metadata = {}
         obj.metadata.src = src
-        // dimensions reset to the new source — drop any stale crop anchor
-        delete obj.metadata.cropOrigin
+        const next = obj.getElement && obj.getElement()
+        const naturalW = (next && (next.naturalWidth || next.width)) || obj.width
+        const r = before.naturalW > 0 ? naturalW / before.naturalW : 1
+        obj.set({
+          cropX: before.cropX * r,
+          cropY: before.cropY * r,
+          width: before.width * r,
+          height: before.height * r,
+          scaleX: before.scaleX / r,
+          scaleY: before.scaleY / r,
+        })
+        obj.setCoords && obj.setCoords()
+        // a resized source invalidates the crop tool's anchor
+        if (Math.abs(r - 1) > 1e-6) delete obj.metadata.cropOrigin
         try {
           obj.applyFilters && obj.applyFilters()
         } catch (err) {

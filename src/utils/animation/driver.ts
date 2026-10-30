@@ -1,9 +1,8 @@
 /**
  * Animation driver — applies ElementAnimations to live fabric objects based on
- * a global timeline time. This is the single authority that turns the keyframe
- * model into on-canvas motion; because VideoCanvasPlayer mirrors live object
- * props into its DOM overlays, animating the fabric object animates the preview
- * everywhere (canvas + overlay) with one code path.
+ * a global timeline time. Used by the legacy real-time exporter (exporter.ts /
+ * gifEncoder.ts) only; live preview runs through src/video/apply.ts, which
+ * suspends itself while those exporters drive the canvas.
  *
  * State (captured base transform, last opacity, prior caching flag) is held in
  * a WeakMap keyed by the fabric object — NOT as properties on the object —

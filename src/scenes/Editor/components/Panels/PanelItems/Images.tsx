@@ -26,7 +26,7 @@ function Images() {
   const IMAGES_PER_PAGE = 20 // Limit initial load to prevent resource exhaustion
 
   const editor = useEditor()
-  const { frameSize, canvas } = useEditorContext() as any
+  const { canvas } = useEditorContext() as any
 
   useEffect(() => {
     loadImages()
@@ -78,34 +78,10 @@ function Images() {
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
-      const imgWidth = img.naturalWidth || 400
-      const imgHeight = img.naturalHeight || 300
-
-      // Get frame dimensions
-      const clipPath = canvas.clipPath
-      const frameWidth = clipPath?.width || 900
-      const frameHeight = clipPath?.height || 1200
-
-      // Calculate scale to fit
-      const maxWidth = frameWidth * 0.6
-      const maxHeight = frameHeight * 0.5
-      let scaleX = 1
-      let scaleY = 1
-
-      if (imgWidth > maxWidth || imgHeight > maxHeight) {
-        const widthRatio = maxWidth / imgWidth
-        const heightRatio = maxHeight / imgHeight
-        scaleX = scaleY = Math.min(widthRatio, heightRatio)
-      }
-
       addObjectToCanvas(editor, {
         type: 'StaticImage',
         metadata: { src: imageUrl },
-        width: imgWidth,
-        height: imgHeight,
-        scaleX,
-        scaleY,
-      }, imgWidth, canvas)
+      }, undefined, canvas)
     }
     img.src = imageUrl
   }, [editor, canvas])
@@ -220,7 +196,7 @@ function Images() {
                 style={{
                   paddingLeft: '1rem',
                   fontSize: '0.85rem',
-                  color: '#666666',
+                  color: '#736d5c',
                   display: 'flex',
                   alignItems: 'center',
                   height: '40px',
@@ -259,7 +235,7 @@ function Images() {
                           cursor: addingImageId === image.id ? 'wait' : 'pointer',
                           borderRadius: '8px',
                           overflow: 'hidden',
-                          border: addingImageId === image.id ? '2px solid #5A3FFF' : '1px solid #e1e1e1',
+                          border: addingImageId === image.id ? '2px solid #d8401c' : '1px solid #e1e1e1',
                           transition: 'all 0.2s ease',
                           opacity: addingImageId === image.id ? 0.7 : 1,
                           position: 'relative',
@@ -282,7 +258,7 @@ function Images() {
                           e.dataTransfer.effectAllowed = 'copy'
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = '#5A3FFF'
+                          e.currentTarget.style.borderColor = '#d8401c'
                           e.currentTarget.style.transform = 'scale(1.02)'
                         }}
                         onMouseLeave={(e) => {
@@ -314,7 +290,7 @@ function Images() {
                             top: '50%',
                             left: '50%',
                             transform: 'translate(-50%, -50%)',
-                            background: 'rgba(90, 63, 255, 0.9)',
+                            background: 'rgba(216, 64, 28, 0.9)',
                             color: 'white',
                             padding: '4px 8px',
                             borderRadius: '4px',
@@ -338,9 +314,9 @@ function Images() {
                       style={{
                         padding: '8px 16px',
                         borderRadius: '6px',
-                        border: '1px solid #5A3FFF',
+                        border: '1px solid #d8401c',
                         background: '#fff',
-                        color: '#5A3FFF',
+                        color: '#d8401c',
                         cursor: loading ? 'not-allowed' : 'pointer',
                         fontSize: '14px',
                         fontWeight: 500,

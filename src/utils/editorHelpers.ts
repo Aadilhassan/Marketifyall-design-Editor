@@ -8,6 +8,7 @@ import { selectObject } from './selectObject'
 // they exist before any saved project is deserialised on load.
 import './filters'
 import { log } from '@/lib/logger'
+import { asVectorGroup } from './vectorGroup'
 
 export const addObjectToCanvas = (editor: any, options: any, width?: number, canvas?: any) => {
     if (!editor) {
@@ -175,11 +176,11 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                 }
             }
             // Handle SVG/Vector
-            else if (type === 'StaticVector' || type === 'group') {
+            else if (type === 'StaticVector' || type === 'group' || type === 'vectorGroup') {
                 const svgString = objectOptions.metadata?.svg || objectOptions.svg
                 if (svgString) {
                     fabric.loadSVGFromString(svgString, (objects: any[], options: any) => {
-                        const group = fabric.util.groupSVGElements(objects, options)
+                        const group = asVectorGroup(fabric.util.groupSVGElements(objects, options))
                         group.set({
                             left: objectOptions.left ?? centerLeft,
                             top: objectOptions.top ?? centerTop,

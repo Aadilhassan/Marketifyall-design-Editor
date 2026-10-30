@@ -8,6 +8,10 @@ export enum SubMenuType {
   ANIMATIONS = 'Animations',
   ADJUST = 'Adjust',
   CROP = 'Crop',
+  TEXT_EFFECTS = 'TextEffects',
+  POSITION = 'Position',
+  ELEMENT_EFFECTS = 'ElementEffects',
+  MAGIC_ERASER = 'MagicEraser',
 }
 
 export const editorFonts = [

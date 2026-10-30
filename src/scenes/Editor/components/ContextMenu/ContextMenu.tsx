@@ -1,8 +1,11 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
 import { styled } from 'baseui'
 import { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { selectObject } from '@/utils/selectObject'
 import { sendToBackSafe, sendBackwardsSafe } from '@/utils/layering'
+import { isRawObject } from '@/utils/designJson'
+import { fabric as fabricLib } from 'fabric'
+import { getFabricCanvas } from '@/utils/magicResize'
 import { fail, log } from '@/lib/logger'
 import {
   Copy,
@@ -37,9 +40,12 @@ const MenuContainer = styled('div', {
   boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05)',
   padding: '8px 0',
   minWidth: '200px',
+  // long-pressed near the bottom of a phone: scroll instead of running off-screen
+  maxHeight: 'calc(100vh - 16px)',
   zIndex: 1001,
   fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-  overflow: 'hidden',
+  overflowX: 'hidden',
+  overflowY: 'auto',
 })
 
 const MenuItem = styled('div', (props: { $disabled?: boolean }) => ({
@@ -49,29 +55,37 @@ const MenuItem = styled('div', (props: { $disabled?: boolean }) => ({
   cursor: props.$disabled ? 'not-allowed' : 'pointer',
   fontSize: '13px',
   fontWeight: '500',
-  color: props.$disabled ? '#9ca3af' : '#374151',
+  color: props.$disabled ? '#a39d8c' : '#3a352b',
   transition: 'all 0.15s ease',
   gap: '12px',
   ':hover': {
-    backgroundColor: props.$disabled ? 'transparent' : '#f3f4f6',
-    color: props.$disabled ? '#9ca3af' : '#7c3aed',
+    backgroundColor: props.$disabled ? 'transparent' : '#f3efe4',
+    color: props.$disabled ? '#a39d8c' : '#d8401c',
+  },
+  '@media (pointer: coarse)': {
+    minHeight: '44px',
+    fontSize: '14px',
   },
 }))
 
 const MenuDivider = styled('div', {
   height: '1px',
-  backgroundColor: '#e5e7eb',
+  backgroundColor: '#e6e0d2',
   margin: '6px 0',
 })
 
 const Shortcut = styled('span', {
   marginLeft: 'auto',
   fontSize: '11px',
-  color: '#9ca3af',
+  color: '#a39d8c',
   fontWeight: '500',
-  backgroundColor: '#f3f4f6',
+  backgroundColor: '#f3efe4',
   padding: '2px 6px',
   borderRadius: '4px',
+  // no keyboard on touch devices: hide the shortcut hints
+  '@media (pointer: coarse)': {
+    display: 'none',
+  },
 })
 
 const SubMenuLabel = styled('div', {
@@ -80,7 +94,7 @@ const SubMenuLabel = styled('div', {
   padding: '8px 16px',
   fontSize: '11px',
   fontWeight: '600',
-  color: '#9ca3af',
+  color: '#a39d8c',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
 })
@@ -89,9 +103,44 @@ interface ContextMenuProps {
   canvasRef?: React.RefObject<HTMLDivElement>
 }
 
+/**
+ * Clipboard payload for paste via editor.add(). Scenify-typed objects use the
+ * exported (frame-relative) JSON the SDK expects; plain fabric objects use their
+ * own absolute JSON, since exports now store those frame-relative.
+ */
+/**
+ * Paste 20px down-right of the source. editor.add() only understands
+ * scenify-typed objects (a plain fabric object makes it throw), so plain
+ * objects are revived with fabric directly.
+ */
+function pasteClipboard(editor: any, clip: any): void {
+  const data = { ...clip, left: (clip.left || 0) + 20, top: (clip.top || 0) + 20 }
+  if (!isRawObject(data)) {
+    editor.add(data)
+    return
+  }
+  const canvas = getFabricCanvas(editor)
+  delete data.id
+  fabricLib.util.enlivenObjects([data], (objs: any[]) => {
+    const obj = objs[0]
+    if (!obj || !canvas) return
+    canvas.add(obj)
+    selectObject(canvas, obj)
+    canvas.fire('object:modified', { target: obj })
+  }, '')
+}
+
+function clipboardJsonOf(editor: any, obj: any): any {
+  if (isRawObject(obj)) return obj.toJSON?.(['metadata', 'id', 'name']) || obj
+  const json = editor.exportToJSON()
+  const found = json.objects.find((o: any) => o.id === obj.id)
+  return found || obj.toJSON?.() || obj
+}
+
 function ContextMenu({ canvasRef }: ContextMenuProps) {
   const [visible, setVisible] = useState(false)
   const [position, setPosition] = useState({ x: 0, y: 0 })
+  const menuRef = useRef<HTMLDivElement>(null)
   const [clipboard, setClipboard] = useState<any>(null)
   const editor = useEditor()
   const { activeObject } = useEditorContext()
@@ -151,13 +200,11 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
       let handled = false
 
       if (ctrlKey && e.key === 'c' && activeObject) {
-        const json = editor.exportToJSON()
-        const selectedObjects = json.objects.filter((obj: any) => obj.id === (activeObject as any).id)
-        setClipboard(selectedObjects.length > 0 ? selectedObjects[0] : (activeObject as any).toJSON?.() || activeObject)
+        setClipboard(clipboardJsonOf(editor, activeObject))
         handled = true
       } else if (ctrlKey && e.key === 'v' && clipboard) {
         try {
-          editor.add({ ...clipboard, left: (clipboard.left || 0) + 20, top: (clipboard.top || 0) + 20 })
+          pasteClipboard(editor, clipboard)
         } catch (err) {
           fail('edit', 'Paste failed — check clipboard permissions', err)
         }
@@ -213,12 +260,7 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
 
   const handleCopy = () => {
     if (activeObject && editor) {
-      const json = editor.exportToJSON()
-      const selectedObjects = json.objects.filter((obj: any) => {
-        // Find the active object in the exported JSON
-        return obj.id === (activeObject as any).id
-      })
-      setClipboard(selectedObjects.length > 0 ? selectedObjects[0] : activeObject.toJSON())
+      setClipboard(clipboardJsonOf(editor, activeObject))
     }
     setVisible(false)
   }
@@ -226,12 +268,7 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
   const handlePaste = () => {
     if (clipboard && editor) {
       try {
-        const pastedObject = {
-          ...clipboard,
-          left: (clipboard.left || 0) + 20,
-          top: (clipboard.top || 0) + 20,
-        }
-        editor.add(pastedObject)
+        pasteClipboard(editor, clipboard)
       } catch (err) {
         log.warn('edit', 'context-menu action failed', err)
       }
@@ -361,6 +398,16 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
     setVisible(false)
   }
 
+  // Keep the menu on screen (right/bottom edges, small phones).
+  useLayoutEffect(() => {
+    const el = menuRef.current
+    if (!visible || !el) return
+    const r = el.getBoundingClientRect()
+    const x = Math.max(8, Math.min(position.x, window.innerWidth - r.width - 8))
+    const y = Math.max(8, Math.min(position.y, window.innerHeight - r.height - 8))
+    if (x !== position.x || y !== position.y) setPosition({ x, y })
+  }, [visible, position])
+
   const isLocked = activeObject && (activeObject as any).locked
 
   if (!visible) return null
@@ -372,6 +419,7 @@ function ContextMenu({ canvasRef }: ContextMenuProps) {
     <>
       <MenuOverlay onClick={() => setVisible(false)} />
       <MenuContainer
+        ref={menuRef}
         style={{
           left: position.x,
           top: position.y,

@@ -41,7 +41,7 @@ const ModalCard = styled('div', {
 
 const ModalHeader = styled('div', {
   padding: '20px 24px',
-  borderBottom: '1px solid #e5e7eb',
+  borderBottom: '1px solid #e6e0d2',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
@@ -57,7 +57,7 @@ const IconWrapper = styled('div', {
   width: '32px',
   height: '32px',
   borderRadius: '8px',
-  background: 'linear-gradient(135deg, #5A3FFF 0%, #7C5CFF 100%)',
+  background: 'linear-gradient(135deg, #d8401c 0%, #7C5CFF 100%)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
@@ -68,7 +68,7 @@ const IconWrapper = styled('div', {
 const ModalTitle = styled('h2', {
   fontSize: '18px',
   fontWeight: 600,
-  color: '#1f2937',
+  color: '#181410',
   margin: 0,
 })
 
@@ -78,15 +78,15 @@ const CloseButton = styled('button', {
   borderRadius: '8px',
   border: 'none',
   background: 'transparent',
-  color: '#6b7280',
+  color: '#736d5c',
   cursor: 'pointer',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   transition: 'all 0.2s',
   ':hover': {
-    background: '#f3f4f6',
-    color: '#374151',
+    background: '#f3efe4',
+    color: '#3a352b',
   },
 })
 
@@ -98,7 +98,7 @@ const ModalBody = styled('div', {
 
 const Message = styled('p', {
   fontSize: '14px',
-  color: '#6b7280',
+  color: '#736d5c',
   margin: '0 0 24px 0',
   lineHeight: '1.5',
 })
@@ -106,7 +106,7 @@ const Message = styled('p', {
 const SectionTitle = styled('h3', {
   fontSize: '14px',
   fontWeight: 600,
-  color: '#374151',
+  color: '#3a352b',
   marginBottom: '12px',
   textTransform: 'uppercase' as const,
   letterSpacing: '0.5px',
@@ -122,8 +122,8 @@ const CardsGrid = styled('div', {
 const PlanCard = styled('div', ({ $disabled }: { $disabled?: boolean }) => ({
   padding: '20px 16px',
   borderRadius: '12px',
-  border: '2px solid #e5e7eb',
-  background: $disabled ? '#f9fafb' : '#ffffff',
+  border: '2px solid #e6e0d2',
+  background: $disabled ? '#fbf9f4' : '#ffffff',
   display: 'flex',
   flexDirection: 'column' as const,
   alignItems: 'center',
@@ -134,8 +134,8 @@ const PlanCard = styled('div', ({ $disabled }: { $disabled?: boolean }) => ({
   ...(!$disabled
     ? {
         ':hover': {
-          borderColor: '#5A3FFF',
-          boxShadow: '0 4px 12px rgba(90, 63, 255, 0.1)',
+          borderColor: '#d8401c',
+          boxShadow: '0 4px 12px rgba(216, 64, 28, 0.1)',
         },
       }
     : {}),
@@ -151,32 +151,32 @@ const Badge = styled('span', ({ $variant }: { $variant: 'recommended' | 'coming-
   fontWeight: 600,
   ...(
     $variant === 'recommended'
-      ? { background: '#5A3FFF', color: '#ffffff' }
-      : { background: '#e5e7eb', color: '#6b7280' }
+      ? { background: '#d8401c', color: '#ffffff' }
+      : { background: '#e6e0d2', color: '#736d5c' }
   ),
 }))
 
 const PlanName = styled('span', {
   fontSize: '15px',
   fontWeight: 600,
-  color: '#1f2937',
+  color: '#181410',
 })
 
 const PlanPrice = styled('span', {
   fontSize: '24px',
   fontWeight: 700,
-  color: '#1f2937',
+  color: '#181410',
 })
 
 const PlanPeriod = styled('span', {
   fontSize: '13px',
-  color: '#9ca3af',
+  color: '#a39d8c',
   fontWeight: 400,
 })
 
 const PlanCredits = styled('span', {
   fontSize: '13px',
-  color: '#6b7280',
+  color: '#736d5c',
   textAlign: 'center' as const,
 })
 
@@ -186,9 +186,9 @@ const PlanButton = styled('button', ({ $disabled }: { $disabled?: boolean }) => 
   borderRadius: '8px',
   border: 'none',
   background: $disabled
-    ? '#e5e7eb'
-    : 'linear-gradient(135deg, #5A3FFF 0%, #7C5CFF 100%)',
-  color: $disabled ? '#9ca3af' : '#ffffff',
+    ? '#e6e0d2'
+    : 'linear-gradient(135deg, #d8401c 0%, #7C5CFF 100%)',
+  color: $disabled ? '#a39d8c' : '#ffffff',
   fontSize: '13px',
   fontWeight: 600,
   cursor: $disabled ? 'not-allowed' : 'pointer',
@@ -198,7 +198,7 @@ const PlanButton = styled('button', ({ $disabled }: { $disabled?: boolean }) => 
     ? {
         ':hover': {
           transform: 'translateY(-1px)',
-          boxShadow: '0 4px 12px rgba(90, 63, 255, 0.4)',
+          boxShadow: '0 4px 12px rgba(216, 64, 28, 0.4)',
         },
       }
     : {}),
@@ -206,13 +206,13 @@ const PlanButton = styled('button', ({ $disabled }: { $disabled?: boolean }) => 
 
 const ModalFooter = styled('div', {
   padding: '16px 24px',
-  borderTop: '1px solid #e5e7eb',
+  borderTop: '1px solid #e6e0d2',
   textAlign: 'center' as const,
 })
 
 const FooterText = styled('p', {
   fontSize: '12px',
-  color: '#9ca3af',
+  color: '#a39d8c',
   margin: 0,
   lineHeight: '1.5',
 })
