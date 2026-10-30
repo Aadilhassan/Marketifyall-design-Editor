@@ -2,6 +2,15 @@
   "name": "marketifyall-design-editor",
   "version": "0.1.0",
   "private": true,
+  "description": "Free, open-source design and video editor for the browser — an embeddable Canva alternative with templates, Magic Resize, Brand Kit and a multi-track video timeline.",
+  "keywords": ["design-editor", "canva-alternative", "video-editor", "graphic-design", "fabricjs", "react", "typescript", "embeddable", "open-source"],
+  "license": "MIT",
+  "author": "QuickShift Labs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Aadilhassan/Marketifyall-design-Editor.git"
+  },
+  "bugs": "https://github.com/Aadilhassan/Marketifyall-design-Editor/issues",
   "engines": {
     "node": ">=18"
   },

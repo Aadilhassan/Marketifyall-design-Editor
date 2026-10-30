@@ -4,6 +4,7 @@ import '../../styles/editorial.css'
 import '../../styles/landing.css'
 import '../../styles/home.css'
 import Seo from '@/components/Seo'
+import { COMPARISONS } from '@scenes/Compare/data'
 
 const GITHUB = 'https://github.com/Aadilhassan/Marketifyall-design-Editor'
 const DISCORD = 'https://discord.gg/mzqYc69hxP'
@@ -534,6 +535,14 @@ function Landing() {
               <a href={GITHUB} target="_blank" rel="noreferrer">
                 GitHub
               </a>
+            </div>
+            <div>
+              <h4>Compare</h4>
+              {COMPARISONS.map(c => (
+                <a key={c.slug} href={`/compare/${c.slug}`} onClick={nav(`/compare/${c.slug}`)}>
+                  vs {c.name}
+                </a>
+              ))}
             </div>
             <div>
               <h4>Company</h4>
