@@ -47,3 +47,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+/* Templates use "Arial Black", which most Linux/Android systems lack; without
+   it the browser falls back to a serif. Prefer the real font, then the closest
+   heavy sans the system has. */
+@font-face {
+  font-family: 'Arial Black';
+  src: local('Arial Black'), local('ArialBlack'), local('Arial-Black'), local('Noto Sans Black'), local('NotoSans-Black'),
+    local('Roboto Black'), local('Roboto-Black'), local('Liberation Sans Bold');
+}

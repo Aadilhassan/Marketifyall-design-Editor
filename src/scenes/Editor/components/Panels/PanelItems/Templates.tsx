@@ -5,7 +5,7 @@ import Icons from '@components/icons'
 import { useEditor } from '@nkyo/scenify-sdk'
 import { useSelector } from 'react-redux'
 import { selectTemplates } from '@/store/slices/templates/selectors'
-import { log } from '@/lib/logger'
+import { applyTemplate } from '@/utils/applyTemplate'
 
 const CATEGORIES = [
   'All',
@@ -54,44 +54,7 @@ function Templates() {
     return CATEGORIES.filter(c => c === 'All' || cats.has(c))
   }, [templates])
 
-  const handleLoadTemplate = async (template: any) => {
-    const fonts: any[] = []
-    template.objects.forEach((object: any) => {
-      if (object.type === 'StaticText' || object.type === 'DynamicText') {
-        fonts.push({
-          name: object.metadata?.fontFamily || object.fontFamily,
-          url: object.metadata?.fontURL || object.fontURL,
-          options: { style: 'normal', weight: 400 },
-        })
-      }
-    })
-    const filteredFonts = fonts.filter(f => !!f.url)
-    if (filteredFonts.length > 0) {
-      await loadFonts(filteredFonts)
-    }
-    editor.importFromJSON(template)
-  }
-
-  const loadFonts = (fonts: any[]) => {
-    const promisesList = fonts.map(font => {
-      return new FontFace(font.name, `url(${font.url})`, font.options).load().catch(err => err)
-    })
-    // Always resolve once ALL fonts settle (loaded OR failed), adding the ones
-    // that loaded. Previously resolve() was only called when a font SUCCEEDED, so
-    // a template whose font URLs fail to load (offline / CORS / bad URL) hung
-    // here forever and the design never imported.
-    return Promise.all(promisesList).then(res => {
-      res.forEach(uniqueFont => {
-        if (uniqueFont && (uniqueFont as FontFace).family) {
-          try {
-            document.fonts.add(uniqueFont as FontFace)
-          } catch (err) {
-            log.warn('templates', 'font registration failed during template load — template still loads', err)
-          }
-        }
-      })
-    })
-  }
+  const handleLoadTemplate = (template: any) => applyTemplate(editor, template)
 
   return (
     <div style={{ display: 'flex', height: '100%', flexDirection: 'column' }}>

@@ -25,6 +25,12 @@ import Editor, { useEditor, useEditorContext } from '@nkyo/scenify-sdk'
 import { fabric } from 'fabric'
 import { addObjectToCanvas } from '@/utils/editorHelpers'
 import { addStarterContent, StarterKind } from '@/utils/starterContent'
+import { applyTemplate } from '@/utils/applyTemplate'
+import { isImageObject, removeImageBackground } from '@/utils/imageEdits'
+import { showImageProcessingOverlay } from '@/utils/progressOverlay'
+import { notify } from '@/lib/notify'
+import { SubMenuType } from '@/constants/editor'
+import api from '@services/api'
 import { loadGoogleFont } from '@/utils/fontLoader'
 import { applyWhiteboardBackground } from '@/utils/whiteboard'
 import { getProject, patchProject, genProjectId } from '@/utils/projectStore'
@@ -101,8 +107,26 @@ function makeThumbnail(canvas: any): string {
       const w = (clip.width || 0) * (clip.scaleX || 1)
       const h = (clip.height || 0) * (clip.scaleY || 1)
       if (w > 0 && h > 0) {
-        const mult = Math.min(0.25, 320 / w)
-        const el = canvas.toCanvasElement(mult, { left: clip.left, top: clip.top, width: w, height: h })
+        // toCanvasElement crops in screen pixels and keeps the current zoom/pan,
+        // so map the page's scene rect through the viewport transform first.
+        const vp = canvas.viewportTransform || [1, 0, 0, 1, 0, 0]
+        const zoom = vp[0] || 1
+        const mult = Math.min(320, w) / (w * zoom)
+        // Off-screen culling uses cached object coords, which go stale for
+        // objects the SDK repositions on load — they'd vanish from the preview.
+        const skip = canvas.skipOffscreen
+        canvas.skipOffscreen = false
+        let el: any
+        try {
+          el = canvas.toCanvasElement(mult, {
+            left: vp[4] + clip.left * zoom,
+            top: vp[5] + clip.top * zoom,
+            width: w * zoom,
+            height: h * zoom,
+          })
+        } finally {
+          canvas.skipOffscreen = skip
+        }
         if (!el || !el.toDataURL) return ''
         // Composite onto white so transparent pages (e.g. whiteboards) don't
         // come out black when encoded as JPEG.
@@ -126,7 +150,7 @@ function makeThumbnail(canvas: any): string {
 }
 
 function App() {
-  const { setCurrentTemplate, setActivePanel } = useAppContext()
+  const { setCurrentTemplate, setActivePanel, setActiveSubMenu } = useAppContext()
   const editor = useEditor() as unknown as EditorWithCanvas | null
   const location = useLocation()
   const { id: routeId } = useParams<{ id?: string }>()
@@ -467,11 +491,47 @@ function App() {
     } catch (err) {
       ignoreError(err, 'sessionStorage unavailable')
     }
+    // Once the uploaded photo has loaded: centre it on the page (it was placed
+    // before its height was known), select it, and run a dashboard quick edit
+    // (?tool=) — background removal or Magic Eraser.
+    const placeUpload = (cv: any, before: Set<any>, tool: string | null, tries = 0) => {
+      const img = cv.getObjects().find((o: any) => !before.has(o) && isImageObject(o))
+      if (!img) {
+        if (tries < 60) setTimeout(() => placeUpload(cv, before, tool, tries + 1), 150)
+        return
+      }
+      const page = cv.clipPath?.getBoundingRect?.(true, true)
+      const box = img.getBoundingRect(true, true)
+      if (page && box) {
+        img.set({
+          left: img.left + page.left + page.width / 2 - (box.left + box.width / 2),
+          top: img.top + page.top + page.height / 2 - (box.top + box.height / 2),
+        })
+        img.setCoords()
+      }
+      cv.setActiveObject(img)
+      cv.requestRenderAll()
+      if (!tool) return
+      if (tool === 'magic-eraser') {
+        setActiveSubMenu(SubMenuType.MAGIC_ERASER)
+        return
+      }
+      const overlay = showImageProcessingOverlay(cv, img, 'Removing background')
+      removeImageBackground(cv, img, (ratio: number, stage: string) => overlay.update(ratio, stage))
+        .then(() => notify('Background removed', 'positive'))
+        .catch((e: any) => notify(e?.message ? `Background removal failed: ${e.message}` : 'Background removal failed', 'negative'))
+        .finally(() => overlay.close())
+    }
     if (pendingUpload) {
       const addWhenReady = (tries = 0) => {
         const cv = getFabricCanvas(editor)
         if (cv && cv.getObjects) {
-          addObjectToCanvas(editor, { type: 'StaticImage', metadata: { src: pendingUpload } }, 600, cv)
+          // The design was sized to the photo, so the photo fills the page.
+          const frameW = (cv.clipPath?.width || 600) * (cv.clipPath?.scaleX || 1)
+          const before = new Set(cv.getObjects())
+          addObjectToCanvas(editor, { type: 'StaticImage', metadata: { src: pendingUpload } }, frameW, cv)
+          const tool = searchParams.get('tool')
+          placeUpload(cv, before, tool === 'remove-bg' || tool === 'magic-eraser' ? tool : null)
         } else if (tries < 40) {
           setTimeout(() => addWhenReady(tries + 1), 150)
         }
@@ -497,6 +557,32 @@ function App() {
         }
       }
       addStarterWhenReady()
+    }
+
+    // Template picked on the dashboard (?template=<id>). Applied once the frame
+    // is sized; the param is then dropped so a reload keeps the user's edits.
+    const templateId = searchParams.get('template')
+    if (templateId) {
+      api
+        .getTemplates()
+        .then(list => {
+          const tpl = list.find(t => String(t.id) === templateId)
+          if (!tpl) return
+          const applyWhenReady = (tries = 0) => {
+            const cv = getFabricCanvas(editor)
+            if (frameReadyRef.current && cv && cv.clipPath) {
+              applyTemplate(editor, tpl).catch(err => log.warn('templates', 'dashboard template failed to load', err))
+              const params = new URLSearchParams(location.search)
+              params.delete('template')
+              const q = params.toString()
+              history.replace({ pathname: location.pathname, search: q ? `?${q}` : '' })
+            } else if (tries < 60) {
+              setTimeout(() => applyWhenReady(tries + 1), 150)
+            }
+          }
+          applyWhenReady()
+        })
+        .catch(err => log.warn('templates', 'template list failed to load', err))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])

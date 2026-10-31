@@ -181,14 +181,21 @@ export const addObjectToCanvas = (editor: any, options: any, width?: number, can
                 if (svgString) {
                     fabric.loadSVGFromString(svgString, (objects: any[], options: any) => {
                         const group = asVectorGroup(fabric.util.groupSVGElements(objects, options))
+                        // Default size: about a third of the page's shorter side.
+                        const fit = (Math.min(frameWidth, frameHeight) * 0.35) / Math.max(group.width || 1, group.height || 1)
                         group.set({
-                            left: objectOptions.left ?? centerLeft,
-                            top: objectOptions.top ?? centerTop,
-                            scaleX: objectOptions.scaleX || 0.5,
-                            scaleY: objectOptions.scaleY || 0.5,
+                            scaleX: objectOptions.scaleX || fit,
+                            scaleY: objectOptions.scaleY || fit,
                             selectable: true,
                             hasControls: true,
                         })
+                        // Centre on the page using the SVG's real size (the generic
+                        // centring above assumed 200×200).
+                        group.set({
+                            left: objectOptions.left ?? frameCenterX - group.getScaledWidth() / 2,
+                            top: objectOptions.top ?? frameCenterY - group.getScaledHeight() / 2,
+                        })
+                        group.setCoords()
                         targetCanvas.add(group)
                         selectObject(targetCanvas, group)
                         try { targetCanvas.fire('object:modified', { target: group }) } catch (err) { log.warn('editorHelpers', 'svg group add — history snapshot fire failed', err) }
