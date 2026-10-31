@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Search, X } from 'lucide-react'
 import { DESIGN_FORMATS, FORMAT_GROUPS, DesignFormat } from './formats'
 
 interface Props {
@@ -7,7 +8,7 @@ interface Props {
 }
 
 const previewBox = (w: number, h: number) => {
-  const max = 60
+  const max = 56
   const scale = max / Math.max(w, h)
   return { width: Math.max(10, Math.round(w * scale)), height: Math.max(10, Math.round(h * scale)) }
 }
@@ -15,8 +16,11 @@ const previewBox = (w: number, h: number) => {
 function CreateModal({ onClose, onCreate }: Props) {
   const [cw, setCw] = useState('1080')
   const [ch, setCh] = useState('1080')
+  const [filter, setFilter] = useState('')
+  const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    searchRef.current?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
@@ -25,201 +29,77 @@ function CreateModal({ onClose, onCreate }: Props) {
   }, [onClose])
 
   const pick = (f: DesignFormat) => onCreate(f.name, f.width, f.height)
-  const createCustom = () => {
-    const w = Math.round(Number(cw))
-    const h = Math.round(Number(ch))
-    if (w > 0 && h > 0) onCreate(`Custom ${w}×${h}`, w, h)
+  const w = Math.round(Number(cw))
+  const h = Math.round(Number(ch))
+  const customValid = w > 0 && h > 0 && w <= 8000 && h <= 8000
+  const createCustom = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (customValid) onCreate(`Custom ${w}×${h}`, w, h)
   }
 
+  const term = filter.trim().toLowerCase()
+  const formats = term ? DESIGN_FORMATS.filter(f => `${f.name} ${f.group}`.toLowerCase().includes(term)) : DESIGN_FORMATS
+
   return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(24,20,16,0.55)',
-        zIndex: 1000,
-        display: 'flex',
-        alignItems: 'flex-start',
-        justifyContent: 'center',
-        padding: '5vh 20px',
-        overflowY: 'auto',
-      }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 940,
-          background: 'var(--paper)',
-          border: '2px solid var(--ink)',
-          color: 'var(--ink)',
-          fontFamily: 'var(--sans)',
-        }}
-      >
-        {/* header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '20px 26px',
-            borderBottom: '2px solid var(--ink)',
-          }}
-        >
-          <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontWeight: 800, fontSize: 26 }}>
-            Start a new design
-          </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            style={{
-              background: 'transparent',
-              border: 'none',
-              fontSize: 26,
-              lineHeight: 1,
-              cursor: 'pointer',
-              color: 'var(--ink)',
-              fontFamily: 'var(--serif)',
-            }}
-          >
-            ×
+    <div className="dash-scrim dash-cm-scrim" onClick={onClose}>
+      <div className="dash-cm" role="dialog" aria-modal="true" aria-labelledby="dash-cm-title" onClick={e => e.stopPropagation()}>
+        <div className="dash-cm-head">
+          <h2 id="dash-cm-title">Create a design</h2>
+          <button className="dash-cm-close" onClick={onClose} aria-label="Close">
+            <X size={20} />
           </button>
         </div>
 
-        <div style={{ padding: '22px 26px 30px' }}>
-          {/* custom size */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
-              flexWrap: 'wrap',
-              paddingBottom: 22,
-              marginBottom: 22,
-              borderBottom: '1px solid var(--rule)',
-            }}
-          >
-            <span
-              style={{
-                fontFamily: 'var(--mono)',
-                fontSize: 11,
-                letterSpacing: '.16em',
-                textTransform: 'uppercase',
-                color: 'var(--accent)',
-              }}
-            >
-              Custom size
-            </span>
+        <div className="dash-cm-body">
+          <label className="dash-cm-search">
+            <Search size={17} aria-hidden="true" />
             <input
-              type="number"
-              value={cw}
-              onChange={e => setCw(e.target.value)}
-              style={inputStyle}
-              aria-label="Width"
+              ref={searchRef}
+              value={filter}
+              onChange={e => setFilter(e.target.value)}
+              placeholder="What would you like to create?"
+              aria-label="Search sizes"
             />
-            <span style={{ fontFamily: 'var(--mono)', color: 'var(--muted)' }}>×</span>
-            <input
-              type="number"
-              value={ch}
-              onChange={e => setCh(e.target.value)}
-              style={inputStyle}
-              aria-label="Height"
-            />
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 12, color: 'var(--muted)' }}>px</span>
-            <button onClick={createCustom} style={createBtnStyle}>
-              Create →
-            </button>
-          </div>
+          </label>
 
-          {/* grouped presets */}
-          {FORMAT_GROUPS.map(group => (
-            <div key={group} style={{ marginBottom: 26 }}>
-              <div
-                style={{
-                  fontFamily: 'var(--mono)',
-                  fontSize: 11,
-                  letterSpacing: '.16em',
-                  textTransform: 'uppercase',
-                  color: 'var(--muted)',
-                  marginBottom: 12,
-                }}
-              >
-                {group}
-              </div>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                  gap: 12,
-                }}
-              >
-                {DESIGN_FORMATS.filter(f => f.group === group).map(f => {
-                  const box = previewBox(f.width, f.height)
-                  return (
-                    <button key={f.id} onClick={() => pick(f)} style={cardStyle} className="fmt-card">
-                      <div
-                        style={{
-                          height: 72,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          marginBottom: 10,
-                        }}
-                      >
-                        <div style={{ ...box, border: '2px solid var(--ink)', background: 'var(--paper2)' }} />
-                      </div>
-                      <div style={{ fontFamily: 'var(--serif)', fontWeight: 600, fontSize: 15, lineHeight: 1.15 }}>
-                        {f.name}
-                      </div>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--muted)', marginTop: 3 }}>
-                        {f.width} × {f.height}
-                      </div>
+          <form className="dash-cm-custom" onSubmit={createCustom}>
+            <span className="dash-cm-label">Custom size</span>
+            <input type="number" min={1} max={8000} value={cw} onChange={e => setCw(e.target.value)} aria-label="Width in pixels" />
+            <span className="dash-cm-x">×</span>
+            <input type="number" min={1} max={8000} value={ch} onChange={e => setCh(e.target.value)} aria-label="Height in pixels" />
+            <span className="dash-cm-unit">px</span>
+            <button type="submit" className="dash-btn" disabled={!customValid}>
+              Create
+            </button>
+          </form>
+
+          {FORMAT_GROUPS.map(group => {
+            const items = formats.filter(f => f.group === group)
+            if (!items.length) return null
+            return (
+              <div key={group} className="dash-cm-group">
+                <div className="dash-cm-label">{group}</div>
+                <div className="dash-cm-grid">
+                  {items.map(f => (
+                    <button key={f.id} onClick={() => pick(f)} className="dash-cm-fmt">
+                      <span className="dash-cm-shape">
+                        <span style={previewBox(f.width, f.height)} />
+                      </span>
+                      <span className="dash-cm-name">{f.name}</span>
+                      <span className="dash-cm-dim">
+                        {f.width} × {f.height} px
+                      </span>
                     </button>
-                  )
-                })}
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
+          {!formats.length && <p className="dash-none">No preset matches “{filter}”. Use a custom size above.</p>}
         </div>
       </div>
-
-      <style>{`.fmt-card:hover{border-color:var(--accent)!important;transform:translateY(-2px)}`}</style>
     </div>
   )
-}
-
-const inputStyle: React.CSSProperties = {
-  width: 92,
-  padding: '8px 10px',
-  border: '2px solid var(--ink)',
-  background: 'var(--paper)',
-  color: 'var(--ink)',
-  fontFamily: 'var(--mono)',
-  fontSize: 14,
-  outline: 'none',
-}
-
-const createBtnStyle: React.CSSProperties = {
-  marginLeft: 'auto',
-  padding: '9px 18px',
-  background: 'var(--ink)',
-  color: 'var(--paper)',
-  border: '2px solid var(--ink)',
-  fontFamily: 'var(--sans)',
-  fontWeight: 700,
-  fontSize: 14,
-  cursor: 'pointer',
-}
-
-const cardStyle: React.CSSProperties = {
-  textAlign: 'left',
-  padding: '14px 14px 16px',
-  background: 'var(--paper)',
-  border: '2px solid var(--ink)',
-  cursor: 'pointer',
-  transition: 'border-color .14s, transform .14s',
-  color: 'var(--ink)',
 }
 
 export default CreateModal

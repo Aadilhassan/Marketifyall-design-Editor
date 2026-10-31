@@ -517,7 +517,8 @@ type AppId = 'qr' | 'charts'
 export default function Apps() {
   const editor = useEditor() as any
   const { activeObject } = useEditorContext() as any
-  const [app, setApp] = useState<AppId>('qr')
+  // ?app=charts (dashboard quick edit) opens straight on Charts.
+  const [app, setApp] = useState<AppId>(() => (new URLSearchParams(window.location.search).get('app') === 'charts' ? 'charts' : 'qr'))
 
   // Jump to Charts when a chart is selected so it can be edited.
   const chartSelected = !!activeObject?.metadata?.chart
